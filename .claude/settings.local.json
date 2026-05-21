@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\profa\\\\Documents\\\\ISentidos\" -Recurse -Force)",
+      "Bash(Select-Object FullName, Mode)",
+      "Bash(Sort-Object FullName)"
+    ]
+  }
+}

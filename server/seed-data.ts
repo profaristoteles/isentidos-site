@@ -1,0 +1,1328 @@
+export const seedCourses = [
+  {
+    "title": "Psicopedagogia Clínica e Institucional",
+    "slug": "psicopedagogia-clinica-e-institucional-2",
+    "description": "O curso de especialização em Psicopedagogia tem como proposta estudar os processos de aprendizagem humana e suas dificuldades, considerando, as condições do meio (família, escola e sociedade) e as características intrínsecas do sujeito e de seu de......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012).</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS</strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n12 X R$200,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Quinzenal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<p>O curso de especialização em Psicopedagogia tem como proposta estudar os processos de aprendizagem humana e suas dificuldades, considerando, as condições do meio (família, escola e sociedade) e as características intrínsecas do sujeito e de seu desenvolvimento. O curso de Psicopedagogia Institucional e Clínica, com base teórico-prática interdisciplinar (Neurologia, Linguística, Psicologia, Psicanálise, Psicomotricidade, entre outras) que tem como objetivo formar especialistas para atuar no diagnóstico, orientação e intervenção nos processos de aprendizagem e compreender as manifestações dos processos e fenômenos educacionais no campo específico das questões relacionadas com a aprendizagem, enfatizando os saberes teóricos e ações práticas de prevenções e intervenções necessárias à resolução de problemas que envolvem o insucesso escolar e as várias modalidades de manifestações de dificuldades de aprendizagem do sujeito.</p>\n<p><strong>OBJETIVOS</strong></p>\n<p>Aprofundar os conhecimentos acerca da aprendizagem humana, com vistas ao diagnóstico, intervenção, prevenção e tratamento dos distúrbios de aprendizagem, dentro de perspectivas éticas, de respeito total aos exercícios profissionais que tradicionalmente trabalham com a Psicopedagogia e de condutas científicas na produção de conhecimento na área.</p>\n<h4>PARTICIPANTES</h4>\n<p>Profissionais das áreas da educação e da saúde: pedagogos, professores, psicólogos, fisioterapeutas, fonoaudiólogos, neurologistas, assistentes sociais, e outros interessados nos processos de aprendizagem e em seus distúrbios.</p>\n<p><strong>DURAÇAO E CARGA- HORÁRIA</strong></p>\n<p>12 meses – 08 meses de módulos teóricos mais 04 meses referentes a estágios, totalizando 680 h/a</p>",
+    "type": "pos_online",
+    "modality": "online_ao_vivo",
+    "workload": "680h",
+    "price": 2400,
+    "maxInstallments": 12,
+    "enrollmentFee": 50,
+    "installmentValue": 200,
+    "area": "Saúde e Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "FUNDAMENTOS DA PSICOPEDAGOGIA INSTITUCIONAL E CLINICA",
+        "description": "30 H"
+      },
+      {
+        "title": "APRENDIZAGEM E DESENVOLVIMENTO PSICOMOTOR",
+        "description": "30 H"
+      },
+      {
+        "title": "TEORIAS DO CONHECIMENTO E DA APRENDIZAGEM",
+        "description": "30 H"
+      },
+      {
+        "title": "PSICOLOGIA DO DESENVOLVIMENTO",
+        "description": "30 H"
+      },
+      {
+        "title": "PSICODRAMA PSICOPEDAGOGICO",
+        "description": "30 H"
+      },
+      {
+        "title": "DINAMICAS DAS RELAÇOES FAMILIARES E APRENDIZAGENS",
+        "description": "30 H"
+      },
+      {
+        "title": "CONTRIBUIÇOES DA PSICANALISE NA PSICOPEDAGOGIA",
+        "description": "30 H"
+      },
+      {
+        "title": "O USO DOS JOGOS EM PSICOPEDAGOGIA",
+        "description": "30 H"
+      },
+      {
+        "title": "DIAGNOSTICO PSICOPEDAGOGICO INSTITUCIONAL E CLINICO",
+        "description": "30 H"
+      },
+      {
+        "title": "TECNICAS INTERVENTIVAS: NA ATENÇAO, CONCENTRAÇAO E MEMORIA: NEUROLINGUISTICA",
+        "description": "30 H"
+      },
+      {
+        "title": "FUNDAMENTOS DA NEUROLOGIA E APRENDIZAGEM",
+        "description": "30 H"
+      },
+      {
+        "title": "FARMACOLOGIA E PSICOPEDAGOGIA",
+        "description": "30 H"
+      },
+      {
+        "title": "AVALIAÇÃO E TÉCNICAS NA LEITURA",
+        "description": "30 H"
+      },
+      {
+        "title": "AVALIAÇAO E TECNICAS INTERVENTIVAS NA MATEMATICA",
+        "description": "30 H"
+      },
+      {
+        "title": "GRAFOMOTRICIDADE",
+        "description": "30 H"
+      },
+      {
+        "title": "AVALIAÇAO E TECNICAS INTERVENTIVAS NA ESCRITA",
+        "description": "30 H"
+      },
+      {
+        "title": "ESTÁGIO SUPERVISIONADO EM PSICOPEDAGOGIA INSTITUCIONAL",
+        "description": "100 H"
+      },
+      {
+        "title": "ESTAGIO SUPERVISIONADO EM PSICOPEDAGOGIA CLINICA",
+        "description": "100 H"
+      }
+    ]
+  },
+  {
+    "title": "Educação Especial Inclusiva",
+    "slug": "educacao-especial-inclusiva-2",
+    "description": "JUSTIFICATIVA A consolidação da educação inclusiva como princípio estruturante dos sistemas educacionais impõe desafios crescentes à formação dos profissionais da educação. Embora os avanços legais sejam significativos, a efetivação de práticas pe......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012).</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS</strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n6 X R$200,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Quinzenal – Duas disciplinas por mês.<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<h4>JUSTIFICATIVA</h4>\n<p>A consolidação da educação inclusiva como princípio estruturante dos sistemas educacionais impõe desafios crescentes à formação dos profissionais da educação. Embora os avanços legais sejam significativos, a efetivação de práticas pedagógicas inclusivas ainda enfrenta entraves relacionados à formação inicial e continuada dos docentes, especialmente no que se refere ao atendimento educacional de estudantes com deficiência, transtornos do neurodesenvolvimento e necessidades educacionais específicas.</p>\n<p>Este curso de pós-graduação surge como resposta à necessidade de qualificação profissional especializada, fundamentada no modelo social de deficiência, na legislação educacional vigente e em estratégias pedagógicas concretas, como adaptação curricular, elaboração do Plano de Ensino Individualizado (PEI), uso da Comunicação Alternativa e Aumentativa (CAA) e práticas inclusivas voltadas ao cotidiano escolar.</p>\n<p>A proposta privilegia a articulação entre teoria e prática, fortalecendo a atuação docente na perspectiva do direito à aprendizagem, da equidade e da valorização da diversidade humana.</p>\n<p><strong>OBJETIVO GERAL</strong></p>\n<p>Formar profissionais da educação para atuar de forma crítica, ética e competente na Educação Especial Inclusiva, capacitando-os para identificar barreiras à aprendizagem, planejar intervenções pedagógicas acessíveis e desenvolver práticas inclusivas fundamentadas no modelo social de deficiência e nas políticas educacionais.</p>\n<h4>PARTICIPANTES</h4>\n<ul>\n<li>Professores da Educação Básica e do Ensino Superior</li>\n<li>Pedagogos</li>\n<li>Coordenadores pedagógicos/</li>\n<li>Gestores escolares</li>\n<li>Psicopedagogos</li>\n<li>Profissionais da Educação Especial</li>\n<li>Licenciados e profissionais da área educacional interessados na temática</li>\n</ul>\n<p><strong>DURAÇAO E CARGA- HORARIA</strong></p>\n<p>6 meses – 6 meses de módulos teóricos e práticos, totalizando 360 h/a</p>",
+    "type": "pos_online",
+    "modality": "online_ao_vivo",
+    "workload": "360h",
+    "price": 1200,
+    "maxInstallments": 6,
+    "enrollmentFee": 50,
+    "installmentValue": 200,
+    "area": "Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "Fundamentos da Educação Especial na Perspectiva Inclusiva",
+        "description": "30h"
+      },
+      {
+        "title": "Desenvolvimento Humano e Aprendizagem na Educação Inclusiva",
+        "description": "30h"
+      },
+      {
+        "title": "Transtorno do Espectro Autista: Avaliação e Práticas Pedagógicas",
+        "description": "30h"
+      },
+      {
+        "title": "Comunicação Alternativa e Aumentativa no Contexto Educacional",
+        "description": "30h"
+      },
+      {
+        "title": "Deficiência Intelectual e Deficiência Múltipla",
+        "description": "30h"
+      },
+      {
+        "title": "Deficiência Visual: Avaliação Funcional e Práticas Inclusivas",
+        "description": "30h"
+      },
+      {
+        "title": "Deficiência Sensorial Múltipla – Surdocegueira",
+        "description": "30h"
+      },
+      {
+        "title": "Deficiência Auditiva e Surdez: Educação Bilíngue e Inclusão Escolar",
+        "description": "30h"
+      },
+      {
+        "title": "Deficiência Física e Transtornos Motores",
+        "description": "30h"
+      },
+      {
+        "title": "Altas Habilidades/Superdotação e Enriquecimento Curricular",
+        "description": "30h"
+      },
+      {
+        "title": "Adaptação Curricular e Elaboração do Plano de Ensino Individualizado (PEI)",
+        "description": "30h"
+      },
+      {
+        "title": "Avaliação Educacional Inclusiva e Trabalho Colaborativo",
+        "description": "30h"
+      },
+      {
+        "title": "Carga Horária Total",
+        "description": "360h"
+      }
+    ]
+  },
+  {
+    "title": "Deficiência Visual com Ênfase em Sistema Braille",
+    "slug": "deficiencia-visual-com-enfase-em-sistema-braille",
+    "description": "JUSTIFICATIVA A inclusão educacional de pessoas com deficiência visual requer profissionais capacitados para atuar de forma especializada, ética e comprometida com a acessibilidade plena. Apesar dos avanços legais e políticos em prol da educação i......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012).</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS</strong></p>\n<p>Entregar após a confirmação da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG e CPF</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior</li>\n<li>Cópia do Histórico da Graduação</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n12 X R$200,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Quinzenal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<h1>JUSTIFICATIVA</h1>\n<p>A inclusão educacional de pessoas com deficiência visual requer profissionais capacitados para atuar de forma especializada, ética e comprometida com a acessibilidade plena. Apesar dos avanços legais e políticos em prol da educação inclusiva no Brasil, ainda é evidente a carência de formação específica sobre o Sistema Braille, recurso essencial para a alfabetização e autonomia de estudantes com cegueira ou baixa visão severa. O Braille, como sistema de leitura e escrita tátil, continua sendo uma ferramenta fundamental para o acesso ao conhecimento, especialmente nas fases iniciais da escolarização e em contextos nos quais a leitura auditiva não substitui a necessidade da leitura silenciosa, da ortografia ou da grafia matemática. No entanto, muitos profissionais da educação ainda enfrentam dificuldades na aplicação prática do Braille em sala de aula, na produção de materiais acessíveis e no uso de tecnologias assistivas que dialoguem com esse sistema. Diante desse cenário, a oferta de uma especialização lato sensu com ênfase em Sistema Braille, em formato EAD ao vivo e com foco em práticas pedagógicas, surge como resposta concreta às demandas urgentes da formação continuada de professores, técnicos e demais profissionais envolvidos com o Atendimento Educacional Especializado (AEE). Trata-se, portanto, de uma proposta alinhada às diretrizes da Educação Especial na perspectiva inclusiva e à construção de uma sociedade mais justa e acessível.</p>\n<h1>OBJETIVOS</h1>\n<h2>GERAL</h2>\n<p>Capacitar profissionais da educação e áreas afins para atuarem de forma qualificada no atendimento a pessoas com deficiência visual, com ênfase no domínio do Sistema Braille, por meio de fundamentos teóricos, práticas pedagógicas acessíveis e uso de tecnologia assistiva, promovendo uma educação inclusiva, equitativa e de qualidade.</p>\n<h2>ESPECÍFICOS</h2>\n<p>Compreender os aspectos biopsicossociais da deficiência visual, reconhecendo suas implicações no desenvolvimento e no processo de ensino-aprendizagem.</p>\n<p>Dominar o Sistema Braille em seus diversos usos, incluindo a leitura, escrita, formação de palavras, numerais, grafias matemáticas, musicais e químicas.</p>\n<p>Planejar e adaptar materiais didáticos acessíveis, utilizando o Braille e outros recursos táteis, considerando as necessidades específicas dos estudantes com deficiência visual.</p>\n<p>Elaborar estratégias pedagógicas inclusivas, que favoreçam a aprendizagem de alunos cegos ou com baixa visão no contexto do ensino comum e do Atendimento Educacional Especializado (AEE).</p>\n<p>Refletir criticamente sobre as políticas públicas de educação inclusiva, especialmente aquelas voltadas para a deficiência visual, contribuindo para sua implementação efetiva nas instituições escolares.</p>\n<p>Fomentar o compromisso ético e a valorização da diversidade, promovendo o respeito à diferença e o direito de todos à aprendizagem plena e com autonomia.</p>\n<h1>PARTICIPANTES</h1>\n<p>Graduados em Licenciaturas, Educadores de forma geral e demais pessoas portadoras de diploma que demonstram interesse pelo tema.</p>\n<h1>DURAÇÃO E CARGA HORÁRIA</h1>\n<p>12 meses – 24 módulos teóricos e práticos, totalizando 720 h/a.</p>",
+    "type": "pos_online",
+    "modality": "online_ao_vivo",
+    "workload": "720h",
+    "price": 2400,
+    "maxInstallments": 12,
+    "enrollmentFee": 50,
+    "installmentValue": 200,
+    "area": "Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "Fundamentos da Deficiência Visual",
+        "description": "Teórica"
+      },
+      {
+        "title": "Grafia Braille para a Língua Portuguesa I",
+        "description": "Teórico-prática"
+      },
+      {
+        "title": "Grafia Braille para a Língua Portuguesa II",
+        "description": "Teórico-prática"
+      },
+      {
+        "title": "Normas Técnicas para Produção de Textos Braille I",
+        "description": "Teórica"
+      },
+      {
+        "title": "Normas Técnicas para Produção de Textos Braille II",
+        "description": "Teórica"
+      },
+      {
+        "title": "Leitura e Escrita para Estudantes com Deficiência Visual: Ênfase no Sistema Braille",
+        "description": "Teórico-prática"
+      },
+      {
+        "title": "Noções de Transcrição de Textos para o Sistema Braille",
+        "description": "Prática"
+      },
+      {
+        "title": "Critérios de Adaptação de Textos para o Sistema Braille",
+        "description": "Teórico-prática"
+      },
+      {
+        "title": "Adaptação de Materiais e Produção de Material Especializado",
+        "description": "Prática"
+      },
+      {
+        "title": "Audiodescrição Didática",
+        "description": "Teórico-prática"
+      },
+      {
+        "title": "Soroban I – Método Maior Valor Relativo",
+        "description": "Prática"
+      },
+      {
+        "title": "Soroban II – Método Menor Valor Relativo",
+        "description": "Prática"
+      },
+      {
+        "title": "Código Matemático Unificado I",
+        "description": "Teórico-prática"
+      },
+      {
+        "title": "Código Matemático Unificado II",
+        "description": "Teórico-prática"
+      },
+      {
+        "title": "Grafia Química Braille I",
+        "description": "Teórico-prática"
+      },
+      {
+        "title": "Grafia Química Braille II",
+        "description": "Teórico-prática"
+      },
+      {
+        "title": "Grafia Braille para a Informática",
+        "description": "Teórico-prática"
+      },
+      {
+        "title": "Noções de Musicografia Braille",
+        "description": "Teórico-prática"
+      },
+      {
+        "title": "Oficina de Produção de Textos Literários em Braille",
+        "description": "Oficina"
+      },
+      {
+        "title": "Seminário Temático I: Braille e Alfabetização na Educação",
+        "description": "Seminário"
+      },
+      {
+        "title": "Seminário Temático II: Desafios e Avanços Tecnológicos no Ensino",
+        "description": "Seminário"
+      },
+      {
+        "title": "Oficina de Produção de Materiais com Braille e Recursos Táteis Combinados",
+        "description": "Oficina"
+      },
+      {
+        "title": "Seminário de Boas Práticas no Ensino do Sistema Braille",
+        "description": "Seminário"
+      },
+      {
+        "title": "Seminário Final Integrador: Projeto de Intervenção com Produção",
+        "description": "Seminário"
+      },
+      {
+        "title": "Total",
+        "description": "720h"
+      }
+    ]
+  },
+  {
+    "title": "Atendimento Educacional Especializado – AEE",
+    "slug": "pos-graduacao-em-atendimento-educacional-especializado-aee-2",
+    "description": "O curso de Atendimento Educacional Especializado – AEE foi elaborado a partir da necessidade de capacitar profissionais da área de educação e áreas afins, no contexto teórico-prático da educação especial, que almejam atuar no Atendimento Educacion......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012.</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS    </strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso (se não for autenticadas, comprovar com o original.</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n09 x R$200,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Quinzenal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<p>O curso de Atendimento Educacional Especializado – AEE foi elaborado a partir da necessidade de capacitar profissionais da área de educação e áreas afins, no contexto teórico-prático da educação especial, que almejam atuar no Atendimento Educacional Especializado em salas de recursos e/ou centros especializados em AEE, possibilitando a interlocução entre o professor da sala de aula comum com o professor do AEE, garantindo ao aluno público-alvo de educação especial um processo ensino-aprendizagem de qualidade. Para tal, o curso propiciará o estudo de diferentes áreas da educação especial voltado ao processo ensino-aprendizagem de público-alvo de AEE: deficiência intelectual, deficiência auditiva e surdez, deficiência visual, deficiência física, deficiências múltiplas e surdocegueira, altas habilidades e o transtorno do espectro autista. Ainda, o curso desenvolverá conteúdos de política educacional inclusiva, bem como os fundamentos, a organização e o funcionamento do AEE e as tecnologia assistiva.</p>\n<h2>OBJETIVOS</h2>\n<h3>GERAL</h3>\n<p>Aprofundar os conceitos e definições sobre a educação especial e a inclusão social, promover o aprofundamento das reflexões acerca da Educação Especial e a inclusão das pessoas com deficiência por meio do sistema escolar, aperfeiçoar os conhecimentos dos profissionais envolvidos com a educação especial e a inclusão social, aperfeiçoar a formação dos profissionais envolvidos com o Atendimento Educacional Especializado no ambiente escolar e não escolar, promover a reflexão sobre as perspectivas na educação especial e integração social no contexto da sociedade contemporânea.</p>\n<h3>ESPECÍFICOS</h3>\n<p>Aperfeiçoar os conhecimentos dos profissionais envolvidos com a educação especial e a inclusão social;</p>\n<p>Aperfeiçoar a formação dos profissionais envolvidos com o Atendimento Educacional Especializado no ambiente escolar e não escolar;</p>\n<p>Promover a reflexão sobre as perspectivas na educação especial e integração social no contexto da sociedade contemporânea;</p>\n<h2>PARTICIPANTES</h2>\n<p>Este curso é destinado a professores, profissionais da área da educação, entre outros profissionais interessados.</p>\n<h2>DURAÇÃO E CARGA HORÁRIA</h2>\n<p>9 meses – 9 meses de módulos teóricos e estágio, totalizando 540 h/a.</p>",
+    "type": "pos_online",
+    "modality": "online_ao_vivo",
+    "workload": "540h",
+    "price": 1800,
+    "maxInstallments": 9,
+    "enrollmentFee": 50,
+    "installmentValue": 200,
+    "area": "Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "Introdução ao Modelo Social da Deficiência",
+        "description": "30h"
+      },
+      {
+        "title": "Políticas Públicas e Legislação Educacional referente ao AEE",
+        "description": "30h"
+      },
+      {
+        "title": "Educação Inclusiva: Históricos e Fundamentos",
+        "description": "30h"
+      },
+      {
+        "title": "Práticas Pedagógicas no AEE",
+        "description": "30h"
+      },
+      {
+        "title": "Educação Inclusiva e Acessibilidade",
+        "description": "30h"
+      },
+      {
+        "title": "Gestão e Planejamento no AEE",
+        "description": "30h"
+      },
+      {
+        "title": "AEE e a Educação Infantil",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para Deficiência Auditiva e Surdez",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para Deficiências Múltiplas e Graves",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para Deficiência Visual",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para Surdocegueira",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para Deficiência Intelectual e Altas Habilidades",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para o Transtorno do Espectro Autista (TEA) e Transtorno Global do Desenvolvimento (TGD)",
+        "description": "30h"
+      },
+      {
+        "title": "AEE em Deficiência Física e Mobilidade Reduzida",
+        "description": "30h"
+      },
+      {
+        "title": "Comunicação Alternativa e Suplementar",
+        "description": "30h"
+      },
+      {
+        "title": "Estágio Supervisionado",
+        "description": "90h"
+      },
+      {
+        "title": "TOTAL",
+        "description": "540h"
+      }
+    ]
+  },
+  {
+    "title": "Neuropsicopedagogia Clínica",
+    "slug": "pos-graduacao-em-neuropsicopedagogia-clinica-3",
+    "description": "Apresentação do Curso A Pós‑Graduação em Neuropsicopedagogia Clínica tem como objetivo formar profissionais capacitados para compreender, avaliar e intervir nas dificuldades de aprendizagem, integrando conhecimentos da neurociência, psicologia cog......",
+    "syllabus": "<h3>Metodologia de Ensino</h3>\n<p>O curso será desenvolvido por meio de aulas expositivas dialogadas, estudos dirigidos, análise de casos clínicos, atividades práticas, leitura de artigos científicos e discussões em grupo. Serão utilizadas metodologias ativas que estimulem o raciocínio clínico e a aplicação prática dos conhecimentos.</p>\n<h3>Sistema de Avaliação</h3>\n<p>A avaliação ocorrerá de forma contínua, considerando participação nas aulas, atividades práticas, estudos de caso, trabalhos escritos e avaliações teóricas. O estágio supervisionado será avaliado por meio de relatórios e supervisão docente.</p>\n<h3>Estágio Supervisionado</h3>\n<p>O estágio supervisionado terá carga horária de 150 horas, contemplando atividades de observação, avaliação e intervenção neuropsicopedagógica sob orientação de professor supervisor. Os estudantes deverão elaborar relatórios técnicos e participar de supervisões clínicas.</p>\n<h3>Certificação</h3>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012.</p>\n<h3><strong>Documentos Necessários   </strong></h3>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso (se não for autenticadas, comprovar com o original.</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO<br />\nAO VIVO (ON-LINE)<br />\n</strong>Matrícula – R$50,00<br />\n12 x R$200,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Quinzenais<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<h3>Apresentação do Curso</h3>\n<p>A Pós‑Graduação em Neuropsicopedagogia Clínica tem como objetivo formar profissionais capacitados para compreender, avaliar e intervir nas dificuldades de aprendizagem, integrando conhecimentos da neurociência, psicologia cognitiva e pedagogia. O curso segue as diretrizes da Sociedade Brasileira de Neuropsicopedagogia (SBNPp) para formação clínica, contemplando fundamentos teóricos, avaliação e intervenção neuropsicopedagógica, além de estágio supervisionado.</p>\n<h3>Objetivos do Curso</h3>\n<p>Objetivo Geral:</p>\n<ul>\n<li>Formar especialistas em Neuropsicopedagogia Clínica aptos a avaliar, compreender e intervir nas dificuldades de aprendizagem em diferentes fases do desenvolvimento humano.</li>\n</ul>\n<p>Objetivos Específicos:</p>\n<ul>\n<li>Compreender os fundamentos teóricos e científicos da Neuropsicopedagogia.</li>\n<li>Relacionar neurociência, cognição e aprendizagem.</li>\n<li>Identificar transtornos e dificuldades de aprendizagem.</li>\n<li>Aplicar instrumentos de avaliação neuropsicopedagógica.</li>\n<li>Planejar e executar intervenções clínicas.</li>\n<li>Elaborar relatórios e informes neuropsicopedagógicos.</li>\n<li>Atuar eticamente em equipes multiprofissionais.</li>\n</ul>\n<h3>Perfil do Egresso</h3>\n<p>O especialista formado será capaz de compreender os processos de aprendizagem à luz das neurociências, realizar avaliação neuropsicopedagógica clínica, desenvolver planos de intervenção individualizados, elaborar relatórios técnicos e atuar em equipes interdisciplinares respeitando os princípios éticos da profissão.</p>\n<h3>Público-Alvo</h3>\n<p>Profissionais graduados nas áreas da Educação, Psicologia, Fonoaudiologia, Pedagogia, Psicopedagogia e demais áreas afins que atuem ou desejem atuar no campo da aprendizagem.</p>\n<h3>Carga Horária Total</h3>\n<p>Carga horária total: 600 horas (incluindo 150h de estágio supervisionado).</p>",
+    "type": "pos_online",
+    "modality": "online_ao_vivo",
+    "workload": "360h",
+    "price": 2400,
+    "maxInstallments": 12,
+    "enrollmentFee": 50,
+    "installmentValue": 200,
+    "area": "Saúde e Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": []
+  },
+  {
+    "title": "Educação Infantil e Anos Iniciais do Ensino Fundamental",
+    "slug": "pos-graduacao-em-educacao-infantil-e-anos-iniciais-do-ensino-fundamental-2",
+    "description": "JUSTIFICATIVA A Pós-Graduação em Educação Infantil e Séries Iniciais oferece ao profissional uma sólida formação no sentido do desenvolvimento de habilidades e competências para pensar e vivenciar o processo de ensino e aprendizagem na educação in......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012.</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS    </strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso (se não for autenticadas, comprovar com o original.</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>IN5VESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n06 x R$200,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Mensal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<h2>JUSTIFICATIVA</h2>\n<p>A Pós-Graduação em Educação Infantil e Séries Iniciais oferece ao profissional uma sólida formação no sentido do desenvolvimento de habilidades e competências para pensar e vivenciar o processo de ensino e aprendizagem na educação infantil e nas séries iniciais, de forma lúdica. O curso busca ainda, propiciar os fundamentos e pressupostos pedagógicos no processo de alfabetização, qualificar profissionais da Educação Infantil e Séries Iniciais para exercerem com competência teórico-metodológica as suas atividades didático-pedagógicas, diante das exigências do nosso tempo e dos desafios cotidianos da escola. Além disso, o curso permite que o profissional desenvolva habilidades como a capacidade de sistematizar conhecimentos teórico-práticos nas áreas de docência em Educação Infantil e Séries Iniciais, para maior compreensão dos saberes e vivências demandados pela criança, considerando as particularidades da educação infantil e sua articulação com o ensino fundamental.</p>\n<h2>OBJETIVOS</h2>\n<h3>GERAL</h3>\n<p><strong>A</strong>profunda<strong>r </strong>conhecimentos básicos para a atuação no trabalho cotidiano da educação infantil e dos anos iniciais do ensino fundamental promovendo o ensino e aprendizagem através de recursos e metodologias diversos dentro de um currículo que atenda a demanda de cada grupo social.</p>\n<h3>ESPECÍFICOS</h3>\n<p>Possibilitar o desenvolvimento de habilidades e competências para pensar e vivenciar o processo de ensino e aprendizagem na educação infantil e nas séries iniciais, de forma lúdica, como também propiciar os fundamentos e pressupostos pedagógicos no processo de alfabetização.</p>\n<p>Qualificar profissionais da Educação Infantil e Séries Iniciais para exercerem com competência teórico-metodológica as suas atividades didático-pedagógicas, diante das exigências do nosso tempo e os desafios cotidianos da escola.</p>\n<p>Sistematizar conhecimentos teórico-práticos nas áreas de docência em Educação Infantil e Séries Iniciais, para maior compreensão dos saberes e vivências demandados pela criança, considerando as particularidades da educação infantil e sua articulação com o ensino fundamental.</p>\n<p>Garantir qualificação profissional do professor da Educação Infantil e Séries Iniciais, reconhecendo as dimensões do “saber ensinar” e do “saber cuidar”</p>\n<h2>PARTICIPANTES</h2>\n<p>Educadores da Rede Pública ou Privada, profissionais da educação e demais pessoas que demonstre interesse pelo tema</p>\n<h2>DURAÇÃO E CARGA HORÁRIA</h2>\n<p>06 meses de módulos teóricos com 30 horas cada, totalizando 360 h/a.</p>",
+    "type": "pos_online",
+    "modality": "online_ao_vivo",
+    "workload": "360h",
+    "price": 1200,
+    "maxInstallments": 6,
+    "enrollmentFee": 50,
+    "installmentValue": 200,
+    "area": "Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "O processo de Aprendizagem por Meio do Lúdico: Jogos e Brincadeiras",
+        "description": "30h"
+      },
+      {
+        "title": "Planejamento e Organização Curricular do Ensino",
+        "description": "30h"
+      },
+      {
+        "title": "Aspectos da Aquisição da Linguagem: Alfabetização e Letramento",
+        "description": "30h"
+      },
+      {
+        "title": "Psicomotricidade: Aspectos Psicológicos e Motores da EIAIEF",
+        "description": "30h"
+      },
+      {
+        "title": "Dificuldades e Distúrbios de Aprendizagem – Leitura, Escrita e Matemática",
+        "description": "30h"
+      },
+      {
+        "title": "Atendimento Educacional Especializado e o Processo de Inclusão",
+        "description": "30h"
+      },
+      {
+        "title": "Psicologia da Aprendizagem e do Desenvolvimento",
+        "description": "30h"
+      },
+      {
+        "title": "Fundamentos da Educação",
+        "description": "30h"
+      },
+      {
+        "title": "Arte e Musicalização no Contexto da Educação Infantil",
+        "description": "30h"
+      },
+      {
+        "title": "Políticas Públicas e Educação",
+        "description": "30h"
+      },
+      {
+        "title": "Avaliação da Aprendizagem na Educação Básica",
+        "description": "30h"
+      },
+      {
+        "title": "Metodologias Ativas e Gamificação na Educação",
+        "description": "30h"
+      },
+      {
+        "title": "TOTAL",
+        "description": "360h"
+      }
+    ]
+  },
+  {
+    "title": "Gestão, Coordenação, Supervisão e Orientação Escolar",
+    "slug": "pos-graduacao-em-gestao-coordenacao-supervisao-e-orientacao-escolar-2",
+    "description": "A educação é um setor fundamental para o desenvolvimento humano e social, e a atuação de profissionais capacitados e atualizados é essencial para a qualidade do ensino. Nesse contexto, o curso de pós-graduação em Gestão Escolar, Supervisão e Orien......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012.</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS    </strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso (se não for autenticadas, comprovar com o original.</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n06 x R$200,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Quinzenal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<p>A educação é um setor fundamental para o desenvolvimento humano e social, e a atuação de profissionais capacitados e atualizados é essencial para a qualidade do ensino. Nesse contexto, o curso de pós-graduação em Gestão Escolar, Supervisão e Orientação Pedagógica e Educacional surge como uma opção de formação que visa capacitar profissionais da área educacional para atuar de forma eficiente e eficaz em suas funções.</p>\n<p>Através do curso, os alunos terão a oportunidade de aprofundar seus conhecimentos sobre temas relevantes e atuais da área educacional, desenvolver habilidades e competências que lhes permitam atuar com excelência na gestão escolar, na supervisão e orientação pedagógica, contribuindo para a melhoria da qualidade do ensino e, consequentemente, para o desenvolvimento humano e social. Além disso, o curso também proporciona uma formação sólida em metodologia da pesquisa, permitindo ao aluno a possibilidade de desenvolver trabalhos científicos na área educacional.</p>\n<p><strong>OBJETIVO GERAL</strong></p>\n<p>O objetivo geral do curso de pós-graduação em Gestão Escolar, Supervisão e Orientação Pedagógica e Educacional é capacitar profissionais da área educacional para atuar de forma eficiente e eficaz na gestão escolar, supervisão e orientação pedagógica, contribuindo para a melhoria da qualidade do ensino e para o desenvolvimento humano e social. O curso visa proporcionar aos alunos uma formação completa e atualizada sobre temas relevantes e atuais da área educacional, desenvolvendo habilidades e competências que lhes permitam liderar e gerenciar escolas, promover a formação e desenvolvimento de alunos, e atuar na orientação educacional e psicológica, visando a inclusão escolar e a realização pessoal e profissional dos alunos. Além disso, o curso busca fomentar a pesquisa científica na área educacional, capacitando os alunos para a elaboração de trabalhos científicos que contribuam para a evolução da educação no país</p>\n<h4>PARTICIPANTES</h4>\n<p>O curso é destinado aos graduados em cursos relacionados à educação que tenham interesse em atuar em gestão, coordenação, supervisão e orientação escolar.</p>\n<p><strong>DURAÇAO E CARGA- HORARIA</strong></p>\n<p>6 meses de módulos teóricos com carga horária de 30 horas, totalizando 360 h/a</p>",
+    "type": "pos_online",
+    "modality": "online_ao_vivo",
+    "workload": "360h",
+    "price": 1200,
+    "maxInstallments": 6,
+    "enrollmentFee": 50,
+    "installmentValue": 200,
+    "area": "Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "FUNDAMENTOS EDUCACIONAIS NA GESTÃO ESCOLAR, SUPERVISÃO, COORDENAÇÃO E ORIENTAÇÃO EDUCACIONAL",
+        "description": "30 H"
+      },
+      {
+        "title": "GESTÃO, SUPERVISÃO, COORDENAÇÃO E ORIENTAÇÃO EDUCACIONAL NA PERSPECTIVA DA INCLUSÃO ESCOLAR",
+        "description": "30 H"
+      },
+      {
+        "title": "GESTÃO ESCOLAR, COORDENAÇÃO PEDAGÓGICA E ORGANIZAÇÃO DO TRABALHO PEDAGÓGICO – PRESSUPOSTOS TEÓRICO-METODOLÓGICOS",
+        "description": "30 H"
+      },
+      {
+        "title": "SUPERVISÃO ESCOLAR NA EDUCAÇÃO BÁSICA",
+        "description": "30 H"
+      },
+      {
+        "title": "GESTÃO DEMOCRÁTICA DA EDUCAÇÃO",
+        "description": "30 H"
+      },
+      {
+        "title": "GESTÃO E DESENVOLVIMENTO DE PESSOAS",
+        "description": "30 H"
+      },
+      {
+        "title": "PLANEJAMENTO EDUCACIONAL E PROJETO POLÍTICO PEDAGÓGICO NO CONTEXTO DA GESTÃO, SUPERVISÃO, COORDENAÇÃO PEDAGÓGICA E ORIENTAÇÃO EDUCACIONAL",
+        "description": "30 H"
+      },
+      {
+        "title": "POLÍTICAS PÚBLICAS E GESTÃO EDUCACIONAL",
+        "description": "30 H"
+      },
+      {
+        "title": "COORDENAÇÃO PEDAGÓGICA",
+        "description": "30 H"
+      },
+      {
+        "title": "LIDERANÇA E TOMADA DE DECISÃO",
+        "description": "30 H"
+      },
+      {
+        "title": "AVALIAÇÃO EDUCACIONAL E DA APRENDIZAGEM ESCOLAR",
+        "description": "30 H"
+      },
+      {
+        "title": "PRÁTICAS PEDAGÓGICAS DA COORDENAÇÃO, SUPERVISÃO E ORIENTAÇÃO EDUCACIONAL",
+        "description": "30 H"
+      }
+    ]
+  },
+  {
+    "title": "Educação Física Escolar",
+    "slug": "educacao-fisica-escolar",
+    "description": "O curso de Pós Graduação em Educação Física Escolar é de extrema importância para a informação e ampliação do exercício físico em suas modalidades, direcionar crianças para o desenvolvimento de atividades físicas, promovendo assim para os estudant......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012).</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS</strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n13 X R$100,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Mensal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<p>O curso de Pós Graduação em  Educação Física Escolar é de extrema importância para a informação e ampliação do exercício físico em suas modalidades, direcionar crianças para o desenvolvimento de atividades físicas, promovendo assim para os estudantes e as pessoas que serão beneficiadas uma qualidade de vida melhor e com um leque de conhecimento que esse curso venha oferecer.</p>\n<h2>OBJETIVO</h2>\n<p>Veicular e analisar informações especializadas e atualizadas em educação física e atividade física. Motivar e desenvolver capacitação para estudos, pesquisas e intervenções em educação física e atividade física e saúde. Formar especialistas com diferentes formações profissionais básicas em educação física e atividade física.</p>\n<h3>PARTICIPANTES</h3>\n<p>Este curso destina-se a graduados em educação física, fisioterapia, enfermagem e áreas afins.</p>\n<p><strong>DURAÇAO E CARGA- HORARIA</strong></p>\n<p>13 meses de módulos teóricos com 30 horas cada, totalizando 390 h/a</p>",
+    "type": "pos_presencial",
+    "modality": "presencial",
+    "workload": "390h",
+    "price": 1300,
+    "maxInstallments": 13,
+    "enrollmentFee": 50,
+    "installmentValue": 100,
+    "area": "Educação e Educação Física",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "DIDÁTICA E METODOLOGIA DO ENSINO SUPERIOR",
+        "description": "30 H"
+      },
+      {
+        "title": "INCLUSÃO NA EDUCAÇÃO FÍSICA ESCOLAR",
+        "description": "30 H"
+      },
+      {
+        "title": "ESPORTES APLICADO ATRAVÉS DA LUDICIDADE",
+        "description": "30 H"
+      },
+      {
+        "title": "ATIVIDADE FÍSICA E SAÚDE",
+        "description": "30 H"
+      },
+      {
+        "title": "ATIVIDADE FÍSICA NA INFÂNCIA E NA ADOLESCÊNCIA",
+        "description": "30 H"
+      },
+      {
+        "title": "ATIVIDADES RÍTMICAS, EXPRESSIVAS E CULTURA POPULAR",
+        "description": "30 H"
+      },
+      {
+        "title": "LEGISLAÇÃO E POLÍTICAS DA EDUCAÇÃO FISICA ESCOLAR",
+        "description": "30 H"
+      },
+      {
+        "title": "CONTEXTO HISTÓRICO DA EDUCAÇÃO FISICA ESCOLAR",
+        "description": "30 H"
+      },
+      {
+        "title": "EDUCAÇÃO FÍSICA PARA DISCENTES COM DEFICIÊNCIA",
+        "description": "30 H"
+      },
+      {
+        "title": "EPIDEMIOLOGIA, ATIVIDADE FÍSICA E SAÚDE",
+        "description": "30 H"
+      },
+      {
+        "title": "FISIOLOGIA DO EXERCÍCIO",
+        "description": "30 H"
+      },
+      {
+        "title": "DIDÁTICA DA EDUCAÇÃO FÍSICA",
+        "description": "30 H"
+      },
+      {
+        "title": "EDUCAÇÃO FISICA NO ENSINO FUNDAMENTAL",
+        "description": "30 H"
+      }
+    ]
+  },
+  {
+    "title": "Gestão, Coordenação, Supervisão e Orientação Escolar",
+    "slug": "pos-graduacao-em-gestao-coordenacao-supervisao-e-orientacao-escolar",
+    "description": "A educação é um setor fundamental para o desenvolvimento humano e social, e a atuação de profissionais capacitados e atualizados é essencial para a qualidade do ensino. Nesse contexto, o curso de pós-graduação em Gestão Escolar, Supervisão e Orien......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012.</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS    </strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso (se não for autenticadas, comprovar com o original.</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\nPresencial – 12 x R$100,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Mensal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<p>A educação é um setor fundamental para o desenvolvimento humano e social, e a atuação de profissionais capacitados e atualizados é essencial para a qualidade do ensino. Nesse contexto, o curso de pós-graduação em Gestão Escolar, Supervisão e Orientação Pedagógica e Educacional surge como uma opção de formação que visa capacitar profissionais da área educacional para atuar de forma eficiente e eficaz em suas funções.</p>\n<p>Através do curso, os alunos terão a oportunidade de aprofundar seus conhecimentos sobre temas relevantes e atuais da área educacional, desenvolver habilidades e competências que lhes permitam atuar com excelência na gestão escolar, na supervisão e orientação pedagógica, contribuindo para a melhoria da qualidade do ensino e, consequentemente, para o desenvolvimento humano e social. Além disso, o curso também proporciona uma formação sólida em metodologia da pesquisa, permitindo ao aluno a possibilidade de desenvolver trabalhos científicos na área educacional.</p>\n<p><strong>OBJETIVO GERAL</strong></p>\n<p>O objetivo geral do curso de pós-graduação em Gestão Escolar, Supervisão e Orientação Pedagógica e Educacional é capacitar profissionais da área educacional para atuar de forma eficiente e eficaz na gestão escolar, supervisão e orientação pedagógica, contribuindo para a melhoria da qualidade do ensino e para o desenvolvimento humano e social. O curso visa proporcionar aos alunos uma formação completa e atualizada sobre temas relevantes e atuais da área educacional, desenvolvendo habilidades e competências que lhes permitam liderar e gerenciar escolas, promover a formação e desenvolvimento de alunos, e atuar na orientação educacional e psicológica, visando a inclusão escolar e a realização pessoal e profissional dos alunos. Além disso, o curso busca fomentar a pesquisa científica na área educacional, capacitando os alunos para a elaboração de trabalhos científicos que contribuam para a evolução da educação no país</p>\n<h4>PARTICIPANTES</h4>\n<p>O curso é destinado aos graduados em cursos relacionados à educação que tenham interesse em atuar em gestão, coordenação, supervisão e orientação escolar.</p>\n<p><strong>DURAÇAO E CARGA- HORARIA</strong></p>\n<p>12 meses de módulos teóricos com carga horária de 30 horas, totalizando 360 h/a</p>",
+    "type": "pos_presencial",
+    "modality": "presencial",
+    "workload": "360h",
+    "price": 1200,
+    "maxInstallments": 12,
+    "enrollmentFee": 50,
+    "installmentValue": 100,
+    "area": "Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "FUNDAMENTOS EDUCACIONAIS NA GESTÃO ESCOLAR, SUPERVISÃO, COORDENAÇÃO E ORIENTAÇÃO EDUCACIONAL",
+        "description": "30 H"
+      },
+      {
+        "title": "GESTÃO, SUPERVISÃO, COORDENAÇÃO E ORIENTAÇÃO EDUCACIONAL NA PERSPECTIVA DA INCLUSÃO ESCOLAR",
+        "description": "30 H"
+      },
+      {
+        "title": "GESTÃO ESCOLAR, COORDENAÇÃO PEDAGÓGICA E ORGANIZAÇÃO DO TRABALHO PEDAGÓGICO – PRESSUPOSTOS TEÓRICO-METODOLÓGICOS",
+        "description": "30 H"
+      },
+      {
+        "title": "SUPERVISÃO ESCOLAR NA EDUCAÇÃO BÁSICA",
+        "description": "30 H"
+      },
+      {
+        "title": "GESTÃO DEMOCRÁTICA DA EDUCAÇÃO",
+        "description": "30 H"
+      },
+      {
+        "title": "GESTÃO E DESENVOLVIMENTO DE PESSOAS",
+        "description": "30 H"
+      },
+      {
+        "title": "PLANEJAMENTO EDUCACIONAL E PROJETO POLÍTICO PEDAGÓGICO NO CONTEXTO DA GESTÃO, SUPERVISÃO, COORDENAÇÃO PEDAGÓGICA E ORIENTAÇÃO EDUCACIONAL",
+        "description": "30 H"
+      },
+      {
+        "title": "POLÍTICAS PÚBLICAS E GESTÃO EDUCACIONAL",
+        "description": "30 H"
+      },
+      {
+        "title": "COORDENAÇÃO PEDAGÓGICA",
+        "description": "30 H"
+      },
+      {
+        "title": "LIDERANÇA E TOMADA DE DECISÃO",
+        "description": "30 H"
+      },
+      {
+        "title": "AVALIAÇÃO EDUCACIONAL E DA APRENDIZAGEM ESCOLAR",
+        "description": "30 H"
+      },
+      {
+        "title": "PRÁTICAS PEDAGÓGICAS DA COORDENAÇÃO, SUPERVISÃO E ORIENTAÇÃO EDUCACIONAL",
+        "description": "30 H"
+      }
+    ]
+  },
+  {
+    "title": "Educação Especial Inclusiva",
+    "slug": "educacao-especial-inclusiva",
+    "description": "JUSTIFICATIVA A consolidação da educação inclusiva como princípio estruturante dos sistemas educacionais impõe desafios crescentes à formação dos profissionais da educação. Embora os avanços legais sejam significativos, a efetivação de práticas pe......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012).</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS</strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n12 X R$100,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Mensal – Cada disciplina é ministrada uma vez no mês.<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<h4>JUSTIFICATIVA</h4>\n<p>A consolidação da educação inclusiva como princípio estruturante dos sistemas educacionais impõe desafios crescentes à formação dos profissionais da educação. Embora os avanços legais sejam significativos, a efetivação de práticas pedagógicas inclusivas ainda enfrenta entraves relacionados à formação inicial e continuada dos docentes, especialmente no que se refere ao atendimento educacional de estudantes com deficiência, transtornos do neurodesenvolvimento e necessidades educacionais específicas.</p>\n<p>Este curso de pós-graduação surge como resposta à necessidade de qualificação profissional especializada, fundamentada no modelo social de deficiência, na legislação educacional vigente e em estratégias pedagógicas concretas, como adaptação curricular, elaboração do Plano de Ensino Individualizado (PEI), uso da Comunicação Alternativa e Aumentativa (CAA) e práticas inclusivas voltadas ao cotidiano escolar.</p>\n<p>A proposta privilegia a articulação entre teoria e prática, fortalecendo a atuação docente na perspectiva do direito à aprendizagem, da equidade e da valorização da diversidade humana.</p>\n<p><strong>OBJETIVO GERAL</strong></p>\n<p>Formar profissionais da educação para atuar de forma crítica, ética e competente na Educação Especial Inclusiva, capacitando-os para identificar barreiras à aprendizagem, planejar intervenções pedagógicas acessíveis e desenvolver práticas inclusivas fundamentadas no modelo social de deficiência e nas políticas educacionais.</p>\n<h4>PARTICIPANTES</h4>\n<ul>\n<li>Professores da Educação Básica e do Ensino Superior</li>\n<li>Pedagogos</li>\n<li>Coordenadores pedagógicos/</li>\n<li>Gestores escolares</li>\n<li>Psicopedagogos</li>\n<li>Profissionais da Educação Especial</li>\n<li>Licenciados e profissionais da área educacional interessados na temática</li>\n</ul>\n<p><strong>DURAÇAO E CARGA- HORARIA</strong></p>\n<p>12 meses – 12 meses de módulos teóricos e práticos, totalizando 360 h/a</p>",
+    "type": "pos_presencial",
+    "modality": "presencial",
+    "workload": "360h",
+    "price": 1200,
+    "maxInstallments": 12,
+    "enrollmentFee": 50,
+    "installmentValue": 100,
+    "area": "Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "Fundamentos da Educação Especial na Perspectiva Inclusiva",
+        "description": "30h"
+      },
+      {
+        "title": "Desenvolvimento Humano e Aprendizagem na Educação Inclusiva",
+        "description": "30h"
+      },
+      {
+        "title": "Transtorno do Espectro Autista: Avaliação e Práticas Pedagógicas",
+        "description": "30h"
+      },
+      {
+        "title": "Comunicação Alternativa e Aumentativa no Contexto Educacional",
+        "description": "30h"
+      },
+      {
+        "title": "Deficiência Intelectual e Deficiência Múltipla",
+        "description": "30h"
+      },
+      {
+        "title": "Deficiência Visual: Avaliação Funcional e Práticas Inclusivas",
+        "description": "30h"
+      },
+      {
+        "title": "Deficiência Sensorial Múltipla – Surdocegueira",
+        "description": "30h"
+      },
+      {
+        "title": "Deficiência Auditiva e Surdez: Educação Bilíngue e Inclusão Escolar",
+        "description": "30h"
+      },
+      {
+        "title": "Deficiência Física e Transtornos Motores",
+        "description": "30h"
+      },
+      {
+        "title": "Altas Habilidades/Superdotação e Enriquecimento Curricular",
+        "description": "30h"
+      },
+      {
+        "title": "Adaptação Curricular e Elaboração do Plano de Ensino Individualizado (PEI)",
+        "description": "30h"
+      },
+      {
+        "title": "Avaliação Educacional Inclusiva e Trabalho Colaborativo",
+        "description": "30h"
+      },
+      {
+        "title": "Carga Horária Total",
+        "description": "360h"
+      }
+    ]
+  },
+  {
+    "title": "Alfabetização e Letramento",
+    "slug": "pos-graduacao-em-alfabetizacao-e-letramento",
+    "description": "JUSTIFICATIVA Em uma era dominada pela informação e pela comunicação digital, a capacidade de ler, escrever e interpretar textos de maneira crítica é fundamental. Este programa visa preencher a lacuna existente na formação de profissionais capacit......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado . O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012.</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS    </strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso (se não for autenticadas, comprovar com o original.</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n12 x R$100,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Mensal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<h2>JUSTIFICATIVA</h2>\n<p>Em uma era dominada pela informação e pela comunicação digital, a capacidade de ler, escrever e interpretar textos de maneira crítica é fundamental. Este programa visa preencher a lacuna existente na formação de profissionais capacitados para enfrentar os desafios contemporâneos da educação, focando não apenas na alfabetização inicial, mas também no letramento contínuo, essencial para a participação plena na sociedade.</p>\n<h2>OBJETIVOS</h2>\n<h3>GERAL</h3>\n<p>Desenvolver competências e habilidades em profissionais da educação para promover a alfabetização e o letramento eficazes em diversos contextos, considerando as necessidades específicas de diferentes grupos etários e perfis de aprendizagem, com ênfase na aplicação de métodos inovadores e inclusivos.</p>\n<h3>ESPECÍFICOS</h3>\n<p>– Fornecer uma compreensão aprofundada das diferentes abordagens e métodos de alfabetização, permitindo aos profissionais aplicar as mais eficazes e inovadoras em suas práticas pedagógicas.</p>\n<p>– Equipar os educadores com as habilidades necessárias para integrar tecnologias digitais e mídias no processo de alfabetização, promovendo o letramento digital entre os alunos.</p>\n<p>– Preparar os profissionais para implementar práticas educacionais inclusivas que respeitem a diversidade dos alunos e atendam às necessidades de aprendizagem de todos, incluindo aqueles com dificuldades de aprendizagem ou deficiências.</p>\n<p>– Incentivar a utilização da literatura infantil no ensino da leitura e da escrita, explorando seu potencial para estimular a imaginação, a criatividade e o desenvolvimento linguístico dos alunos.</p>\n<p>– Proporcionar um entendimento profundo dos processos de aquisição da linguagem oral e escrita, habilitando os profissionais a identificar estágios de desenvolvimento e possíveis dificuldades de aprendizagem.</p>\n<p>– Oferecer conhecimentos sobre como o cérebro aprende a ler e a escrever, permitindo que os educadores apliquem essas informações para melhorar suas estratégias de ensino.</p>\n<p>– Capacitar os participantes para criar e adaptar materiais didáticos e recursos pedagógicos que sejam engajadores, eficazes e adequados às diversas necessidades dos alunos.</p>\n<p>– Assegurar que os profissionais estejam preparados para ensinar alunos de diferentes idades, desde crianças em fase de alfabetização até jovens e adultos em processos de letramento continuado.</p>\n<p>– Incentivar a reflexão crítica e a análise das práticas de ensino atuais, promovendo a pesquisa e a inovação contínua no campo da alfabetização e letramento.</p>\n<p>– Fornecer as ferramentas metodológicas necessárias para que os educadores possam realizar pesquisas aplicadas, contribuindo assim para o avanço do conhecimento na área.</p>\n<h3>PARTICIPANTES</h3>\n<p>O programa é destinado a educadores, pedagogos, psicopedagogos, fonoaudiólogos e demais profissionais envolvidos no processo educativo que buscam aprofundar seus conhecimentos e habilidades em alfabetização e letramento.</p>\n<h2>DURAÇÃO E CARGA HORÁRIA</h2>\n<p>12 meses de módulos teóricos e práticos, totalizando 360 h/a.</p>",
+    "type": "pos_presencial",
+    "modality": "presencial",
+    "workload": "360h",
+    "price": 1200,
+    "maxInstallments": 12,
+    "enrollmentFee": 50,
+    "installmentValue": 100,
+    "area": "Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "Legislação e Políticas Públicas para os Processos de Alfabetização e Letramento",
+        "description": "30"
+      },
+      {
+        "title": "Princípios e Fundamentos Metodológicos da Alfabetização",
+        "description": "30"
+      },
+      {
+        "title": "Princípios e Fundamentos Metodológicos do Letramento",
+        "description": "30"
+      },
+      {
+        "title": "Alfabetização, Letramento e Literatura Infantil",
+        "description": "30"
+      },
+      {
+        "title": "Psicogênese da Linguagem Oral e Escrita para Alfabetização e Letramento – Intervenções",
+        "description": "30"
+      },
+      {
+        "title": "Neurolinguística: Aplicação à Alfabetização",
+        "description": "30"
+      },
+      {
+        "title": "Alfabetização e Letramento de Jovens e Adultos",
+        "description": "30"
+      },
+      {
+        "title": "Abordagens do Processo Educativo na Perspectiva Inclusiva",
+        "description": "30"
+      },
+      {
+        "title": "Recursos Tecnológicos no Processo de Alfabetização",
+        "description": "30"
+      },
+      {
+        "title": "A Construção do Pensamento Lógico Matemático",
+        "description": "30"
+      },
+      {
+        "title": "Aquisição e Desenvolvimento da Leitura e da Escrita",
+        "description": "30"
+      },
+      {
+        "title": "Arte, Ludicidade e Aprendizagem",
+        "description": "30"
+      },
+      {
+        "title": "Carga Horária Total",
+        "description": "360 h"
+      }
+    ]
+  },
+  {
+    "title": "Psicopedagogia Clínica e Institucional",
+    "slug": "psicopedagogia-clinica-e-institucional",
+    "description": "O curso de especialização em Psicopedagogia tem como proposta estudar os processos de aprendizagem humana e suas dificuldades, considerando, as condições do meio (família, escola e sociedade) e as características intrínsecas do sujeito e de seu de......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012).</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS</strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n20 X R$100,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Mensal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<p>O curso de especialização em Psicopedagogia tem como proposta estudar os processos de aprendizagem humana e suas dificuldades, considerando, as condições do meio (família, escola e sociedade) e as características intrínsecas do sujeito e de seu desenvolvimento. O curso de Psicopedagogia Institucional e Clínica, com base teórico-prática interdisciplinar (Neurologia, Linguística, Psicologia, Psicanálise, Psicomotricidade, entre outras) que tem como objetivo formar especialistas para atuar no diagnóstico, orientação e intervenção nos processos de aprendizagem e compreender as manifestações dos processos e fenômenos educacionais no campo específico das questões relacionadas com a aprendizagem, enfatizando os saberes teóricos e ações práticas de prevenções e intervenções necessárias à resolução de problemas que envolvem o insucesso escolar e as várias modalidades de manifestações de dificuldades de aprendizagem do sujeito.</p>\n<p><strong>OBJETIVOS</strong></p>\n<p>Aprofundar os conhecimentos acerca da aprendizagem humana, com vistas ao diagnóstico, intervenção, prevenção e tratamento dos distúrbios de aprendizagem, dentro de perspectivas éticas, de respeito total aos exercícios profissionais que tradicionalmente trabalham com a Psicopedagogia e de condutas científicas na produção de conhecimento na área.</p>\n<h4>PARTICIPANTES</h4>\n<p>Profissionais das áreas da educação e da saúde: pedagogos, professores, psicólogos, fisioterapeutas, fonoaudiólogos, neurologistas, assistentes sociais, e outros interessados nos processos de aprendizagem e em seus distúrbios.</p>\n<p><strong>DURAÇAO E CARGA- HORARIA</strong></p>\n<p>20 meses – 16 meses de módulos teóricos mais 04 meses referentes a estágios, totalizando 680 h/a</p>",
+    "type": "pos_presencial",
+    "modality": "presencial",
+    "workload": "680h",
+    "price": 2000,
+    "maxInstallments": 20,
+    "enrollmentFee": 50,
+    "installmentValue": 100,
+    "area": "Saúde e Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "FUNDAMENTOS DA PSICOPEDAGOGIA INSTITUCIONAL E CLINICA",
+        "description": "30 H"
+      },
+      {
+        "title": "APRENDIZAGEM E DESENVOLVIMENTO PSICOMOTOR",
+        "description": "30 H"
+      },
+      {
+        "title": "TEORIAS DO CONHECIMENTO E DA APRENDIZAGEM",
+        "description": "30 H"
+      },
+      {
+        "title": "PSICOLOGIA DO DESENVOLVIMENTO",
+        "description": "30 H"
+      },
+      {
+        "title": "PSICODRAMA PSICOPEDAGOGICO",
+        "description": "30 H"
+      },
+      {
+        "title": "DINAMICAS DAS RELAÇOES FAMILIARES E APRENDIZAGENS",
+        "description": "30 H"
+      },
+      {
+        "title": "CONTRIBUIÇOES DA PSICANALISE NA PSICOPEDAGOGIA",
+        "description": "30 H"
+      },
+      {
+        "title": "O USO DOS JOGOS EM PSICOPEDAGOGIA",
+        "description": "30 H"
+      },
+      {
+        "title": "DIAGNOSTICO PSICOPEDAGOGICO INSTITUCIONAL E CLINICO",
+        "description": "30 H"
+      },
+      {
+        "title": "TECNICAS INTERVENTIVAS: NA ATENÇAO, CONCENTRAÇAO E MEMORIA: NEUROLINGUISTICA",
+        "description": "30 H"
+      },
+      {
+        "title": "FUNDAMENTOS DA NEUROLOGIA E APRENDIZAGEM",
+        "description": "30 H"
+      },
+      {
+        "title": "FARMACOLOGIA E PSICOPEDAGOGIA",
+        "description": "30 H"
+      },
+      {
+        "title": "AVALIAÇÃO E TÉCNICAS NA LEITURA",
+        "description": "30 H"
+      },
+      {
+        "title": "AVALIAÇAO E TECNICAS INTERVENTIVAS NA MATEMATICA",
+        "description": "30 H"
+      },
+      {
+        "title": "GRAFOMOTRICIDADE",
+        "description": "30 H"
+      },
+      {
+        "title": "AVALIAÇAO E TECNICAS INTERVENTIVAS NA ESCRITA",
+        "description": "30 H"
+      },
+      {
+        "title": "ESTÁGIO SUPERVISIONADO EM PSICOPEDAGOGIA INSTITUCIONAL",
+        "description": "100 H"
+      },
+      {
+        "title": "ESTAGIO SUPERVISIONADO EM PSICOPEDAGOGIA CLINICA",
+        "description": "100 H"
+      }
+    ]
+  },
+  {
+    "title": "Atendimento Educacional Especializado – AEE",
+    "slug": "pos-graduacao-em-atendimento-educacional-especializado-aee",
+    "description": "O curso de Atendimento Educacional Especializado – AEE foi elaborado a partir da necessidade de capacitar profissionais da área de educação e áreas afins, no contexto teórico-prático da educação especial, que almejam atuar no Atendimento Educacion......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012.</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS    </strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso (se não for autenticadas, comprovar com o original.</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n18 x R$100,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Mensal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<p>O curso de Atendimento Educacional Especializado – AEE foi elaborado a partir da necessidade de capacitar profissionais da área de educação e áreas afins, no contexto teórico-prático da educação especial, que almejam atuar no Atendimento Educacional Especializado em salas de recursos e/ou centros especializados em AEE, possibilitando a interlocução entre o professor da sala de aula comum com o professor do AEE, garantindo ao aluno público-alvo de educação especial um processo ensino-aprendizagem de qualidade. Para tal, o curso propiciará o estudo de diferentes áreas da educação especial voltado ao processo ensino-aprendizagem de público-alvo de AEE: deficiência intelectual, deficiência auditiva e surdez, deficiência visual, deficiência física, deficiências múltiplas e surdocegueira, altas habilidades e o transtorno do espectro autista. Ainda, o curso desenvolverá conteúdos de política educacional inclusiva, bem como os fundamentos, a organização e o funcionamento do AEE e as tecnologia assistiva.</p>\n<h2>OBJETIVOS</h2>\n<h3>GERAL</h3>\n<p>Aprofundar os conceitos e definições sobre a educação especial e a inclusão social, promover o aprofundamento das reflexões acerca da Educação Especial e a inclusão das pessoas com deficiência por meio do sistema escolar, aperfeiçoar os conhecimentos dos profissionais envolvidos com a educação especial e a inclusão social, aperfeiçoar a formação dos profissionais envolvidos com o Atendimento Educacional Especializado no ambiente escolar e não escolar, promover a reflexão sobre as perspectivas na educação especial e integração social no contexto da sociedade contemporânea.</p>\n<h3>ESPECÍFICOS</h3>\n<p>Aperfeiçoar os conhecimentos dos profissionais envolvidos com a educação especial e a inclusão social;</p>\n<p>Aperfeiçoar a formação dos profissionais envolvidos com o Atendimento Educacional Especializado no ambiente escolar e não escolar;</p>\n<p>Promover a reflexão sobre as perspectivas na educação especial e integração social no contexto da sociedade contemporânea;</p>\n<h2>PARTICIPANTES</h2>\n<p>Este curso é destinado a professores, profissionais da área da educação, entre outros profissionais interessados.</p>\n<h2>DURAÇÃO E CARGA HORÁRIA</h2>\n<p>18 meses – 18 meses de módulos teóricos e estágio, totalizando 540 h/a.</p>",
+    "type": "pos_presencial",
+    "modality": "presencial",
+    "workload": "540h",
+    "price": 1800,
+    "maxInstallments": 18,
+    "enrollmentFee": 50,
+    "installmentValue": 100,
+    "area": "Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "Introdução ao Modelo Social da Deficiência",
+        "description": "30h"
+      },
+      {
+        "title": "Políticas Públicas e Legislação Educacional referente ao AEE",
+        "description": "30h"
+      },
+      {
+        "title": "Educação Inclusiva: Históricos e Fundamentos",
+        "description": "30h"
+      },
+      {
+        "title": "Práticas Pedagógicas no AEE",
+        "description": "30h"
+      },
+      {
+        "title": "Educação Inclusiva e Acessibilidade",
+        "description": "30h"
+      },
+      {
+        "title": "Gestão e Planejamento no AEE",
+        "description": "30h"
+      },
+      {
+        "title": "AEE e a Educação Infantil",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para Deficiência Auditiva e Surdez",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para Deficiências Múltiplas e Graves",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para Deficiência Visual",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para Surdocegueira",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para Deficiência Intelectual e Altas Habilidades",
+        "description": "30h"
+      },
+      {
+        "title": "AEE para o Transtorno do Espectro Autista (TEA) e Transtorno Global do Desenvolvimento (TGD)",
+        "description": "30h"
+      },
+      {
+        "title": "AEE em Deficiência Física e Mobilidade Reduzida",
+        "description": "30h"
+      },
+      {
+        "title": "Comunicação Alternativa e Suplementar",
+        "description": "30h"
+      },
+      {
+        "title": "Estágio Supervisionado",
+        "description": "90h"
+      },
+      {
+        "title": "TOTAL",
+        "description": "540h"
+      }
+    ]
+  },
+  {
+    "title": "Neuropsicopedagogia Clínica",
+    "slug": "pos-graduacao-em-neuropsicopedagogia-clinica-2",
+    "description": "Apresentação do Curso A Pós‑Graduação em Neuropsicopedagogia Clínica tem como objetivo formar profissionais capacitados para compreender, avaliar e intervir nas dificuldades de aprendizagem, integrando conhecimentos da neurociência, psicologia cog......",
+    "syllabus": "<h3>Metodologia de Ensino</h3>\n<p>O curso será desenvolvido por meio de aulas expositivas dialogadas, estudos dirigidos, análise de casos clínicos, atividades práticas, leitura de artigos científicos e discussões em grupo. Serão utilizadas metodologias ativas que estimulem o raciocínio clínico e a aplicação prática dos conhecimentos.</p>\n<h3>Sistema de Avaliação</h3>\n<p>A avaliação ocorrerá de forma contínua, considerando participação nas aulas, atividades práticas, estudos de caso, trabalhos escritos e avaliações teóricas. O estágio supervisionado será avaliado por meio de relatórios e supervisão docente.</p>\n<h3>Estágio Supervisionado</h3>\n<p>O estágio supervisionado terá carga horária de 150 horas, contemplando atividades de observação, avaliação e intervenção neuropsicopedagógica sob orientação de professor supervisor. Os estudantes deverão elaborar relatórios técnicos e participar de supervisões clínicas.</p>\n<h3>Certificação</h3>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012.</p>\n<h3><strong>Documentos Necessários   </strong></h3>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso (se não for autenticadas, comprovar com o original.</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\n20 x R$100,00</p>\n<p><strong>AULAS </strong><br />\nNo Sábado Mensal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<h3>Apresentação do Curso</h3>\n<p>A Pós‑Graduação em Neuropsicopedagogia Clínica tem como objetivo formar profissionais capacitados para compreender, avaliar e intervir nas dificuldades de aprendizagem, integrando conhecimentos da neurociência, psicologia cognitiva e pedagogia. O curso segue as diretrizes da Sociedade Brasileira de Neuropsicopedagogia (SBNPp) para formação clínica, contemplando fundamentos teóricos, avaliação e intervenção neuropsicopedagógica, além de estágio supervisionado.</p>\n<h3>Objetivos do Curso</h3>\n<p>Objetivo Geral:</p>\n<ul>\n<li>Formar especialistas em Neuropsicopedagogia Clínica aptos a avaliar, compreender e intervir nas dificuldades de aprendizagem em diferentes fases do desenvolvimento humano.</li>\n</ul>\n<p>Objetivos Específicos:</p>\n<ul>\n<li>Compreender os fundamentos teóricos e científicos da Neuropsicopedagogia.</li>\n<li>Relacionar neurociência, cognição e aprendizagem.</li>\n<li>Identificar transtornos e dificuldades de aprendizagem.</li>\n<li>Aplicar instrumentos de avaliação neuropsicopedagógica.</li>\n<li>Planejar e executar intervenções clínicas.</li>\n<li>Elaborar relatórios e informes neuropsicopedagógicos.</li>\n<li>Atuar eticamente em equipes multiprofissionais.</li>\n</ul>\n<h3>Perfil do Egresso</h3>\n<p>O especialista formado será capaz de compreender os processos de aprendizagem à luz das neurociências, realizar avaliação neuropsicopedagógica clínica, desenvolver planos de intervenção individualizados, elaborar relatórios técnicos e atuar em equipes interdisciplinares respeitando os princípios éticos da profissão.</p>\n<h3>Público-Alvo</h3>\n<p>Profissionais graduados nas áreas da Educação, Psicologia, Fonoaudiologia, Pedagogia, Psicopedagogia e demais áreas afins que atuem ou desejem atuar no campo da aprendizagem.</p>\n<h3>Carga Horária Total</h3>\n<p>Carga horária total: 600 horas (incluindo 150h de estágio supervisionado).</p>",
+    "type": "pos_presencial",
+    "modality": "presencial",
+    "workload": "360h",
+    "price": 2000,
+    "maxInstallments": 20,
+    "enrollmentFee": 50,
+    "installmentValue": 100,
+    "area": "Saúde e Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": []
+  },
+  {
+    "title": "Análise do Comportamento Aplicada ao Autismo",
+    "slug": "pos-graduacao-em-analise-do-comportamento-aplicada-ao-autismo",
+    "description": "A Análise do Comportamento Aplicada é uma ciência que propõem técnicas para avaliar, explicar e modicar comportamentos. Segundo Skinner, o comportamento é influenciado pelos estímulos ambientais que o antecedem, e são aprendidos em função de suas ......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012.</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS    </strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso (se não for autenticadas, comprovar com o original.</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>INVESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\nPresencial – 21 x R$100,00 (Boleto)<br />\n*30% de desconto para pagamento em dia.</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Mensal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<p>A Análise do Comportamento Aplicada é uma ciência que propõem técnicas para avaliar, explicar e modicar comportamentos. Segundo Skinner, o comportamento é influenciado pelos estímulos ambientais que o antecedem, e são aprendidos em função de suas consequências. Considerando que esses princípios governam os comportamentos dos seres humanos, estes são entendidos como passíveis de predição.</p>\n<p>Portanto, ABA investiga as variáveis que afetam o comportamento humano, sendo capaz de mudá-los através da modificação de seus antecedentes e suas consequências. Para estes propósitos, ABA usa estratégias experimentais e sistemáticas de observação e mensuração dos comportamentos. No atendimento ao Transtorno do Espectro Autista e desenvolvimento atípico, ao medir comportamentos observáveis, ABA assume uma abordagem com intervenções consistentes, com comprovada eficácia em procedimentos utilizados nas intervenções que objetivam reduzir comportamentos inadequados e aumentar a emissão de comportamentos que são importantes para os indivíduos e para a sociedade.</p>\n<h2>OBJETIVOS</h2>\n<h3>GERAL</h3>\n<p>Proporcionar conhecimento aprofundado da filosofia, teoria e técnicas da Análise do Comportamento Aplicada implementadas no contexto de intervenções baseadas em ABA (Applied Behavior Analysis) para indivíduos com diagnóstico de Transtorno do Espectro Autista (TEA) e desenvolvimento atípico.</p>\n<h3>ESPECÍFICOS</h3>\n<p>Instrumentalizar profissionais com estratégias e técnicas de intervenções baseadas nos princípios da Análise do Comportamento Aplicada para o atendimento a pessoas com Transtorno do Espectro Autista e desenvolvimento atípico.</p>\n<h2>PARTICIPANTES</h2>\n<p>Profissionais da área da Saúde (Psicólogos, Fonoaudiólogos,  Terapeutas Ocupacionais, Enfermeiros, Nutricionista, Assistente Social), Licenciados em Educação (Pedagogos, Professores licenciados, Profissionais de Educação Física com bacharelado e/ou licenciatura, Graduados em Psicopedagogia em Faculdade reconhecida pelo MEC).</p>\n<h2>DURAÇÃO E CARGA HORÁRIA</h2>\n<p>21 meses – 19 meses de módulos teóricos e mais 02 meses referente a prática supervisionada, totalizando 630 h/a.</p>",
+    "type": "pos_presencial",
+    "modality": "presencial",
+    "workload": "630h",
+    "price": 2100,
+    "maxInstallments": 21,
+    "enrollmentFee": 50,
+    "installmentValue": 100,
+    "area": "Saúde e Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "Conceitos Básico de Análise do Comportamento I",
+        "description": "30h"
+      },
+      {
+        "title": "Conceitos Básico de Análise do Comportamento II",
+        "description": "30h"
+      },
+      {
+        "title": "Avaliação Comportamental",
+        "description": "30h"
+      },
+      {
+        "title": "Técnicas e Estratégias Básicas de ABA",
+        "description": "30h"
+      },
+      {
+        "title": "Comportamento Verbal",
+        "description": "30h"
+      },
+      {
+        "title": "Desenvolvimento Infantil",
+        "description": "30h"
+      },
+      {
+        "title": "Desenvolvimento Atípico",
+        "description": "30h"
+      },
+      {
+        "title": "Transtorno do Espectro Autista na perspectiva da ABA",
+        "description": "30h"
+      },
+      {
+        "title": "Avaliação do repertório inicial",
+        "description": "30h"
+      },
+      {
+        "title": "Currículo – Análise e Planejamento",
+        "description": "30h"
+      },
+      {
+        "title": "Intervenções frente a pessoa com TEA e desenvolvimento atípico no contexto escolar",
+        "description": "30h"
+      },
+      {
+        "title": "Monitoramento do Programa de Ensino: objetivos, Registros e Medidas",
+        "description": "30h"
+      },
+      {
+        "title": "Ética e conduta profissional do prestador de serviços baseados em ABA",
+        "description": "30h"
+      },
+      {
+        "title": "Comunicação Alternativa e Uso de Pistas Visuais",
+        "description": "30h"
+      },
+      {
+        "title": "Mensuração Comportamental e Delineamentos Experimentais",
+        "description": "30h"
+      },
+      {
+        "title": "Análise Funcional",
+        "description": "30h"
+      },
+      {
+        "title": "Procedimentos de Ensino de Repertórios Comportamentais",
+        "description": "30h"
+      },
+      {
+        "title": "Planejamento de Programas e Plano de Desenvolvimento Individual – PDI",
+        "description": "30h"
+      },
+      {
+        "title": "Prática Supervisionada",
+        "description": "60h"
+      },
+      {
+        "title": "TOTAL",
+        "description": "630h"
+      }
+    ]
+  },
+  {
+    "title": "Educação Infantil e Anos Iniciais do Ensino Fundamental",
+    "slug": "pos-graduacao-em-educacao-infantil-e-anos-iniciais-do-ensino-fundamental",
+    "description": "JUSTIFICATIVA A Pós-Graduação em Educação Infantil e Séries Iniciais oferece ao profissional uma sólida formação no sentido do desenvolvimento de habilidades e competências para pensar e vivenciar o processo de ensino e aprendizagem na educação in......",
+    "syllabus": "<p><strong>CERTIFICADO</strong></p>\n<p>O Certificado será emitida aos alunos adimplentes com todas as mensalidades referentes ao Curso de Pós-Graduação e que obtiverem 75% de presença nas disciplinas ofertadas, notas aprovativas em cada modulo ofertado. O Certificado será emitido pela Faculdade FAEPI (autorização CNE/CES Nº 408/2012.</p>\n<p><strong>DOCUMENTOS NECESSÁRIOS    </strong></p>\n<p>Entregar no ato da matricula copia dos seguintes documentos:</p>\n<ul>\n<li>RG , CPF, TITULO DE ELEITOR,</li>\n<li>Comprovante de residência</li>\n<li>Copia do Diploma do Curso Superior ou Certidão ou declaração do Curso (se não for autenticadas, comprovar com o original.</li>\n<li>Comprovante da taxa de inscrição.</li>\n</ul>\n<p><strong>IN5VESTIMENTO</strong><br />\nMatrícula – R$50,00<br />\nPresencial – 12 x R$100,00</p>\n<p><strong>AULAS </strong><br />\nAos Sábado Mensal<br />\nHorário: 08h às 12h e das 14h às 18h</p>",
+    "about": "<h2>JUSTIFICATIVA</h2>\n<p>A Pós-Graduação em Educação Infantil e Séries Iniciais oferece ao profissional uma sólida formação no sentido do desenvolvimento de habilidades e competências para pensar e vivenciar o processo de ensino e aprendizagem na educação infantil e nas séries iniciais, de forma lúdica. O curso busca ainda, propiciar os fundamentos e pressupostos pedagógicos no processo de alfabetização, qualificar profissionais da Educação Infantil e Séries Iniciais para exercerem com competência teórico-metodológica as suas atividades didático-pedagógicas, diante das exigências do nosso tempo e dos desafios cotidianos da escola. Além disso, o curso permite que o profissional desenvolva habilidades como a capacidade de sistematizar conhecimentos teórico-práticos nas áreas de docência em Educação Infantil e Séries Iniciais, para maior compreensão dos saberes e vivências demandados pela criança, considerando as particularidades da educação infantil e sua articulação com o ensino fundamental.</p>\n<h2>OBJETIVOS</h2>\n<h3>GERAL</h3>\n<p><strong>A</strong>profunda<strong>r </strong>conhecimentos básicos para a atuação no trabalho cotidiano da educação infantil e dos anos iniciais do ensino fundamental promovendo o ensino e aprendizagem através de recursos e metodologias diversos dentro de um currículo que atenda a demanda de cada grupo social.</p>\n<h3>ESPECÍFICOS</h3>\n<p>Possibilitar o desenvolvimento de habilidades e competências para pensar e vivenciar o processo de ensino e aprendizagem na educação infantil e nas séries iniciais, de forma lúdica, como também propiciar os fundamentos e pressupostos pedagógicos no processo de alfabetização.</p>\n<p>Qualificar profissionais da Educação Infantil e Séries Iniciais para exercerem com competência teórico-metodológica as suas atividades didático-pedagógicas, diante das exigências do nosso tempo e os desafios cotidianos da escola.</p>\n<p>Sistematizar conhecimentos teórico-práticos nas áreas de docência em Educação Infantil e Séries Iniciais, para maior compreensão dos saberes e vivências demandados pela criança, considerando as particularidades da educação infantil e sua articulação com o ensino fundamental.</p>\n<p>Garantir qualificação profissional do professor da Educação Infantil e Séries Iniciais, reconhecendo as dimensões do “saber ensinar” e do “saber cuidar”</p>\n<h2>PARTICIPANTES</h2>\n<p>Educadores da Rede Pública ou Privada, profissionais da educação e demais pessoas que demonstre interesse pelo tema</p>\n<h2>DURAÇÃO E CARGA HORÁRIA</h2>\n<p>12 meses de módulos teóricos com 30 horas cada, totalizando 360 h/a.</p>",
+    "type": "pos_presencial",
+    "modality": "presencial",
+    "workload": "360h",
+    "price": 1200,
+    "maxInstallments": 12,
+    "enrollmentFee": 50,
+    "installmentValue": 100,
+    "area": "Educação",
+    "partnerInstitution": "FAEPI",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "O processo de Aprendizagem por Meio do Lúdico: Jogos e Brincadeiras",
+        "description": "30h"
+      },
+      {
+        "title": "Planejamento e Organização Curricular do Ensino",
+        "description": "30h"
+      },
+      {
+        "title": "Aspectos da Aquisição da Linguagem: Alfabetização e Letramento",
+        "description": "30h"
+      },
+      {
+        "title": "Psicomotricidade: Aspectos Psicológicos e Motores da EIAIEF",
+        "description": "30h"
+      },
+      {
+        "title": "Dificuldades e Distúrbios de Aprendizagem – Leitura, Escrita e Matemática",
+        "description": "30h"
+      },
+      {
+        "title": "Atendimento Educacional Especializado e o Processo de Inclusão",
+        "description": "30h"
+      },
+      {
+        "title": "Psicologia da Aprendizagem e do Desenvolvimento",
+        "description": "30h"
+      },
+      {
+        "title": "Fundamentos da Educação",
+        "description": "30h"
+      },
+      {
+        "title": "Arte e Musicalização no Contexto da Educação Infantil",
+        "description": "30h"
+      },
+      {
+        "title": "Políticas Públicas e Educação",
+        "description": "30h"
+      },
+      {
+        "title": "Avaliação da Aprendizagem na Educação Básica",
+        "description": "30h"
+      },
+      {
+        "title": "Metodologias Ativas e Gamificação na Educação",
+        "description": "30h"
+      },
+      {
+        "title": "TOTAL",
+        "description": "360h"
+      }
+    ]
+  },
+  {
+    "title": "LIBRAS Iniciante",
+    "slug": "libras-iniciante",
+    "description": "Curso introdutório para comunicação em Língua Brasileira de Sinais no atendimento, sala de aula e rotina institucional....",
+    "syllabus": "<p><strong>AULAS</strong><br/>Aos sábados, quinzenalmente.<br/><strong>INVESTIMENTO</strong><br/>Matrícula de R$ 50,00 e mensalidades facilitadas.</p>",
+    "about": "<p>Curso introdutório para comunicação em Língua Brasileira de Sinais no atendimento, sala de aula e rotina institucional.</p>",
+    "type": "livre",
+    "modality": "presencial",
+    "workload": "60h",
+    "price": 97,
+    "maxInstallments": 1,
+    "enrollmentFee": 0,
+    "installmentValue": 97,
+    "area": "Inclusão",
+    "partnerInstitution": "Instituto Sentidos",
+    "isFeatured": false,
+    "modules": [
+      {
+        "title": "Introdução à Libras e Cultura Surda",
+        "description": "20h"
+      },
+      {
+        "title": "Vocabulário e Estrutura Gramatical Básica",
+        "description": "20h"
+      },
+      {
+        "title": "Prática de Sinais e Diálogos do Cotidiano",
+        "description": "20h"
+      }
+    ]
+  },
+  {
+    "title": "Mestrado em Ciências da Educação",
+    "slug": "mestrado-ciencias-educacao",
+    "description": "Programa internacional para profissionais que buscam titulação acadêmica com orientação consultiva do Instituto Sentidos....",
+    "syllabus": "<p><strong>CERTIFICADO</strong><br/>Emitido por Ivy Enber University com assessoria de validação internacional.<br/><strong>DOCUMENTOS NECESSÁRIOS</strong><br/>Diploma de Graduação, Histórico Escolar, Currículo Lattes e Documentos Pessoais.</p>",
+    "about": "<p>Programa de mestrado internacional em parceria com a Ivy Enber University, oferecendo formação acadêmica flexível de alto nível.</p>",
+    "type": "internacional",
+    "modality": "internacional",
+    "workload": "24 meses",
+    "price": 0,
+    "maxInstallments": 1,
+    "enrollmentFee": 0,
+    "installmentValue": 0,
+    "area": "Educação",
+    "partnerInstitution": "Ivy Enber University",
+    "isFeatured": true,
+    "modules": [
+      {
+        "title": "Metodologia da Pesquisa Científica",
+        "description": "60h"
+      },
+      {
+        "title": "Epistemologia da Educação",
+        "description": "60h"
+      },
+      {
+        "title": "Seminários de Orientação de Dissertação",
+        "description": "120h"
+      }
+    ]
+  }
+];
+
+export const seedLeads = [
+  {
+    "name": "Ana Clara Mendes",
+    "email": "ana.clara@example.com",
+    "phone": "(99) 98888-1020",
+    "source": "site",
+    "status": "novo",
+    "notes": "Interessada em pós online ao vivo.",
+    "consentLgpd": true
+  },
+  {
+    "name": "João Lima",
+    "email": "joao.lima@example.com",
+    "phone": "(99) 97777-2040",
+    "source": "whatsapp",
+    "status": "em_atendimento",
+    "notes": "Quer turma presencial aos sábados.",
+    "consentLgpd": true
+  },
+  {
+    "name": "Renata Alves",
+    "email": "renata.alves@example.com",
+    "phone": "(99) 96666-3090",
+    "source": "indicacao",
+    "status": "matriculado",
+    "referralCode": "MARIA123",
+    "notes": "Convertida via indicação.",
+    "consentLgpd": true
+  }
+];
+
+export const seedPosts = [
+  {
+    "title": "Educação Inclusiva: Práticas para a Sala de Aula",
+    "slug": "educacao-inclusiva-praticas-sala-aula",
+    "excerpt": "Descubra como adaptar materiais e o planejamento pedagógico para acolher alunos com necessidades especiais de forma efetiva.",
+    "content": "<p>A educação inclusiva não é apenas uma diretriz escolar, mas uma transformação profunda na forma como enxergamos a diversidade em sala de aula.</p><h2>O Papel do Professor</h2><p>O educador é o principal agente de mudança. Ele precisa de suporte, formação continuada e empatia para identificar o potencial de cada aluno, seja ele neurodivergente, com deficiência ou superdotação.</p><h3>Estratégias Práticas</h3><ul><li>Uso de recursos visuais (pictogramas e mapas mentais).</li><li>Flexibilização do tempo de avaliação.</li><li>Ambientes com menos estímulos sensoriais disruptivos.</li></ul><p>O Instituto Sentidos oferece pós-graduação em Educação Especial focada em construir escolas mais humanizadas.</p>",
+    "category": "Inclusão",
+    "tags": [
+      "Educação Especial",
+      "Práticas Pedagógicas",
+      "Inclusão",
+      "Neurodiversidade"
+    ],
+    "coverImageUrl": "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=1200&q=80",
+    "isPublished": true
+  },
+  {
+    "title": "Autismo e ABA: O que todo educador precisa saber",
+    "slug": "autismo-e-aba-o-que-educador-precisa-saber",
+    "excerpt": "Compreenda os fundamentos da Análise do Comportamento Aplicada (ABA) e como ela ajuda a estruturar o aprendizado de alunos autistas.",
+    "content": "<p>O Transtorno do Espectro Autista (TEA) apresenta desafios e habilidades únicas. A Análise do Comportamento Aplicada (ABA) é uma ciência baseada em evidências que busca melhorar comportamentos socialmente relevantes.</p><h2>Aplicações da ABA</h2><p>No ambiente escolar, a terapia ABA não visa \"corrigir\" a criança, mas ensinar novas habilidades através de reforço positivo, permitindo autonomia e participação social.</p><h3>Dicas de Ouro</h3><ul><li>Identifique o que motiva a criança (reforçadores).</li><li>Divida tarefas complexas em etapas simples.</li><li>Comemore pequenos progressos.</li></ul><p>Profissionais com qualificação em ABA estão entre os mais procurados no Brasil para atendimento multidisciplinar.</p>",
+    "category": "Autismo",
+    "tags": [
+      "Autismo",
+      "ABA",
+      "Educação Inclusiva",
+      "Comportamento"
+    ],
+    "coverImageUrl": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?auto=format&fit=crop&w=1200&q=80",
+    "isPublished": true
+  },
+  {
+    "title": "Pós-graduação EaD vs Presencial: Como Escolher?",
+    "slug": "pos-graduacao-ead-vs-presencial",
+    "excerpt": "Entenda os prós e contras das modalidades online e presencial e escolha a melhor trilha para decolar na sua carreira acadêmica.",
+    "content": "<p>Decidir entre a educação à distância (EaD) e o ensino presencial pode ser um dilema para muitos profissionais. Ambos os formatos possuem méritos inegáveis, mas atendem a diferentes perfis de rotina e aprendizado.</p><h2>A Força do EaD</h2><p>A modalidade EaD do Instituto Sentidos proporciona flexibilidade total e economia de tempo com deslocamentos, sendo a escolha número um de profissionais que já atuam em jornada dupla.</p><h2>O Valor do Presencial</h2><p>Se o contato humano, o networking físico e as trocas imediatas de experiência são cruciais para você, o presencial ou as aulas \"online ao vivo\" garantem um senso de comunidade inigualável.</p><p>Explore nossa vitrine de cursos e converse com um de nossos consultores para guiar sua escolha.</p>",
+    "category": "Carreira",
+    "tags": [
+      "Pós-graduação",
+      "EaD",
+      "Carreira Acadêmica",
+      "Ensino Presencial"
+    ],
+    "coverImageUrl": "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80",
+    "isPublished": true
+  },
+  {
+    "title": "A Importância da LIBRAS na Escola Regular",
+    "slug": "importancia-libras-escola-regular",
+    "excerpt": "Quebrando as barreiras de comunicação: por que todos os educadores deveriam ter noções de Língua Brasileira de Sinais.",
+    "content": "<p>A Língua Brasileira de Sinais (LIBRAS) é a segunda língua oficial do Brasil, mas ainda é uma barreira em grande parte das escolas regulares.</p><h2>Mais que Inclusão: Um Direito</h2><p>Estudantes surdos têm o direito a aprender e a se comunicar livremente em sua língua materna. Quando o professor domina o básico da LIBRAS, ele cria uma ponte de pertencimento.</p><h3>Os Primeiros Sinais</h3><p>Cumprimentos simples (\"Bom dia\", \"Tudo bem?\") e instruções corriqueiras transformam o clima de sala de aula. É uma habilidade rápida de desenvolver e com imenso impacto humano.</p><p>Nossos cursos livres de LIBRAS estão com matrículas abertas.</p>",
+    "category": "Inclusão",
+    "tags": [
+      "LIBRAS",
+      "Acessibilidade",
+      "Inclusão Escolar",
+      "Comunicação"
+    ],
+    "coverImageUrl": "https://images.unsplash.com/photo-1517594422361-5e18d418c650?auto=format&fit=crop&w=1200&q=80",
+    "isPublished": true
+  }
+];

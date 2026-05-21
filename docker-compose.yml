@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: isentidos-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-isentidos}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-isentidos_secure_pass}
+      POSTGRES_DB: ${DB_NAME:-isentidos}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - isentidos-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: isentidos-app
+    restart: always
+    ports:
+      - "${PORT_MAP:-3000}:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${DB_USER:-isentidos}:${DB_PASSWORD:-isentidos_secure_pass}@db:5432/${DB_NAME:-isentidos}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-mude-este-segredo-em-producao-123}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@isentidos.com.br}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin_secure_pass_123}
+      FRONTEND_URL: ${FRONTEND_URL:-https://isentidos.com.br}
+    depends_on:
+      - db
+    volumes:
+      - uploads-data:/app/public/uploads
+    networks:
+      - isentidos-network
+
+volumes:
+  pgdata:
+    driver: local
+  uploads-data:
+    driver: local
+
+networks:
+  isentidos-network:
+    driver: bridge

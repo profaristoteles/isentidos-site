@@ -1,0 +1,329 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  phone         String?
+  cpf           String?        @unique
+  role          UserRole       @default(student)
+  passwordHash  String?        @map("password_hash")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  blogPosts     BlogPost[]
+  certificates  Certificate[]
+  enrollments   Enrollment[]
+  referralCodes ReferralCode[]
+
+  @@map("users")
+}
+
+model Course {
+  id                 String               @id @default(cuid())
+  title              String
+  slug               String               @unique
+  description        String
+  syllabus           String?
+  about              String?
+  type               CourseType
+  modality           CourseModality
+  workload           String
+  price              Decimal              @db.Decimal(10, 2)
+  maxInstallments    Int                  @default(1) @map("max_installments")
+  enrollmentFee      Decimal              @default(0.00) @db.Decimal(10, 2) @map("enrollment_fee")
+  installmentValue   Decimal              @default(0.00) @db.Decimal(10, 2) @map("installment_value")
+  area               String
+  partnerInstitution String?              @map("partner_institution")
+  isActive           Boolean              @default(true) @map("is_active")
+  isFeatured         Boolean              @default(false) @map("is_featured")
+  coverImageUrl      String?              @map("cover_image_url")
+  videoUrl           String?              @map("video_url")
+  benefits           Json?
+  modules            Json?
+  teachers           Json?
+  testimonials       Json?
+  minStudents        Int                  @default(15) @map("min_students")
+  leadConnectorFormId String?              @map("lead_connector_form_id")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  certificates       Certificate[]
+  classes            CourseClass[]
+  referralTiers      CourseReferralTier[]
+  enrollments        Enrollment[]
+  leads              Lead[]
+
+  @@map("courses")
+}
+
+model CourseReferralTier {
+  id              String @id @default(cuid())
+  courseId        String @map("course_id")
+  minReferrals    Int    @map("min_referrals")
+  discountPercent Int    @map("discount_percent")
+  course          Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("course_referral_tiers")
+}
+
+model Banner {
+  id        String   @id @default(cuid())
+  title     String
+  subtitle  String
+  ctaLabel  String   @default("Saiba mais") @map("cta_label")
+  ctaUrl    String   @default("#cursos") @map("cta_url")
+  imageUrl  String?  @map("image_url")
+  position  String   @default("home_hero")
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("banners")
+}
+
+model CourseClass {
+  id                 String    @id @default(cuid())
+  courseId           String    @map("course_id")
+  startDate          DateTime? @map("start_date")
+  endDate            DateTime? @map("end_date")
+  vacancies          Int       @default(0)
+  availableVacancies Int       @default(0) @map("available_vacancies")
+  status             String    @default("open")
+  course             Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("course_classes")
+}
+
+model Lead {
+  id              String          @id @default(cuid())
+  name            String
+  email           String
+  phone           String
+  courseId        String?         @map("course_id")
+  preferredFormat CourseModality? @map("preferred_format")
+  source          String          @default("site")
+  referralCode    String?         @map("referral_code")
+  status          LeadStatus      @default(novo)
+  notes           String?
+  consentLgpd     Boolean         @default(false) @map("consent_lgpd")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  course          Course?         @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  referrals       Referral[]
+
+  @@map("leads")
+}
+
+model Enrollment {
+  id             String           @id @default(cuid())
+  studentId      String           @map("student_id")
+  courseId       String           @map("course_id")
+  classId        String?          @map("class_id")
+  status         EnrollmentStatus @default(pre_matricula)
+  basePrice      Decimal          @map("base_price") @db.Decimal(10, 2)
+  discountAmount Decimal          @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  discountOrigin String?          @map("discount_origin")
+  enrolledAt     DateTime         @default(now()) @map("enrolled_at")
+  course         Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student        User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  referrals      Referral[]
+
+  @@map("enrollments")
+}
+
+model ReferralCode {
+  id        String     @id @default(cuid())
+  studentId String     @map("student_id")
+  code      String     @unique
+  createdAt DateTime   @default(now()) @map("created_at")
+  expiresAt DateTime?  @map("expires_at")
+  isActive  Boolean    @default(true) @map("is_active")
+  student   User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  referrals Referral[]
+
+  @@map("referral_codes")
+}
+
+model Referral {
+  id              String         @id @default(cuid())
+  referralCodeId  String         @map("referral_code_id")
+  leadId          String?        @map("lead_id")
+  enrollmentId    String?        @map("enrollment_id")
+  status          ReferralStatus @default(pending)
+  discountApplied Decimal        @default(0) @map("discount_applied") @db.Decimal(10, 2)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  convertedAt     DateTime?      @map("converted_at")
+  enrollment      Enrollment?    @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  lead            Lead?          @relation(fields: [leadId], references: [id])
+  referralCode    ReferralCode   @relation(fields: [referralCodeId], references: [id], onDelete: Cascade)
+
+  @@map("referrals")
+}
+
+model ReferralSettings {
+  id                  String   @id @default(cuid())
+  isActive            Boolean  @default(true) @map("is_active")
+  discountType        String   @default("percent") @map("discount_type")
+  discountValue       Decimal  @default(10) @map("discount_value") @db.Decimal(10, 2)
+  maxDiscountPercent  Int      @default(50) @map("max_discount_percent")
+  isCumulative        Boolean  @default(true) @map("is_cumulative")
+  eligibleCourseTypes String[] @map("eligible_course_types")
+  autoApprove         Boolean  @default(false) @map("auto_approve")
+  linkExpiryDays      Int?     @map("link_expiry_days")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("referral_settings")
+}
+
+model BlogPost {
+  id            String    @id @default(cuid())
+  title         String
+  slug          String    @unique
+  content       String
+  excerpt       String
+  category      String
+  tags          String[]
+  coverImageUrl String?   @map("cover_image_url")
+  isPublished   Boolean   @default(false) @map("is_published")
+  publishedAt   DateTime? @map("published_at")
+  authorId      String?   @map("author_id")
+  author        User?     @relation(fields: [authorId], references: [id])
+
+  @@map("blog_posts")
+}
+
+model Certificate {
+  id               String   @id @default(cuid())
+  studentId        String   @map("student_id")
+  courseId         String   @map("course_id")
+  issuedAt         DateTime @default(now()) @map("issued_at")
+  verificationCode String   @unique @map("verification_code")
+  course           Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student          User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("certificates")
+}
+
+model Ebook {
+  id           String   @id @default(cuid())
+  title        String
+  description  String
+  category     String   @default("Livro Digital")
+  coverUrl     String?  @map("cover_url")
+  fileUrl      String?  @map("file_url")
+  mauticFormId Int?     @map("mautic_form_id")
+  pages        String?
+  year         String?
+  position     Int      @default(0)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("ebooks")
+}
+
+model Event {
+  id          String         @id @default(cuid())
+  title       String
+  slug        String         @unique
+  description String
+  modality    CourseModality
+  startsAt    DateTime?      @map("starts_at")
+  price       Decimal        @default(0) @db.Decimal(10, 2)
+  coverUrl    String?        @map("cover_url")
+  link        String?        @default("")
+  isActive    Boolean        @default(true) @map("is_active")
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  @@map("events")
+}
+
+model SystemSetting {
+  id                 String   @id @default("default")
+  domain             String   @default("isentidos.com.br")
+  whatsapp           String   @default("(99) 3199-93940")
+  apiGeminiKey       String   @default("")
+  apiOpenAIKey       String   @default("")
+  apiOpenRouterKey   String   @default("")
+  apiGroqKey         String   @default("")
+  activeAiProvider   String   @default("local")
+  metaPixelId        String   @default("")
+  googleAnalyticsId  String   @default("")
+  googleTagManagerId String   @default("")
+  googleAdsId        String   @default("")
+  customScripts      String   @default("")
+  siteName           String   @default("Instituto Sentidos")
+  instagram          String   @default("")
+  facebook           String   @default("")
+  linkedin           String   @default("")
+  youtube            String   @default("")
+  twitter            String   @default("")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model MenuItem {
+  id        String     @id @default(cuid())
+  label     String
+  href      String
+  position  Int        @default(0)
+  isButton  Boolean    @default(false)
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  parentId  String?    @map("parent_id")
+  parent    MenuItem?  @relation("SubItems", fields: [parentId], references: [id], onDelete: Cascade)
+  children  MenuItem[] @relation("SubItems")
+
+  @@map("menu_items")
+}
+
+enum UserRole {
+  admin
+  student
+  consultant
+}
+
+enum CourseType {
+  livre
+  pos_presencial
+  pos_online
+  mestrado_ead
+  doutorado_ead
+  evento_presencial
+  evento_online
+  preparatorio
+  internacional
+}
+
+enum CourseModality {
+  presencial
+  online_ao_vivo
+  ead
+  internacional
+}
+
+enum LeadStatus {
+  novo
+  em_atendimento
+  matriculado
+  perdido
+}
+
+enum EnrollmentStatus {
+  pre_matricula
+  matriculado
+  cancelado
+  concluido
+}
+
+enum ReferralStatus {
+  pending
+  converted
+  expired
+}

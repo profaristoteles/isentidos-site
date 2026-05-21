@@ -1,0 +1,8 @@
+{
+  "name": "Instituto Sentidos",
+  "description": "Instituição educacional em Caxias (MA) oferecendo cursos livres, pós-graduação e programas internacionais em parceria com Ivy Enber University e FAEPI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
