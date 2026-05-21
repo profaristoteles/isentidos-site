@@ -81,8 +81,8 @@ async function main() {
   for (const course of seedCourses) {
     await prisma.course.upsert({
       where: { slug: course.slug },
-      update: course,
-      create: course,
+      update: course as any,
+      create: course as any,
     });
   }
 

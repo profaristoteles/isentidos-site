@@ -42,5 +42,5 @@ RUN mkdir -p public/uploads
 # Expõe a porta interna da aplicação
 EXPOSE 4000
 
-# Executa migrações do banco e inicia a API Express
-CMD npx prisma migrate deploy && npm run start
+# Executa migrações do banco, popula dados iniciais (seed) e inicia a API Express
+CMD npx prisma migrate deploy && npm run db:seed:prod && npm run start
