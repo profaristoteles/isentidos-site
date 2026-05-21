@@ -2184,7 +2184,8 @@ function AdminApp() {
 
   async function saveAdminUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const name = String(form.get('name'));
     const email = String(form.get('email'));
     const role = String(form.get('role'));
@@ -2202,7 +2203,7 @@ function AdminApp() {
           setAdminUsers((prev) => prev.map((u) => u.id === editingAdminUser.id ? updated.data : u));
           setEditingAdminUser(null);
           showNotice('Usuário atualizado com sucesso.');
-          event.currentTarget.reset();
+          formElement.reset();
         } else {
           const err = await res.json();
           alert('Erro ao atualizar usuário: ' + (err.error || 'Erro desconhecido'));
@@ -2225,7 +2226,7 @@ function AdminApp() {
           const created = await res.json();
           setAdminUsers((prev) => [...prev, created.data]);
           showNotice('Usuário cadastrado com sucesso.');
-          event.currentTarget.reset();
+          formElement.reset();
         } else {
           const err = await res.json();
           alert('Erro ao cadastrar usuário: ' + (err.error || 'Erro desconhecido'));
@@ -2299,7 +2300,8 @@ function AdminApp() {
 
   async function saveBanner(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const imageUrl = await uploadImage((form.get('image') as File | null) ?? null);
     if (editingBanner) {
       const updated: Banner = { ...editingBanner, title: String(form.get('title')), subtitle: String(form.get('subtitle')), ctaLabel: String(form.get('ctaLabel')), ctaUrl: String(form.get('ctaUrl')), imageUrl: imageUrl || editingBanner.imageUrl };
@@ -2313,7 +2315,7 @@ function AdminApp() {
       if (token) fetch('/api/admin/banners', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...banner, isActive: true, sortOrder: 0, position: 'home_hero' }) }).catch(() => {});
       showNotice('Banner criado e aplicado na home.');
     }
-    event.currentTarget.reset();
+    formElement.reset();
   }
 
   function deleteBanner(id: number | string) {
@@ -2771,7 +2773,8 @@ function AdminApp() {
 
   async function generateReferralCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const studentName = String(form.get('studentName'));
     const studentEmail = String(form.get('studentEmail'));
 
@@ -2786,7 +2789,7 @@ function AdminApp() {
           const { data } = await res.json();
           setReferralCodes((prev) => [{ id: data.id, code: data.code, studentName: data.student?.name ?? studentName, studentEmail: data.student?.email ?? studentEmail, conversions: 0, isActive: true }, ...prev]);
           showNotice(`Código ${data.code} gerado com sucesso.`);
-          event.currentTarget.reset();
+          formElement.reset();
           return;
         }
       } catch { /* fallback */ }
@@ -2796,7 +2799,7 @@ function AdminApp() {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     setReferralCodes((prev) => [{ id: Date.now(), code, studentName, studentEmail, conversions: 0, isActive: true }, ...prev]);
     showNotice(`Código ${code} gerado (modo local — não persistido no banco).`);
-    event.currentTarget.reset();
+    formElement.reset();
   }
 
   async function saveReferralSettings() {
@@ -4370,7 +4373,8 @@ function AdminApp() {
                       onSubmit={async (e) => {
                         e.preventDefault();
                         if (!token) { alert('Sessão expirada. Por favor, faça login novamente.'); return; }
-                        const form = new FormData(e.currentTarget);
+                        const formElement = e.currentTarget;
+                        const form = new FormData(formElement);
                         const label = String(form.get('label'));
                         const href = String(form.get('href'));
                         const isActive = form.get('isActive') === 'true';
@@ -4412,7 +4416,7 @@ function AdminApp() {
                               showNotice('Item de menu criado!');
                             }
                           }
-                          e.currentTarget.reset();
+                          formElement.reset();
                         } catch {
                           alert('Erro ao salvar item.');
                         }
@@ -5167,7 +5171,8 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   async function handleLeadSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSending(true);
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await fetch('/api/leads', {
         method: 'POST',
@@ -5182,7 +5187,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
         }),
       });
       setLeadMessage('Recebemos sua solicitação! Nossa equipe entrará em contato em breve.');
-      event.currentTarget.reset();
+      formElement.reset();
     } catch { /* ignore */ }
     setSending(false);
   }
