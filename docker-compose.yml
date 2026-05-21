@@ -20,8 +20,6 @@ services:
       dockerfile: Dockerfile
     container_name: isentidos-app
     restart: always
-    ports:
-      - "${PORT_MAP:-3000}:4000"
     environment:
       NODE_ENV: production
       PORT: 4000
@@ -36,6 +34,15 @@ services:
       - uploads-data:/app/public/uploads
     networks:
       - isentidos-network
+      - traefik_network
+    labels:
+      - "traefik.enable=true"
+      # Configuração de rotas para o domínio principal e subdomínio www
+      - "traefik.http.routers.isentidos-app.rule=Host(`isentidos.com.br`) || Host(`www.isentidos.com.br`)"
+      - "traefik.http.routers.isentidos-app.entrypoints=websecure"
+      - "traefik.http.routers.isentidos-app.tls.certresolver=letsencrypt"
+      # Direcionamento do Traefik para a porta 4000 do container
+      - "traefik.http.services.isentidos-app.loadbalancer.server.port=4000"
 
 volumes:
   pgdata:
@@ -46,3 +53,5 @@ volumes:
 networks:
   isentidos-network:
     driver: bridge
+  traefik_network:
+    external: true
