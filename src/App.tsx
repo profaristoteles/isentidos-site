@@ -1083,8 +1083,8 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
                 {selectedCourse && (
                   <div className="mt-4 border-t border-slate-100 pt-6">
                     {(() => {
-                      const formId = selectedCourse.leadConnectorFormId || (selectedCourse.modality === 'Online ao vivo' || selectedCourse.modality === 'EAD' ? 'm1woQ1eYGfimUdhQledm' : 'vGP5eYKDquXDlCnq9mf9');
-                      if (formId === 'native') {
+                      const crmForm = resolveLeadConnectorForm(selectedCourse, referralCode);
+                      if (crmForm.isNative) {
                         return (
                           <form onSubmit={handleSubmit} className="grid gap-4">
                             <Field label="Nome completo" name="name" placeholder="Seu nome completo" required />
@@ -1103,24 +1103,7 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
                         );
                       }
                       return (
-                        <iframe
-                          key={formId}
-                          src={`https://api.leadconnectorhq.com/widget/form/${formId}?ref=${referralCode}&referral_code=${referralCode}`}
-                          style={{ width: '100%', height: '540px', border: 'none', borderRadius: '16px' }}
-                          id={`inline-${formId}`}
-                          data-layout="{'id':'INLINE'}"
-                          data-trigger-type="alwaysShow"
-                          data-trigger-value=""
-                          data-activation-type="alwaysActivated"
-                          data-activation-value=""
-                          data-deactivation-type="neverDeactivate"
-                          data-deactivation-value=""
-                          data-form-name="Formulário CRM"
-                          data-height="540"
-                          data-layout-iframe-id={`inline-${formId}`}
-                          data-form-id={formId}
-                          title="Pré-matrícula"
-                        />
+                        <LeadConnectorFormFrame config={crmForm} height={540} />
                       );
                     })()}
                   </div>
@@ -3357,12 +3340,12 @@ function AdminApp() {
                         />
                         <div>
                           <Field
-                            label="ID do Formulário LeadConnector / CRM"
+                            label="ID ou URL do Formulário LeadConnector / CRM"
                             name="leadConnectorFormId"
-                            placeholder="Ex: m1woQ1eYGfimUdhQledm"
+                            placeholder="Ex: m1woQ1eYGfimUdhQledm ou https://api.leadconnectorhq.com/widget/form/..."
                             defaultValue={editingCourse?.leadConnectorFormId}
                           />
-                          <p className="mt-1.5 text-xs text-slate-500">Se vazio, usa o formulário padrão configurado no CRM. Preencha para sobreescrever por curso.</p>
+                          <p className="mt-1.5 text-xs text-slate-500">Se vazio, usa automaticamente Pós-ao vivo para cursos Online/EAD e Pós-presencial para cursos presenciais. Preencha um ID ou URL completa para sobrescrever por curso.</p>
                         </div>
                       </div>
                     </section>
@@ -5474,6 +5457,94 @@ function mapApiCourse(c: any): Course {
 
 // ── Nova Página de Cursos (Listagem + Filtros) ────────────────────────────────
 
+const LEADCONNECTOR_ONLINE_FORM_ID = 'm1woQ1eYGfimUdhQledm';
+const LEADCONNECTOR_PRESENTIAL_FORM_ID = 'vGP5eYKDquXDlCnq9mf9';
+const LEADCONNECTOR_FORM_BASE_URL = 'https://api.leadconnectorhq.com/widget/form';
+
+function appendCrmReferralParams(url: string, referralCode: string) {
+  if (!referralCode) return url;
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set('ref', referralCode);
+    parsed.searchParams.set('referral_code', referralCode);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+function isOnlineCourse(course: Pick<Course, 'modality' | 'kind'>) {
+  const modality = String(course.modality);
+  const kind = String(course.kind || '').toLowerCase();
+  return modality === ModalityType.ONLINE || modality === 'ONLINE' || modality === 'EAD' || modality === 'Online ao vivo' || kind.includes('ead');
+}
+
+function getDefaultLeadConnectorFormId(course: Pick<Course, 'modality' | 'kind'>) {
+  return isOnlineCourse(course) ? LEADCONNECTOR_ONLINE_FORM_ID : LEADCONNECTOR_PRESENTIAL_FORM_ID;
+}
+
+function resolveLeadConnectorForm(course: Course, referralCode = '') {
+  const configured = String(course.leadConnectorFormId || '').trim();
+  const value = configured || getDefaultLeadConnectorFormId(course);
+  const online = isOnlineCourse(course);
+
+  if (value.toLowerCase() === 'native') {
+    return { isNative: true, id: 'native', url: '', iframeId: 'native', formName: 'Formulário interno' };
+  }
+
+  if (/^https?:\/\//i.test(value)) {
+    const secureUrl = value.replace(/^http:\/\//i, 'https://');
+    const id = secureUrl.match(/\/widget\/form\/([^/?#]+)/i)?.[1] || `custom-${course.id}`;
+    return {
+      isNative: false,
+      id,
+      url: appendCrmReferralParams(secureUrl, referralCode),
+      iframeId: `inline-${id}`,
+      formName: online ? 'Pós-ao vivo' : 'Pós-presencial',
+    };
+  }
+
+  const id = value.replace(/^https?:\/\/api\.leadconnectorhq\.com\/widget\/form\//i, '').split(/[?#]/)[0];
+  return {
+    isNative: false,
+    id,
+    url: appendCrmReferralParams(`${LEADCONNECTOR_FORM_BASE_URL}/${id}`, referralCode),
+    iframeId: `inline-${id}`,
+    formName: online ? 'Pós-ao vivo' : 'Pós-presencial',
+  };
+}
+
+function LeadConnectorFormFrame({ config, height = 720 }: { config: ReturnType<typeof resolveLeadConnectorForm>; height?: number }) {
+  useEffect(() => {
+    const existingScript = document.querySelector('script[src="https://link.msgsndr.com/js/form_embed.js"]');
+    if (existingScript) return;
+    const script = document.createElement('script');
+    script.src = 'https://link.msgsndr.com/js/form_embed.js';
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
+
+  return (
+    <iframe
+      src={config.url}
+      style={{ width: '100%', height: `${height}px`, border: 'none', borderRadius: '8px' }}
+      id={config.iframeId}
+      data-layout="{'id':'INLINE'}"
+      data-trigger-type="alwaysShow"
+      data-trigger-value=""
+      data-activation-type="alwaysActivated"
+      data-activation-value=""
+      data-deactivation-type="neverDeactivate"
+      data-deactivation-value=""
+      data-form-name={config.formName}
+      data-height={String(height)}
+      data-layout-iframe-id={config.iframeId}
+      data-form-id={config.id}
+      title={config.formName}
+    />
+  );
+}
+
 function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [filterModality, setFilterModality] = useState<string>('Todos');
@@ -5612,6 +5683,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   const [activeInfoTab, setActiveInfoTab] = useState<'about' | 'modules' | 'syllabus' | 'faq'>('about');
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(null);
   const [showNativeForm, setShowNativeForm] = useState(false);
+  const [showCrmForm, setShowCrmForm] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -5691,15 +5763,16 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   const whatsappNumber = cleanWhatsapp.length <= 11 ? `55${cleanWhatsapp}` : cleanWhatsapp;
   const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Olá, quero saber mais sobre o curso ${course.title}`)}`;
 
-  const ghlFormId = course.leadConnectorFormId || (course.modality === 'Online ao vivo' || course.modality === 'EAD' ? 'm1woQ1eYGfimUdhQledm' : 'vGP5eYKDquXDlCnq9mf9');
   const refCode = localStorage.getItem('isentidos_guest_referral_code') || '';
-  const formUrl = `https://api.leadconnectorhq.com/widget/form/${ghlFormId}?ref=${refCode}&referral_code=${refCode}`;
+  const crmForm = resolveLeadConnectorForm(course, refCode);
 
   const handleInscricaoClick = (e: React.MouseEvent) => {
-    if (ghlFormId === 'native') {
-      e.preventDefault();
+    e.preventDefault();
+    if (crmForm.isNative) {
       setShowNativeForm(true);
+      return;
     }
+    setShowCrmForm(true);
   };
 
   const isHtml = (str: string) => /<[a-z][\s\S]*>/i.test(str);
@@ -5935,10 +6008,8 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
 
               <div className="flex flex-col gap-3">
                 <a
-                  href={formUrl}
+                  href={crmForm.url || '#'}
                   onClick={handleInscricaoClick}
-                  target={ghlFormId === 'native' ? undefined : "_blank"}
-                  rel={ghlFormId === 'native' ? undefined : "noreferrer"}
                   className="block w-full rounded-xl bg-orange-primary px-6 py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-orange-primary/20 transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-orange-primary/30"
                 >
                   Quero me inscrever
@@ -6042,6 +6113,30 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
       )}
 
       <SiteFooter />
+
+      {/* CRM Form Modal */}
+      {showCrmForm && !crmForm.isNative && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
+          <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-orange-primary">Pré-matrícula</p>
+                <h3 className="font-display text-lg font-bold text-navy">{course.title}</h3>
+              </div>
+              <button
+                onClick={() => setShowCrmForm(false)}
+                className="rounded-lg border border-slate-200 p-2 text-slate-400 transition hover:border-red-300 hover:text-red-500"
+                aria-label="Fechar formulário"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto bg-slate-50 p-3">
+              <LeadConnectorFormFrame config={crmForm} height={760} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Native Form Modal Fallback */}
       {showNativeForm && (
