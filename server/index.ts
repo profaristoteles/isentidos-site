@@ -672,7 +672,7 @@ app.get('/api/courses', async (_req, res) => {
       });
       return rows.map(serializeCourse);
     },
-    seedCourses.map((c, idx) => serializeCourse({ ...c, id: `seed-${idx}` })),
+    [],
   );
 
   res.json({ data: courses });
@@ -777,7 +777,7 @@ app.get('/api/site-content', async (_req, res) => {
     },
     {
       banners: [],
-      courses: seedCourses,
+      courses: [],
       posts: seedPosts,
       ebooks: [],
       events: [],
@@ -1454,7 +1454,7 @@ app.get('/api/admin/banners', authMiddleware, async (_req, res) => {
 app.get('/api/admin/courses', authMiddleware, async (_req, res) => {
   const courses = await withDatabase(
     async () => (await prisma.course.findMany({ orderBy: { title: 'asc' } })).map(serializeCourse),
-    seedCourses.map((c, idx) => serializeCourse({ ...c, id: `seed-${idx}` })),
+    [],
   );
   res.json({ data: courses });
 });

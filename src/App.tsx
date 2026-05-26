@@ -5483,13 +5483,22 @@ function getDefaultLeadConnectorFormId(course: Pick<Course, 'modality' | 'kind'>
   return isOnlineCourse(course) ? LEADCONNECTOR_ONLINE_FORM_ID : LEADCONNECTOR_PRESENTIAL_FORM_ID;
 }
 
+function isAdvancedAcademicCourse(course: Pick<Course, 'kind'>) {
+  const kind = String(course.kind || '').toLowerCase();
+  return kind.includes('mestrado') || kind.includes('doutorado');
+}
+
 function resolveLeadConnectorForm(course: Course, referralCode = '') {
   const configured = String(course.leadConnectorFormId || '').trim();
+  if (!configured && isAdvancedAcademicCourse(course)) {
+    return { isNative: true, redirectToWhatsapp: true, id: 'whatsapp-interest', url: '', iframeId: 'whatsapp-interest', formName: 'Atendimento via WhatsApp' };
+  }
+
   const value = configured || getDefaultLeadConnectorFormId(course);
   const online = isOnlineCourse(course);
 
   if (value.toLowerCase() === 'native') {
-    return { isNative: true, id: 'native', url: '', iframeId: 'native', formName: 'Formulário interno' };
+    return { isNative: true, redirectToWhatsapp: false, id: 'native', url: '', iframeId: 'native', formName: 'Formulário interno' };
   }
 
   if (/^https?:\/\//i.test(value)) {
@@ -5497,6 +5506,7 @@ function resolveLeadConnectorForm(course: Course, referralCode = '') {
     const id = secureUrl.match(/\/widget\/form\/([^/?#]+)/i)?.[1] || `custom-${course.id}`;
     return {
       isNative: false,
+      redirectToWhatsapp: false,
       id,
       url: appendCrmReferralParams(secureUrl, referralCode),
       iframeId: `inline-${id}`,
@@ -5507,6 +5517,7 @@ function resolveLeadConnectorForm(course: Course, referralCode = '') {
   const id = value.replace(/^https?:\/\/api\.leadconnectorhq\.com\/widget\/form\//i, '').split(/[?#]/)[0];
   return {
     isNative: false,
+    redirectToWhatsapp: false,
     id,
     url: appendCrmReferralParams(`${LEADCONNECTOR_FORM_BASE_URL}/${id}`, referralCode),
     iframeId: `inline-${id}`,
@@ -5560,6 +5571,7 @@ function CoursesPage() {
   }, []);
 
   const areas = ['Todas', ...Array.from(new Set(courses.map(c => c.area)))];
+  const availableCourseKinds = courseKinds.filter(k => k === 'Todos' || courses.some(c => c.kind === k));
 
   const filtered = courses.filter(c => {
     if (filterModality !== 'Todos' && getModalityLabel(c.modality, c.kind) !== filterModality) return false;
@@ -5584,7 +5596,7 @@ function CoursesPage() {
           <div>
             <h3 className="font-bold text-navy mb-4 border-b border-slate-200 pb-2">Tipo de Curso</h3>
             <div className="space-y-3">
-              {courseKinds.map(k => (
+              {availableCourseKinds.map(k => (
                 <label key={k} className="flex items-center gap-3 cursor-pointer text-sm text-slate-700">
                   <input type="radio" checked={filterKind === k} onChange={() => setFilterKind(k)} className="h-4 w-4 accent-orange-primary" /> {k}
                 </label>
@@ -5740,8 +5752,9 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
     setSending(true);
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const redirectToWhatsapp = isAdvancedAcademicCourse(course) && !String(course.leadConnectorFormId || '').trim();
     try {
-      await fetch('/api/leads', {
+      const response = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5749,13 +5762,21 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
           email: String(form.get('email')),
           phone: String(form.get('phone')),
           courseSlug: courseSlug,
-          source: 'landing_page',
+          preferredFormat: isOnlineCourse(course) ? 'online_ao_vivo' : 'presencial',
+          source: redirectToWhatsapp ? 'whatsapp_interest_form' : 'landing_page',
+          notes: `Interesse em ${course.kind}: ${course.title}`,
           consentLgpd: true,
         }),
       });
-      setLeadMessage('Recebemos sua solicitação! Nossa equipe entrará em contato em breve.');
+      if (!response.ok) throw new Error('lead_submit_failed');
+      setLeadMessage(redirectToWhatsapp ? 'Cadastro recebido. Vamos te direcionar para o WhatsApp.' : 'Recebemos sua solicitação! Nossa equipe entrará em contato em breve.');
       formElement.reset();
-    } catch { /* ignore */ }
+      if (redirectToWhatsapp) {
+        window.location.href = whatsappLink;
+      }
+    } catch {
+      setLeadMessage('Não conseguimos registrar agora. Tente novamente em instantes.');
+    }
     setSending(false);
   }
 
