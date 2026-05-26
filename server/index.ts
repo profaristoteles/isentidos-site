@@ -16,6 +16,7 @@ import { seedCourses, seedLeads, seedPosts } from './seed-data.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
+app.set('trust proxy', 1);
 const port = Number(process.env.PORT ?? 4000);
 const jwtSecret = process.env.JWT_SECRET ?? 'dev-only-change-me';
 const uploadDir = path.resolve(process.cwd(), 'public', 'uploads');
@@ -1092,8 +1093,14 @@ app.put('/api/admin/banners/:id', authMiddleware, async (req, res) => {
 });
 
 app.delete('/api/admin/banners/:id', authMiddleware, async (req, res) => {
-  try { await prisma.banner.delete({ where: { id: req.params.id } }); res.json({ ok: true }); }
-  catch { res.status(404).json({ error: 'Banner nÃ£o encontrado.' }); }
+  try {
+    const { count } = await prisma.banner.deleteMany({ where: { id: req.params.id } });
+    if (count === 0) return res.status(404).json({ error: 'Banner não encontrado ou já excluído.' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao excluir banner:', error);
+    res.status(500).json({ error: 'Erro ao processar exclusão.' });
+  }
 });
 
 app.put('/api/admin/courses/:id', authMiddleware, async (req, res) => {
@@ -1107,9 +1114,13 @@ app.put('/api/admin/courses/:id', authMiddleware, async (req, res) => {
 
 app.delete('/api/admin/courses/:id', authMiddleware, async (req, res) => {
   try {
-    await prisma.course.delete({ where: { id: req.params.id } });
+    const { count } = await prisma.course.deleteMany({ where: { id: req.params.id } });
+    if (count === 0) return res.status(404).json({ error: 'Curso não encontrado ou já excluído.' });
     res.json({ ok: true });
-  } catch { res.status(404).json({ error: 'Curso nÃ£o encontrado.' }); }
+  } catch (error) {
+    console.error('Erro ao excluir curso:', error);
+    res.status(500).json({ error: 'Erro ao processar exclusão.' });
+  }
 });
 
 app.put('/api/admin/blog-posts/:id', authMiddleware, async (req, res) => {
@@ -1125,8 +1136,14 @@ app.put('/api/admin/blog-posts/:id', authMiddleware, async (req, res) => {
 });
 
 app.delete('/api/admin/blog-posts/:id', authMiddleware, async (req, res) => {
-  try { await prisma.blogPost.delete({ where: { id: req.params.id } }); res.json({ ok: true }); }
-  catch { res.status(404).json({ error: 'Post nÃ£o encontrado.' }); }
+  try {
+    const { count } = await prisma.blogPost.deleteMany({ where: { id: req.params.id } });
+    if (count === 0) return res.status(404).json({ error: 'Post não encontrado ou já excluído.' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao excluir post:', error);
+    res.status(500).json({ error: 'Erro ao processar exclusão.' });
+  }
 });
 
 app.put('/api/admin/ebooks/:id', authMiddleware, async (req, res) => {
@@ -1139,8 +1156,14 @@ app.put('/api/admin/ebooks/:id', authMiddleware, async (req, res) => {
 });
 
 app.delete('/api/admin/ebooks/:id', authMiddleware, async (req, res) => {
-  try { await prisma.ebook.delete({ where: { id: req.params.id } }); res.json({ ok: true }); }
-  catch { res.status(404).json({ error: 'E-book nÃ£o encontrado.' }); }
+  try {
+    const { count } = await prisma.ebook.deleteMany({ where: { id: req.params.id } });
+    if (count === 0) return res.status(404).json({ error: 'E-book não encontrado ou já excluído.' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao excluir e-book:', error);
+    res.status(500).json({ error: 'Erro ao processar exclusão.' });
+  }
 });
 
 app.put('/api/admin/events/:id', authMiddleware, async (req, res) => {
@@ -1156,8 +1179,14 @@ app.put('/api/admin/events/:id', authMiddleware, async (req, res) => {
 });
 
 app.delete('/api/admin/events/:id', authMiddleware, async (req, res) => {
-  try { await prisma.event.delete({ where: { id: req.params.id } }); res.json({ ok: true }); }
-  catch { res.status(404).json({ error: 'Evento nÃ£o encontrado.' }); }
+  try {
+    const { count } = await prisma.event.deleteMany({ where: { id: req.params.id } });
+    if (count === 0) return res.status(404).json({ error: 'Evento não encontrado ou já excluído.' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao excluir evento:', error);
+    res.status(500).json({ error: 'Erro ao processar exclusão.' });
+  }
 });
 
 app.put('/api/admin/leads/:id', authMiddleware, async (req, res) => {
@@ -1840,10 +1869,12 @@ app.put('/api/admin/menu/:id', authMiddleware, async (req, res) => {
 
 app.delete('/api/admin/menu/:id', authMiddleware, async (req, res) => {
   try {
-    await prisma.menuItem.delete({ where: { id: req.params.id } });
+    const { count } = await prisma.menuItem.deleteMany({ where: { id: req.params.id } });
+    if (count === 0) return res.status(404).json({ error: 'Menu não encontrado ou já excluído.' });
     res.json({ ok: true });
-  } catch {
-    res.status(404).json({ error: 'Menu nÃ£o encontrado.' });
+  } catch (error) {
+    console.error('Erro ao excluir menu:', error);
+    res.status(500).json({ error: 'Erro ao processar exclusão.' });
   }
 });
 

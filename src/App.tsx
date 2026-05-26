@@ -2320,9 +2320,21 @@ function AdminApp() {
 
   function deleteBanner(id: number | string) {
     if (!confirm('Excluir este banner?')) return;
-    setBanners((prev) => prev.filter((b) => b.id !== id));
-    if (token) fetch(`/api/admin/banners/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
-    showNotice('Banner excluído.');
+    if (token) {
+      fetch(`/api/admin/banners/${id}`, { 
+        method: 'DELETE', 
+        headers: { Authorization: `Bearer ${token}` } 
+      })
+      .then(res => {
+        if (res.ok) {
+          setBanners((prev) => prev.filter((b) => b.id !== id));
+          showNotice('Banner excluído.');
+        } else {
+          res.json().then(err => alert('Erro ao excluir banner: ' + (err.error || 'Erro desconhecido')));
+        }
+      })
+      .catch(() => alert('Erro de conexão com o servidor.'));
+    }
   }
 
   function saveCourse(event: FormEvent<HTMLFormElement>) {
@@ -2341,6 +2353,7 @@ function AdminApp() {
       const updated: Course = { 
         ...editingCourse, 
         title, 
+        slug: slugify(title),
         kind: String(form.get('kind')) as CourseKind, 
         modality: String(form.get('modality')) as Modality, 
         area: String(form.get('area')), 
@@ -2365,6 +2378,7 @@ function AdminApp() {
       const parseJsonSafely = (str: string) => { try { return str ? JSON.parse(str) : null; } catch { return null; } };
       const apiData = {
         title: updated.title, 
+        slug: updated.slug,
         description: updated.summary, 
         type: courseTypeToApi(updated as Course), 
         modality: modalityToApi(updated.modality), 
@@ -2385,7 +2399,21 @@ function AdminApp() {
         maxInstallments,
         leadConnectorFormId: leadConnectorFormId || null
       };
-      if (token) fetch(`/api/admin/courses/${editingCourse.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(apiData) }).catch(() => {});
+      if (token) {
+        fetch(`/api/admin/courses/${editingCourse.id}`, { 
+          method: 'PUT', 
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, 
+          body: JSON.stringify(apiData) 
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res.data) {
+            const serverCourse = mapApiCourse(res.data);
+            setCourses((prev) => prev.map((c) => c.id === editingCourse.id ? serverCourse : c));
+          }
+        })
+        .catch(() => {});
+      }
       setEditingCourse(null);
       showNotice('Curso atualizado.');
     } else {
@@ -2439,7 +2467,21 @@ function AdminApp() {
         installmentValue,
         leadConnectorFormId: leadConnectorFormId || null
       };
-      if (token) fetch('/api/admin/courses', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(apiData) }).catch(() => {});
+      if (token) {
+        fetch('/api/admin/courses', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, 
+          body: JSON.stringify(apiData) 
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res.data) {
+            const serverCourse = mapApiCourse(res.data);
+            setCourses((prev) => prev.map((c) => c.id === course.id ? serverCourse : c));
+          }
+        })
+        .catch(() => {});
+      }
       showNotice('Curso cadastrado.');
     }
     event.currentTarget.reset();
@@ -2447,9 +2489,21 @@ function AdminApp() {
 
   function deleteCourse(id: number | string) {
     if (!confirm('Tem certeza de que deseja excluir permanentemente este curso? Todos os dados vinculados a ele serão perdidos.')) return;
-    setCourses((prev) => prev.filter((c) => c.id !== id));
-    if (token) fetch(`/api/admin/courses/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
-    showNotice('Curso excluído definitivamente.');
+    if (token) {
+      fetch(`/api/admin/courses/${id}`, { 
+        method: 'DELETE', 
+        headers: { Authorization: `Bearer ${token}` } 
+      })
+      .then(res => {
+        if (res.ok) {
+          setCourses((prev) => prev.filter((c) => c.id !== id));
+          showNotice('Curso excluído definitivamente.');
+        } else {
+          res.json().then(err => alert('Erro ao excluir curso: ' + (err.error || 'Erro desconhecido')));
+        }
+      })
+      .catch(() => alert('Erro de conexão com o servidor.'));
+    }
   }
 
   function savePost(event: FormEvent<HTMLFormElement>) {
@@ -2599,9 +2653,21 @@ function AdminApp() {
 
   function deletePost(id: number | string) {
     if (!confirm('Excluir este post?')) return;
-    setPosts((prev) => prev.filter((p) => p.id !== id));
-    if (token) fetch(`/api/admin/blog-posts/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
-    showNotice('Post excluído.');
+    if (token) {
+      fetch(`/api/admin/blog-posts/${id}`, { 
+        method: 'DELETE', 
+        headers: { Authorization: `Bearer ${token}` } 
+      })
+      .then(res => {
+        if (res.ok) {
+          setPosts((prev) => prev.filter((p) => p.id !== id));
+          showNotice('Post excluído.');
+        } else {
+          res.json().then(err => alert('Erro ao excluir post: ' + (err.error || 'Erro desconhecido')));
+        }
+      })
+      .catch(() => alert('Erro de conexão com o servidor.'));
+    }
   }
 
   function saveEbook(event: FormEvent<HTMLFormElement>) {
@@ -2689,9 +2755,21 @@ function AdminApp() {
 
   function deleteEbook(id: number | string) {
     if (!confirm('Excluir este e-book?')) return;
-    setEbooks((prev) => prev.filter((e) => e.id !== id));
-    if (token) fetch(`/api/admin/ebooks/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
-    showNotice('E-book excluído.');
+    if (token) {
+      fetch(`/api/admin/ebooks/${id}`, { 
+        method: 'DELETE', 
+        headers: { Authorization: `Bearer ${token}` } 
+      })
+      .then(res => {
+        if (res.ok) {
+          setEbooks((prev) => prev.filter((e) => e.id !== id));
+          showNotice('E-book excluído.');
+        } else {
+          res.json().then(err => alert('Erro ao excluir e-book: ' + (err.error || 'Erro desconhecido')));
+        }
+      })
+      .catch(() => alert('Erro de conexão com o servidor.'));
+    }
   }
 
   function saveEvent(event: FormEvent<HTMLFormElement>) {
@@ -2766,9 +2844,21 @@ function AdminApp() {
 
   function deleteEvent(id: number | string) {
     if (!confirm('Excluir este evento?')) return;
-    setEvents((prev) => prev.filter((e) => e.id !== id));
-    if (token) fetch(`/api/admin/events/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
-    showNotice('Evento excluído.');
+    if (token) {
+      fetch(`/api/admin/events/${id}`, { 
+        method: 'DELETE', 
+        headers: { Authorization: `Bearer ${token}` } 
+      })
+      .then(res => {
+        if (res.ok) {
+          setEvents((prev) => prev.filter((e) => e.id !== id));
+          showNotice('Evento excluído.');
+        } else {
+          res.json().then(err => alert('Erro ao excluir evento: ' + (err.error || 'Erro desconhecido')));
+        }
+      })
+      .catch(() => alert('Erro de conexão com o servidor.'));
+    }
   }
 
   async function generateReferralCode(event: FormEvent<HTMLFormElement>) {
@@ -3100,11 +3190,32 @@ function AdminApp() {
                 </form>
               </Panel>
               <Panel title="Cursos cadastrados">
-                <ResourceList
-                  items={courses.map((c) => ({ id: c.id, label: c.title, sub: `${c.kind} · ${c.modality}`, badge: c.active ? 'ativo' : 'inativo', badgeGreen: c.active }))}
-                  onEdit={(id) => { const c = courses.find((x) => x.id === id); if (c) setEditingCourse(c); }}
-                  onDelete={deleteCourse}
-                />
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-orange-primary mb-3">Cursos Presenciais</h3>
+                    {courses.filter(c => c.modality === 'Presencial').length > 0 ? (
+                      <ResourceList
+                        items={courses.filter(c => c.modality === 'Presencial').map((c) => ({ id: c.id, label: c.title, sub: `${c.kind} · ${c.modality}`, badge: c.active ? 'ativo' : 'inativo', badgeGreen: c.active }))}
+                        onEdit={(id) => { const c = courses.find((x) => x.id === id); if (c) setEditingCourse(c); }}
+                        onDelete={deleteCourse}
+                      />
+                    ) : (
+                      <p className="text-sm text-slate-500 italic">Nenhum curso presencial cadastrado.</p>
+                    )}
+                  </div>
+                  <div className="border-t border-slate-100 pt-4">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-blue-action mb-3">Cursos Online / EAD</h3>
+                    {courses.filter(c => c.modality !== 'Presencial').length > 0 ? (
+                      <ResourceList
+                        items={courses.filter(c => c.modality !== 'Presencial').map((c) => ({ id: c.id, label: c.title, sub: `${c.kind} · ${c.modality}`, badge: c.active ? 'ativo' : 'inativo', badgeGreen: c.active }))}
+                        onEdit={(id) => { const c = courses.find((x) => x.id === id); if (c) setEditingCourse(c); }}
+                        onDelete={deleteCourse}
+                      />
+                    ) : (
+                      <p className="text-sm text-slate-500 italic">Nenhum curso online cadastrado.</p>
+                    )}
+                  </div>
+                </div>
               </Panel>
             </AdminGrid>
           )}
@@ -5260,7 +5371,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
         </div>
         
         <div className="mx-auto max-w-6xl px-4 relative z-10 text-center">
-          <span className="mb-6 inline-block rounded-full bg-orange-primary/20 px-5 py-2 text-sm font-bold text-orange-400 border border-orange-primary/30 uppercase tracking-widest">{course.kind} • {course.modality === 'online_ao_vivo' ? 'Online ao vivo' : course.modality === 'ead' ? 'EAD' : 'Presencial'}</span>
+          <span className="mb-6 inline-block rounded-full bg-orange-primary/20 px-5 py-2 text-sm font-bold text-orange-400 border border-orange-primary/30 uppercase tracking-widest">{course.kind} • {course.modality}</span>
           <h1 className="mb-6 font-display text-4xl font-bold leading-tight md:text-6xl text-white">{course.title}</h1>
           <p className="mx-auto mb-10 max-w-3xl text-lg text-white/80">{course.summary}</p>
           
@@ -5391,7 +5502,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
                   </div>
                   <div>
                     <p className="text-[10px] uppercase font-bold text-slate-400">Modalidade</p>
-                    <p className="text-sm font-bold text-navy">{course.modality === 'online_ao_vivo' ? 'Online ao vivo' : course.modality === 'ead' ? 'EAD' : 'Presencial'}</p>
+                    <p className="text-sm font-bold text-navy">{course.modality}</p>
                   </div>
                 </div>
                 

@@ -67,32 +67,43 @@ async function main() {
   const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@isentidos.com.br';
   const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin123';
 
-  await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: { role: 'admin' },
-    create: {
-      name: 'Administrador Instituto Sentidos',
-      email: adminEmail,
-      role: 'admin',
-      passwordHash: await bcrypt.hash(adminPassword, 12),
-    },
-  });
-
-  for (const course of seedCourses) {
-    await prisma.course.upsert({
-      where: { slug: course.slug },
-      update: course as any,
-      create: course as any,
+  const adminExists = await prisma.user.findUnique({ where: { email: adminEmail } });
+  if (!adminExists) {
+    await prisma.user.create({
+      data: {
+        name: 'Administrador Instituto Sentidos',
+        email: adminEmail,
+        role: 'admin',
+        passwordHash: await bcrypt.hash(adminPassword, 12),
+      },
     });
+    console.log('Usuário admin inicial criado.');
   }
 
-  for (const post of seedPosts) {
-    await prisma.blogPost.upsert({
-      where: { slug: post.slug },
-      update: { ...post, publishedAt: post.isPublished ? new Date() : null },
-      create: { ...post, publishedAt: post.isPublished ? new Date() : null },
-    });
+  const courseCount = await prisma.course.count();
+  if (courseCount === 0) {
+    for (const course of seedCourses) {
+      await prisma.course.create({
+        data: course as any,
+      });
+    }
+    console.log('Cursos padrão criados.');
+  } else {
+    console.log('Banco já possui cursos. Pulando seed de cursos.');
   }
+
+  const postCount = await prisma.blogPost.count();
+  if (postCount === 0) {
+    for (const post of seedPosts) {
+      await prisma.blogPost.create({
+        data: { ...post, publishedAt: post.isPublished ? new Date() : null } as any,
+      });
+    }
+    console.log('Posts de blog padrão criados.');
+  } else {
+    console.log('Banco já possui posts de blog. Pulando seed de posts.');
+  }
+
 
   // Seed e-books
   const ebookCount = await prisma.ebook.count();

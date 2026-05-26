@@ -42,5 +42,6 @@ RUN mkdir -p public/uploads
 # Expõe a porta interna da aplicação
 EXPOSE 4000
 
-# Executa a sincronização do banco (cria tabelas), popula dados iniciais (seed) e inicia a API Express
-CMD npx prisma db push && npm run db:seed:prod && npm run start
+# Executa a sincronização do banco (cria tabelas) e inicia a API Express
+CMD npx prisma db push && npm run start
+
