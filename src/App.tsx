@@ -1957,6 +1957,8 @@ function AdminApp() {
   const [courseAbout, setCourseAbout] = useState('');
   const [courseSyllabus, setCourseSyllabus] = useState('');
   const [courseCoverUrl, setCourseCoverUrl] = useState('');
+  const [courseSearch, setCourseSearch] = useState('');
+  const [courseLoading, setCourseLoading] = useState(false);
 
   useEffect(() => {
     setCourseAbout(editingCourse?.about || '');
@@ -2339,162 +2341,110 @@ function AdminApp() {
     }
   }
 
-  function saveCourse(event: FormEvent<HTMLFormElement>) {
+  async function saveCourse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const rawTitle = String(form.get('title') || '').trim();
-    const title = rawTitle || 'Curso sem titulo';
-    const courseSlug = slugify(rawTitle) || editingCourse?.slug || `curso-rascunho-${Date.now()}`;
-    const enrollmentFee = Number(form.get('enrollmentFee')) || 0;
-    const maxInstallments = Number(form.get('maxInstallments')) || 1;
-    const installmentValue = Number(form.get('installmentValue')) || 0;
-    const about = String(form.get('about') || '');
-    const syllabus = String(form.get('syllabus') || '');
-    const active = form.get('active') === 'Ativo';
-    const leadConnectorFormId = String(form.get('leadConnectorFormId') || '');
+    if (courseLoading) return;
 
-    if (editingCourse) {
-      const updated: Course = { 
-        ...editingCourse, 
-        title, 
-        slug: courseSlug,
-        kind: String(form.get('kind')) as CourseKindType, 
-        modality: parseModalityUI(String(form.get('modality'))), 
-        area: String(form.get('area')), 
-        workload: String(form.get('workload')), 
-        investment: String(form.get('investment')), 
-        summary: String(form.get('summary')), 
-        featured: form.get('featured') === 'on', 
-        active,
-        videoUrl: String(form.get('videoUrl')||''), 
-        about,
-        syllabus,
-        benefits: String(form.get('benefits')||''), 
-        modules: String(form.get('modules')||''), 
-        teachers: String(form.get('teachers')||''), 
-        testimonials: String(form.get('testimonials')||''),
-        enrollmentFee,
-        installmentValue,
-        maxInstallments,
-        leadConnectorFormId,
-        coverImageUrl: courseCoverUrl
-      };
-      setCourses((prev) => prev.map((c) => c.id === editingCourse.id ? updated : c));
-      const parseJsonSafely = (str: string) => { try { return str ? JSON.parse(str) : null; } catch { return null; } };
-      const apiData = {
-        title: updated.title, 
-        slug: updated.slug,
-        description: updated.summary, 
-        type: courseTypeToApi(updated as Course), 
-        modality: mapModalityToDatabase(updated.modality, courseTypeToApi(updated)), 
-        workload: updated.workload, 
-        price: installmentValue > 0 ? (installmentValue * maxInstallments) : numericPrice(updated.investment), 
-        area: updated.area, 
-        isFeatured: updated.featured,
-        isActive: updated.active,
-        videoUrl: updated.videoUrl, 
-        about: updated.about,
-        syllabus: updated.syllabus || null,
-        benefits: parseJsonSafely(updated.benefits || ''), 
-        modules: parseJsonSafely(updated.modules || ''),
-        teachers: parseJsonSafely(updated.teachers || ''), 
-        testimonials: parseJsonSafely(updated.testimonials || ''),
-        enrollmentFee,
-        installmentValue,
-        maxInstallments,
-        leadConnectorFormId: leadConnectorFormId || null,
-        coverImageUrl: updated.coverImageUrl
-      };
-      if (token) {
-        fetch(`/api/admin/courses/${editingCourse.id}`, { 
-          method: 'PUT', 
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, 
-          body: JSON.stringify(apiData) 
-        })
-        .then(r => r.json())
-        .then(res => {
-          if (res.data) {
-            const serverCourse = mapApiCourse(res.data);
-            setCourses((prev) => prev.map((c) => c.id === editingCourse.id ? serverCourse : c));
-          }
-        })
-        .catch(() => {});
-      }
-      setEditingCourse(null);
-      setCourseCoverUrl('');
-      showNotice('Curso atualizado.');
-    } else {
-      const parseJsonSafely = (str: string) => { try { return str ? JSON.parse(str) : null; } catch { return null; } };
-      const course: Course = { 
-        id: String(Date.now()), 
-        title, 
-        slug: courseSlug, 
-        kind: String(form.get('kind')) as CourseKindType, 
-        modality: parseModalityUI(String(form.get('modality'))), 
-        area: String(form.get('area')), 
-        workload: String(form.get('workload')), 
-        investment: String(form.get('investment')), 
-        summary: String(form.get('summary')), 
-        featured: form.get('featured') === 'on', 
-        active, 
-        videoUrl: String(form.get('videoUrl')||''), 
-        about,
-        syllabus,
-        benefits: String(form.get('benefits')||''), 
-        modules: String(form.get('modules')||''), 
-        teachers: String(form.get('teachers')||''), 
-        testimonials: String(form.get('testimonials')||''),
-        enrollmentFee,
-        installmentValue,
-        maxInstallments,
-        leadConnectorFormId,
-        coverImageUrl: courseCoverUrl
-      };
-      setCourses((prev) => [course, ...prev]);
-      const apiData = { 
-        title: course.title, 
-        slug: course.slug, 
-        description: course.summary, 
-        type: courseTypeToApi(course), 
-        modality: mapModalityToDatabase(course.modality, courseTypeToApi(course)), 
-        workload: course.workload, 
-        price: installmentValue > 0 ? (installmentValue * maxInstallments) : numericPrice(course.investment), 
-        maxInstallments, 
-        area: course.area, 
-        partnerInstitution: 'Instituto Sentidos', 
-        isFeatured: course.featured, 
-        isActive: course.active, 
-        videoUrl: course.videoUrl, 
-        about: course.about,
-        syllabus: course.syllabus || null,
-        benefits: parseJsonSafely(course.benefits || ''), 
-        modules: parseJsonSafely(course.modules || ''), 
-        teachers: parseJsonSafely(course.teachers || ''), 
-        testimonials: parseJsonSafely(course.testimonials || ''),
-        enrollmentFee,
-        installmentValue,
-        leadConnectorFormId: leadConnectorFormId || null,
-        coverImageUrl: course.coverImageUrl
-      };
-      if (token) {
-        fetch('/api/admin/courses', { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, 
-          body: JSON.stringify(apiData) 
-        })
-        .then(r => r.json())
-        .then(res => {
-          if (res.data) {
-            const serverCourse = mapApiCourse(res.data);
-            setCourses((prev) => prev.map((c) => c.id === course.id ? serverCourse : c));
-          }
-        })
-        .catch(() => {});
-      }
-      setCourseCoverUrl('');
-      showNotice('Curso cadastrado.');
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    // ── Leitura dos campos ──────────────────────────────────────────────────
+    const rawTitle     = String(form.get('title') || '').trim();
+    const title        = rawTitle || 'Curso sem titulo';
+    const kind         = String(form.get('kind') || 'Pós-graduação') as CourseKindType;
+    const modalityUI   = parseModalityUI(String(form.get('modality') || 'Presencial'));
+    const courseType   = courseTypeToApi({ kind, modality: modalityUI } as Course);
+    const modalityDb   = mapModalityToDatabase(modalityUI, courseType);
+
+    // Slug: mantém o existente ao editar (evita quebrar links/SEO)
+    const courseSlug   = editingCourse
+      ? editingCourse.slug
+      : (slugify(rawTitle) || `curso-rascunho-${Date.now()}`);
+
+    const enrollmentFee    = Number(form.get('enrollmentFee'))    || 0;
+    const maxInstallments  = Number(form.get('maxInstallments'))  || 1;
+    const installmentValue = Number(form.get('installmentValue')) || 0;
+    const investmentText   = String(form.get('investment') || '');
+    const price            = installmentValue > 0
+      ? installmentValue * maxInstallments
+      : numericPrice(investmentText);
+
+    const about              = String(form.get('about')              || '');
+    const syllabus           = String(form.get('syllabus')           || '');
+    const leadConnectorFormId = String(form.get('leadConnectorFormId') || '');
+    const active             = form.get('active') === 'Ativo';
+    const featured           = form.get('featured') === 'on';
+
+    const parseJson = (s: string) => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
+
+    const apiPayload = {
+      title,
+      slug:                courseSlug,
+      description:         String(form.get('summary') || ''),
+      type:                courseType,
+      modality:            modalityDb,
+      workload:            String(form.get('workload') || ''),
+      price,
+      maxInstallments,
+      enrollmentFee,
+      installmentValue,
+      area:                String(form.get('area') || ''),
+      partnerInstitution:  'Instituto Sentidos',
+      isFeatured:          featured,
+      isActive:            active,
+      videoUrl:            String(form.get('videoUrl')   || ''),
+      about,
+      syllabus:            syllabus || null,
+      benefits:            parseJson(String(form.get('benefits')     || '')),
+      modules:             parseJson(String(form.get('modules')      || '')),
+      teachers:            parseJson(String(form.get('teachers')     || '')),
+      testimonials:        parseJson(String(form.get('testimonials') || '')),
+      leadConnectorFormId: leadConnectorFormId || null,
+      coverImageUrl:       courseCoverUrl || null,
+    };
+
+    if (!token) {
+      showNotice('Sem autenticação — faça login novamente.');
+      return;
     }
-    event.currentTarget.reset();
+
+    setCourseLoading(true);
+    try {
+      const isEdit = !!editingCourse;
+      const url    = isEdit ? `/api/admin/courses/${editingCourse.id}` : '/api/admin/courses';
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const res  = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(apiPayload),
+      });
+      const json = await res.json();
+
+      if (res.ok && json.data) {
+        const saved = mapApiCourse(json.data);
+        if (isEdit) {
+          setCourses(prev => prev.map(c => c.id === editingCourse.id ? saved : c));
+          showNotice('✅ Curso atualizado com sucesso!');
+        } else {
+          setCourses(prev => [saved, ...prev]);
+          showNotice('✅ Curso cadastrado com sucesso!');
+          formElement.reset();
+        }
+        // Limpar estado do editor
+        setEditingCourse(null);
+        setCourseAbout('');
+        setCourseSyllabus('');
+        setCourseCoverUrl('');
+      } else {
+        const msg = json.error || (json.details ? JSON.stringify(json.details) : 'Erro desconhecido');
+        showNotice(`❌ Erro ao salvar: ${msg}`);
+      }
+    } catch (err) {
+      showNotice('❌ Erro de conexão ao salvar curso. Verifique o servidor.');
+    } finally {
+      setCourseLoading(false);
+    }
   }
 
   function deleteCourse(id: number | string) {
@@ -3121,178 +3071,460 @@ function AdminApp() {
           )}
 
           {activeTab === 'courses' && (
-            <AdminGrid>
-              <Panel title={editingCourse ? 'Editar curso' : 'Cadastrar curso ou programa'}>
-                <form key={editingCourse?.id ?? 'new-course'} onSubmit={saveCourse} className="grid gap-4">
-                  <Field label="Título" name="title" placeholder="Nome do curso" defaultValue={editingCourse?.title} />
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Select label="Tipo" name="kind" options={['Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD', 'Evento']} defaultValue={editingCourse?.kind} />
-                    <Select label="Modalidade" name="modality" options={['Presencial', 'Online ao vivo', 'EAD']} defaultValue={editingCourse ? getModalityLabel(editingCourse.modality, editingCourse.kind) : 'Presencial'} />
-                    <Field label="Área" name="area" placeholder="Educação inclusiva" defaultValue={editingCourse?.area} />
-                    <Field label="Carga horária" name="workload" placeholder="360h" defaultValue={editingCourse?.workload} />
-                    <Field label="Texto de Investimento (Exibição Geral)" name="investment" placeholder="Ex: Consulte ou 12x de R$ 150,00" defaultValue={editingCourse?.investment} />
-                    <Field label="Valor de Matrícula (R$)" name="enrollmentFee" type="number" step="0.01" placeholder="Ex: 150.00" defaultValue={editingCourse?.enrollmentFee} />
-                    <Field label="Quantidade de Mensalidades" name="maxInstallments" type="number" placeholder="Ex: 12" defaultValue={editingCourse?.maxInstallments} />
-                    <Field label="Valor de cada Mensalidade (R$)" name="installmentValue" type="number" step="0.01" placeholder="Ex: 150.00" defaultValue={editingCourse?.installmentValue} />
-                    <Select
-                      label="Status de Exibição"
-                      name="active"
-                      options={['Ativo', 'Rascunho', 'Inativo']}
-                      defaultValue={
-                        editingCourse === null
-                          ? 'Ativo'
-                          : editingCourse.active
-                          ? 'Ativo'
-                          : 'Rascunho'
-                      }
-                    />
-                    <label className="flex items-center gap-3 rounded-lg bg-bg-light p-4 text-sm font-bold text-navy">
-                      <input name="featured" type="checkbox" defaultChecked={editingCourse?.featured} className="h-4 w-4 accent-orange-primary" />
-                      Destacar na home
-                    </label>
-                  </div>
-                  
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-slate-700">Imagem de Capa (Upload ou URL)</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        name="coverImageUrl"
-                        value={courseCoverUrl}
-                        onChange={(e) => setCourseCoverUrl(e.target.value)}
-                        placeholder="https://exemplo.com/capa.jpg"
-                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-primary/20 text-navy"
-                      />
-                      <label className="cursor-pointer rounded-lg bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition flex items-center justify-center">
-                        <span>Fazer Upload</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const formData = new FormData();
-                            formData.append('file', file);
-                            try {
-                              const res = await fetch('/api/admin/upload', {
-                                method: 'POST',
-                                headers: { Authorization: `Bearer ${token}` },
-                                body: formData
-                              });
-                              const json = await res.json();
-                              if (json.data?.url) {
-                                setCourseCoverUrl(json.data.url);
-                                showNotice('Capa enviada com sucesso.');
-                              }
-                            } catch {
-                              alert('Erro ao fazer upload da capa.');
-                            }
-                          }}
-                        />
-                      </label>
+            <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr] w-full min-w-0 items-start">
+
+              {/* ── Painel Esquerdo: Formulário ──────────────────────────────── */}
+              <div className="min-w-0 w-full">
+                <div className="rounded-xl border border-slate-200 bg-white shadow-soft overflow-hidden">
+
+                  {/* Header Sticky do Formulário */}
+                  <div className="sticky top-0 z-20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 bg-white/95 backdrop-blur px-5 py-4">
+                    <div>
+                      <h2 className="font-display text-lg font-bold text-navy flex items-center gap-2">
+                        <GraduationCap className="h-5 w-5 text-orange-primary" />
+                        {editingCourse ? 'Editar Curso' : 'Novo Curso'}
+                      </h2>
+                      {editingCourse && (
+                        <p className="text-xs text-slate-500 mt-0.5 truncate max-w-xs">
+                          Editando: <span className="font-semibold text-navy">{editingCourse.title}</span>
+                        </p>
+                      )}
                     </div>
-                    {courseCoverUrl && (
-                      <div className="mt-2">
-                        <img src={courseCoverUrl} alt="Visualização da Capa" className="h-24 rounded-lg border object-cover shadow-sm" />
+                    <div className="flex items-center gap-2 shrink-0">
+                      {editingCourse && (
+                        <button
+                          type="button"
+                          onClick={() => { setEditingCourse(null); setCourseAbout(''); setCourseSyllabus(''); setCourseCoverUrl(''); }}
+                          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                      <button
+                        form="course-cms-form"
+                        type="submit"
+                        disabled={courseLoading}
+                        className="flex items-center gap-2 rounded-lg bg-orange-primary px-5 py-2.5 text-sm font-bold text-white transition hover:bg-orange-600 disabled:opacity-60 shadow-md shadow-orange-primary/20"
+                      >
+                        {courseLoading
+                          ? <><span className="animate-spin inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> Salvando...</>
+                          : (editingCourse ? '✓ Atualizar Curso' : '+ Salvar Curso')}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Formulário com Seções */}
+                  <form id="course-cms-form" key={editingCourse?.id ?? 'new-course'} onSubmit={saveCourse} className="p-5 grid gap-5">
+
+                    {/* ── Seção 1: Informações Básicas ─────────────────────── */}
+                    <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
+                      <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-navy uppercase tracking-wide">
+                        <BookOpen className="h-4 w-4 text-orange-primary" />
+                        Informações Básicas
+                      </h3>
+                      <div className="grid gap-4">
+                        <label className="block">
+                          <span className="text-sm font-bold text-navy">Título do Curso <span className="text-red-400">*</span></span>
+                          <input
+                            name="title"
+                            required
+                            defaultValue={editingCourse?.title}
+                            placeholder="Ex: Psicopedagogia Clínica e Institucional"
+                            className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-navy outline-none transition focus:border-orange-primary focus:ring-2 focus:ring-orange-primary/20"
+                          />
+                        </label>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <Select
+                            label="Tipo de Curso"
+                            name="kind"
+                            options={['Pós-graduação', 'Curso Livre', 'Mestrado EAD', 'Doutorado EAD', 'Evento']}
+                            defaultValue={editingCourse?.kind || 'Pós-graduação'}
+                          />
+                          <Select
+                            label="Modalidade"
+                            name="modality"
+                            options={['Online ao vivo', 'EAD', 'Presencial']}
+                            defaultValue={editingCourse ? getModalityLabel(editingCourse.modality, editingCourse.kind) : 'Online ao vivo'}
+                          />
+                          <Field label="Área de Conhecimento" name="area" placeholder="Ex: Educação Inclusiva" defaultValue={editingCourse?.area} />
+                          <Field label="Carga Horária Total" name="workload" placeholder="Ex: 360h" defaultValue={editingCourse?.workload} />
+                        </div>
                       </div>
-                    )}
-                  </div>
-                  
-                  <TextArea label="Resumo" name="summary" placeholder="Descrição curta para o card" defaultValue={editingCourse?.summary} />
-                  
-                  <input type="hidden" name="about" value={courseAbout} />
-                  <input type="hidden" name="syllabus" value={courseSyllabus} />
-                  
-                  <RichTextEditor
-                    label="Sobre o Curso"
-                    value={courseAbout}
-                    onChange={setCourseAbout}
-                    placeholder="Descrição completa e detalhada sobre o curso para a Landing Page..."
-                  />
-                  
-                  <RichTextEditor
-                    label="Outras Informações (Duração, Certificação, Aulas, etc.)"
-                    value={courseSyllabus}
-                    onChange={setCourseSyllabus}
-                    placeholder="Detalhes de aulas, certificação, documentos necessários..."
-                  />
-                  
-                  <div className="border-t border-slate-200 pt-6 mt-2">
-                    <h4 className="font-bold text-navy mb-4 text-lg">Informações Dinâmicas da Landing Page</h4>
-                    <p className="mb-4 text-sm text-slate-500">Se deixar em branco, a seção correspondente não aparecerá na página do curso.</p>
-                    <div className="grid gap-6">
-                      <Field label="URL do Vídeo (YouTube)" name="videoUrl" placeholder="Ex: https://www.youtube.com/watch?v=..." defaultValue={editingCourse?.videoUrl} />
-                      <Field label="ID do Formulário CRM LeadConnector (Opcional)" name="leadConnectorFormId" placeholder="Ex: m1woQ1eYGfimUdhQledm (se vazio, usa o formulário padrão do CRM)" defaultValue={editingCourse?.leadConnectorFormId} />
-                      
-                      <JsonListEditor 
-                        label="Benefícios do Curso" 
-                        name="benefits" 
-                        itemLabel="Benefício" 
-                        defaultValue={editingCourse?.benefits} 
-                        fields={[{key: 'title', label: 'Título'}, {key: 'description', label: 'Descrição Curta'}]} 
-                      />
-                      
-                      <JsonListEditor 
-                        label="Matriz Curricular (Disciplinas)" 
-                        name="modules" 
-                        itemLabel="Disciplina" 
-                        defaultValue={editingCourse?.modules} 
-                        fields={[{key: 'title', label: 'Nome da Disciplina'}, {key: 'description', label: 'Detalhes (opcional)'}]} 
-                      />
-                      
-                      <JsonListEditor 
-                        label="Corpo Docente (Professores)" 
-                        name="teachers" 
-                        itemLabel="Professor" 
-                        defaultValue={editingCourse?.teachers} 
-                        fields={[{key: 'name', label: 'Nome'}, {key: 'role', label: 'Cargo / Titulação'}, {key: 'bio', label: 'Minicurrículo'}, {key: 'avatarUrl', label: 'URL da Foto (opcional)'}]} 
-                      />
-                      
-                      <JsonListEditor 
-                        label="Depoimentos de Alunos" 
-                        name="testimonials" 
-                        itemLabel="Depoimento" 
-                        defaultValue={editingCourse?.testimonials} 
-                        fields={[{key: 'name', label: 'Nome do Aluno'}, {key: 'role', label: 'Profissão / Situação'}, {key: 'text', label: 'Depoimento'}, {key: 'avatarUrl', label: 'URL da Foto (opcional)'}]} 
-                      />
+                    </section>
+
+                    {/* ── Seção 2: Investimento ────────────────────────────── */}
+                    <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
+                      <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-navy uppercase tracking-wide">
+                        💰 Investimento
+                      </h3>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <Field
+                            label="Texto de Investimento (exibido nos cards e banners)"
+                            name="investment"
+                            placeholder="Ex: 12x de R$ 150,00 | ou | Consulte"
+                            defaultValue={editingCourse?.investment}
+                          />
+                        </div>
+                        <Field label="Valor de Matrícula (R$)" name="enrollmentFee" type="number" step="0.01" placeholder="0.00" defaultValue={editingCourse?.enrollmentFee} />
+                        <Field label="Qtd. Parcelas / Mensalidades" name="maxInstallments" type="number" placeholder="12" defaultValue={editingCourse?.maxInstallments} />
+                        <div className="sm:col-span-2">
+                          <Field label="Valor de cada Mensalidade (R$)" name="installmentValue" type="number" step="0.01" placeholder="0.00" defaultValue={editingCourse?.installmentValue} />
+                          <p className="mt-1.5 text-xs text-slate-500">💡 O preço total é calculado como: matrícula + (parcelas × mensalidade). Preencha os valores numéricos para a landing page; o "Texto de Investimento" é para exibição geral.</p>
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* ── Seção 3: Imagem e Configurações de Exibição ──────── */}
+                    <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
+                      <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-navy uppercase tracking-wide">
+                        <ImagePlus className="h-4 w-4 text-orange-primary" />
+                        Imagem e Configurações de Exibição
+                      </h3>
+                      <div className="grid gap-4">
+                        <div>
+                          <label className="mb-1.5 block text-sm font-bold text-navy">Imagem de Capa</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              name="coverImageUrl"
+                              value={courseCoverUrl}
+                              onChange={e => setCourseCoverUrl(e.target.value)}
+                              placeholder="https://exemplo.com/capa.jpg"
+                              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-navy outline-none transition focus:border-orange-primary focus:ring-2 focus:ring-orange-primary/20"
+                            />
+                            <label className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-200">
+                              <ImagePlus className="h-4 w-4" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={async e => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  const fd = new FormData();
+                                  fd.append('file', file);
+                                  try {
+                                    const r = await fetch('/api/admin/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+                                    const j = await r.json();
+                                    if (j.data?.url) { setCourseCoverUrl(j.data.url); showNotice('Capa enviada com sucesso.'); }
+                                  } catch { showNotice('❌ Erro ao fazer upload da capa.'); }
+                                }}
+                              />
+                            </label>
+                          </div>
+                          {courseCoverUrl && (
+                            <div className="mt-2 flex items-center gap-3">
+                              <img src={courseCoverUrl} alt="Capa do curso" className="h-20 w-32 rounded-lg border object-cover shadow-sm" />
+                              <button type="button" onClick={() => setCourseCoverUrl('')} className="text-xs text-red-500 hover:text-red-700 font-semibold">Remover</button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <Select
+                            label="Status de Exibição"
+                            name="active"
+                            options={['Ativo', 'Rascunho', 'Inativo']}
+                            defaultValue={editingCourse === null ? 'Ativo' : (editingCourse.active ? 'Ativo' : 'Rascunho')}
+                          />
+                          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-orange-100 bg-orange-50 p-4 text-sm font-bold text-navy transition hover:bg-orange-100">
+                            <input
+                              name="featured"
+                              type="checkbox"
+                              defaultChecked={editingCourse?.featured}
+                              className="h-4 w-4 accent-orange-primary"
+                            />
+                            <span>⭐ Destacar na Home</span>
+                          </label>
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* ── Seção 4: Conteúdo da Landing Page ───────────────── */}
+                    <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
+                      <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-navy uppercase tracking-wide">
+                        <Newspaper className="h-4 w-4 text-orange-primary" />
+                        Conteúdo da Landing Page
+                      </h3>
+                      <p className="mb-4 text-xs text-slate-500">O resumo aparece nos cards e no hero. Os editores ricos alimentam as abas da página do curso.</p>
+                      <div className="grid gap-5">
+                        <TextArea
+                          label="Resumo (card + hero da landing page)"
+                          name="summary"
+                          placeholder="Descrição curta e objetiva — até 2 linhas."
+                          defaultValue={editingCourse?.summary}
+                        />
+                        <input type="hidden" name="about"   value={courseAbout} />
+                        <input type="hidden" name="syllabus" value={courseSyllabus} />
+                        <RichTextEditor
+                          label='Sobre o Curso (aba "Apresentação")'
+                          value={courseAbout}
+                          onChange={setCourseAbout}
+                          placeholder="Descrição completa e detalhada do curso, objetivos, público-alvo..."
+                        />
+                        <RichTextEditor
+                          label='Outras Informações (aba "Outras Informações" — duração, certificação, aulas, documentos)'
+                          value={courseSyllabus}
+                          onChange={setCourseSyllabus}
+                          placeholder="Detalhes sobre metodologia, certificação, documentos necessários..."
+                        />
+                      </div>
+                    </section>
+
+                    {/* ── Seção 5: Conteúdo Estruturado ───────────────────── */}
+                    <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
+                      <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-navy uppercase tracking-wide">
+                        <LibraryBig className="h-4 w-4 text-orange-primary" />
+                        Conteúdo Estruturado
+                      </h3>
+                      <p className="mb-4 text-xs text-slate-500">Seções em branco ficam ocultas na landing page. Adicione pelo menos 1 item para que a seção apareça.</p>
+                      <div className="grid gap-5">
+                        <JsonListEditor
+                          label="Benefícios do Curso"
+                          name="benefits"
+                          itemLabel="Benefício"
+                          defaultValue={editingCourse?.benefits}
+                          fields={[{ key: 'title', label: 'Título do Benefício' }, { key: 'description', label: 'Descrição Curta' }]}
+                        />
+                        <JsonListEditor
+                          label="Matriz Curricular (Disciplinas)"
+                          name="modules"
+                          itemLabel="Disciplina"
+                          defaultValue={editingCourse?.modules}
+                          fields={[{ key: 'title', label: 'Nome da Disciplina' }, { key: 'description', label: 'Carga Horária / Detalhes (opcional)' }]}
+                        />
+                        <JsonListEditor
+                          label="Corpo Docente (Professores)"
+                          name="teachers"
+                          itemLabel="Professor"
+                          defaultValue={editingCourse?.teachers}
+                          fields={[
+                            { key: 'name',      label: 'Nome Completo' },
+                            { key: 'role',      label: 'Cargo / Titulação' },
+                            { key: 'bio',       label: 'Minicurrículo (opcional)' },
+                            { key: 'avatarUrl', label: 'URL da Foto (opcional)' },
+                          ]}
+                        />
+                        <JsonListEditor
+                          label="Depoimentos de Alunos"
+                          name="testimonials"
+                          itemLabel="Depoimento"
+                          defaultValue={editingCourse?.testimonials}
+                          fields={[
+                            { key: 'name',      label: 'Nome do Aluno' },
+                            { key: 'role',      label: 'Profissão / Situação Atual' },
+                            { key: 'text',      label: 'Texto do Depoimento' },
+                            { key: 'avatarUrl', label: 'URL da Foto (opcional)' },
+                          ]}
+                        />
+                      </div>
+                    </section>
+
+                    {/* ── Seção 6: CRM e Integrações ───────────────────────── */}
+                    <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
+                      <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-navy uppercase tracking-wide">
+                        <Share2 className="h-4 w-4 text-orange-primary" />
+                        CRM e Integrações
+                      </h3>
+                      <div className="grid gap-4">
+                        <Field
+                          label="URL do Vídeo de Apresentação (YouTube)"
+                          name="videoUrl"
+                          placeholder="https://www.youtube.com/watch?v=..."
+                          defaultValue={editingCourse?.videoUrl}
+                        />
+                        <div>
+                          <Field
+                            label="ID do Formulário LeadConnector / CRM"
+                            name="leadConnectorFormId"
+                            placeholder="Ex: m1woQ1eYGfimUdhQledm"
+                            defaultValue={editingCourse?.leadConnectorFormId}
+                          />
+                          <p className="mt-1.5 text-xs text-slate-500">Se vazio, usa o formulário padrão configurado no CRM. Preencha para sobreescrever por curso.</p>
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* ── Botão de Salvar (bottom) ─────────────────────────── */}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="submit"
+                        disabled={courseLoading}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-orange-primary py-3.5 text-sm font-bold text-white transition hover:bg-orange-600 disabled:opacity-60 shadow-lg shadow-orange-primary/25"
+                      >
+                        {courseLoading
+                          ? <><span className="animate-spin inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> Salvando...</>
+                          : (editingCourse ? '✓ Atualizar Curso' : '+ Salvar Curso')}
+                      </button>
+                      {editingCourse && (
+                        <button
+                          type="button"
+                          onClick={() => { setEditingCourse(null); setCourseAbout(''); setCourseSyllabus(''); setCourseCoverUrl(''); }}
+                          className="rounded-xl border border-slate-200 px-6 py-3.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                        >
+                          Cancelar
+                        </button>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <button className="flex-1 rounded-lg bg-orange-primary px-5 py-3 font-bold text-white">{editingCourse ? 'Atualizar curso' : 'Salvar curso'}</button>
-                    {editingCourse && <button type="button" onClick={() => setEditingCourse(null)} className="rounded-lg border border-slate-200 px-5 py-3 font-bold text-slate-600">Cancelar</button>}
-                  </div>
-                </form>
-              </Panel>
-              <Panel title="Cursos cadastrados">
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-orange-primary mb-3">Cursos Presenciais</h3>
-                    {courses.filter(c => c.modality === 'Presencial').length > 0 ? (
-                      <ResourceList
-                        items={courses.filter(c => c.modality === 'Presencial').map((c) => ({ id: c.id, label: c.title, sub: `${c.kind} · ${c.modality}`, badge: c.active ? 'ativo' : 'inativo', badgeGreen: c.active }))}
-                        onEdit={(id) => { const c = courses.find((x) => x.id === id); if (c) setEditingCourse(c); }}
-                        onDelete={deleteCourse}
-                      />
-                    ) : (
-                      <p className="text-sm text-slate-500 italic">Nenhum curso presencial cadastrado.</p>
-                    )}
-                  </div>
-                  <div className="border-t border-slate-100 pt-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-blue-action mb-3">Cursos Online / EAD</h3>
-                    {courses.filter(c => c.modality !== 'Presencial').length > 0 ? (
-                      <ResourceList
-                        items={courses.filter(c => c.modality !== 'Presencial').map((c) => ({ id: c.id, label: c.title, sub: `${c.kind} · ${c.modality}`, badge: c.active ? 'ativo' : 'inativo', badgeGreen: c.active }))}
-                        onEdit={(id) => { const c = courses.find((x) => x.id === id); if (c) setEditingCourse(c); }}
-                        onDelete={deleteCourse}
-                      />
-                    ) : (
-                      <p className="text-sm text-slate-500 italic">Nenhum curso online cadastrado.</p>
-                    )}
-                  </div>
+                  </form>
                 </div>
-              </Panel>
-            </AdminGrid>
+              </div>
+
+              {/* ── Painel Direito: Lista de Cursos ──────────────────────────── */}
+              <div className="min-w-0 w-full xl:sticky xl:top-4">
+                <div className="rounded-xl border border-slate-200 bg-white shadow-soft p-5">
+                  {/* Cabeçalho da lista */}
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="font-display text-lg font-bold text-navy">Cursos Cadastrados</h2>
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                      {courses.length} total
+                    </span>
+                  </div>
+
+                  {/* Campo de Busca */}
+                  <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nome ou área..."
+                      value={courseSearch}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCourseSearch(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-navy outline-none transition focus:border-orange-primary focus:ring-2 focus:ring-orange-primary/20 focus:bg-white"
+                    />
+                    {courseSearch && (
+                      <button type="button" onClick={() => setCourseSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Lista Agrupada por Tipo */}
+                  {(() => {
+                    const q = courseSearch.toLowerCase().trim();
+                    const filtered: Course[] = q
+                      ? courses.filter((c: Course) =>
+                          (c.title || '').toLowerCase().includes(q) ||
+                          (c.area  || '').toLowerCase().includes(q) ||
+                          (c.kind  || '').toLowerCase().includes(q)
+                        )
+                      : courses;
+
+                    const sorted = (arr: Course[]) => [...arr].sort((a: Course, b: Course) => (a.title || '').localeCompare(b.title || '', 'pt-BR'));
+
+                    const posPresencial = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.POS && c.modality === ModalityType.PRESENTIAL));
+                    const posOnline    = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.POS && c.modality === ModalityType.ONLINE));
+                    const cursoLivre   = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.LIBRE));
+                    const outros       = sorted(filtered.filter((c: Course) =>
+                      c.kind !== CourseKindType.POS && c.kind !== CourseKindType.LIBRE
+                    ));
+
+                    const total = posPresencial.length + posOnline.length + cursoLivre.length + outros.length;
+
+                    if (total === 0) return (
+                      <div className="rounded-xl bg-slate-50 py-10 text-center">
+                        <GraduationCap className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                        <p className="text-sm font-semibold text-slate-500">
+                          {q ? 'Nenhum curso encontrado para essa busca.' : 'Nenhum curso cadastrado ainda.'}
+                        </p>
+                        {q && (
+                          <button type="button" onClick={() => setCourseSearch('')} className="mt-3 text-xs font-bold text-orange-primary hover:underline">
+                            Limpar busca
+                          </button>
+                        )}
+                      </div>
+                    );
+
+                    const renderGroup = (
+                      sectionTitle: string,
+                      items: Course[],
+                      dotColor: string,
+                      hasDivider: boolean
+                    ) => {
+                      if (items.length === 0) return null;
+                      return (
+                        <div key={sectionTitle}>
+                          {hasDivider && <div className="my-4 border-t border-slate-100" />}
+                          <div className="mb-2 flex items-center gap-2">
+                            <span className={`inline-block h-2 w-2 rounded-full ${dotColor}`} />
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                              {sectionTitle}
+                              <span className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-400">{items.length}</span>
+                            </h3>
+                          </div>
+                          <div className="space-y-1.5">
+                            {items.map(c => (
+                              <div
+                                key={c.id}
+                                className={`flex items-start gap-2 rounded-lg border p-3 transition ${
+                                  editingCourse?.id === c.id
+                                    ? 'border-orange-primary/40 bg-orange-50'
+                                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold text-navy leading-snug">{c.title}</p>
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                                      {getModalityLabel(c.modality, c.kind)}
+                                    </span>
+                                    {c.featured && (
+                                      <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-[10px] font-bold text-yellow-600 border border-yellow-100">
+                                        ⭐ destaque
+                                      </span>
+                                    )}
+                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${c.active ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-slate-100 text-slate-400'}`}>
+                                      {c.active ? 'ativo' : 'inativo'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 gap-1">
+                                  <button
+                                    onClick={() => {
+                                      const found = courses.find((x: Course) => x.id === c.id);
+                                      if (found) { setEditingCourse(found); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+                                    }}
+                                    className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:border-blue-action hover:text-blue-action"
+                                    title="Editar curso"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteCourse(c.id)}
+                                    className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:border-red-400 hover:text-red-500"
+                                    title="Excluir curso"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    };
+
+                    let dividerCount = 0;
+                    const sections = [
+                      { title: 'Pós-graduação Presencial', items: posPresencial, dot: 'bg-orange-primary' },
+                      { title: 'Pós-graduação Online / EAD', items: posOnline,    dot: 'bg-blue-action'   },
+                      { title: 'Cursos Livres',              items: cursoLivre,   dot: 'bg-green-500'     },
+                      { title: 'Outros',                     items: outros,       dot: 'bg-slate-400'     },
+                    ];
+
+                    return (
+                      <div>
+                        {sections.map(s => {
+                          if (s.items.length === 0) return null;
+                          const hasDivider = dividerCount++ > 0;
+                          return renderGroup(s.title, s.items, s.dot, hasDivider);
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
           )}
 
           {activeTab === 'blog' && !isAdvancedEditor && (
@@ -5216,6 +5448,7 @@ function mapApiCourse(c: any): Course {
     enrollmentFee: c.enrollmentFee ? Number(c.enrollmentFee) : 0,
     installmentValue: c.installmentValue ? Number(c.installmentValue) : 0,
     maxInstallments: c.maxInstallments ? Number(c.maxInstallments) : 1,
+    syllabus: c.syllabus || '',
     createdAt: c.createdAt || c.created_at || '',
     leadConnectorFormId: c.leadConnectorFormId || '',
     coverImageUrl: c.coverImageUrl || c.cover_image_url || '',
@@ -5364,32 +5597,33 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   const [showNativeForm, setShowNativeForm] = useState(false);
 
   useEffect(() => {
-    // Buscar curso
+    setLoading(true);
+    setCourse(null);
+
+    // Buscar curso pela API (sem fallback para dados estáticos)
     fetch(`/api/courses/${courseSlug}`)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then(data => {
         if (data.data) {
           setCourse(mapApiCourse(data.data));
-        } else {
-          const fallback = initialCourses.find(c => c.slug === courseSlug);
-          if (fallback) setCourse(fallback as Course);
         }
+        // Se a API retornar sucesso mas sem dados, course fica null → mostra "não encontrado"
         setLoading(false);
       })
       .catch(() => {
-        const fallback = initialCourses.find(c => c.slug === courseSlug);
-        if (fallback) setCourse(fallback as Course);
+        // Erro de rede ou 404 — exibe tela de "não encontrado"
         setLoading(false);
       });
 
-    // Buscar WhatsApp dinâmico
+    // Buscar WhatsApp dinâmico (separado, não bloqueia o curso)
     fetch('/api/site-content')
       .then(r => r.json())
       .then(data => {
         const siteSettings = data.data?.settings || data.settings;
-        if (siteSettings?.whatsapp) {
-          setWhatsapp(siteSettings.whatsapp);
-        }
+        if (siteSettings?.whatsapp) setWhatsapp(siteSettings.whatsapp);
       })
       .catch(() => {});
   }, [courseSlug]);
