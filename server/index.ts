@@ -35,6 +35,7 @@ const app = express();
 app.set('trust proxy', 1);
 const port = Number(process.env.PORT ?? 4000);
 const jwtSecret = process.env.JWT_SECRET ?? 'dev-only-change-me';
+const MAUTIC_BASE_URL = 'https://mautic.isentidos.com.br';
 const uploadDir = path.resolve(process.cwd(), 'public', 'uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
 const upload = multer({
@@ -83,6 +84,16 @@ const leadSchema = z.object({
   referralCode: z.string().optional(),
   notes: z.string().optional(),
   consentLgpd: z.boolean(),
+});
+
+const ebookLeadSchema = z.object({
+  ebookId: z.string().optional(),
+  ebookTitle: z.string().min(2),
+  mauticFormId: z.number().int().nullable().optional(),
+  name: z.string().min(3),
+  email: z.string().email(),
+  phone: z.string().min(8),
+  consentLgpd: z.boolean().default(true),
 });
 
 const loginSchema = z.object({
@@ -276,6 +287,167 @@ async function withDatabase<T>(operation: () => Promise<T>, fallback: T): Promis
   } catch (error) {
     console.warn('[database:fallback]', error instanceof Error ? error.message : error);
     return fallback;
+  }
+}
+
+function rewriteMauticUrls(value: string) {
+  return value
+    .replace(/https?:\/\/mautic\.isentidos\.net\.br/gi, MAUTIC_BASE_URL)
+    .replace(/http:\/\/mautic\.isentidos\.com\.br/gi, MAUTIC_BASE_URL)
+    .replace(/(^|[^:])\/\/mautic\.isentidos\.com\.br/gi, `$1${MAUTIC_BASE_URL}`);
+}
+
+function extractJsStringValue(source: string, marker: string) {
+  const markerIndex = source.indexOf(marker);
+  if (markerIndex < 0) return '';
+  const firstQuote = source.indexOf('"', markerIndex + marker.length);
+  if (firstQuote < 0) return '';
+
+  let escaped = false;
+  for (let index = firstQuote + 1; index < source.length; index += 1) {
+    const char = source[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      return JSON.parse(source.slice(firstQuote, index + 1));
+    }
+  }
+
+  return '';
+}
+
+function getMauticFormMeta(html: string) {
+  const formName = html.match(/name="mauticform\[formName\]"[^>]*value="([^"]+)"/i)?.[1]
+    || html.match(/data-mautic-form="([^"]+)"/i)?.[1]
+    || '';
+  const fields = [...html.matchAll(/name="mauticform\[([^\]]+)\]"/gi)]
+    .map((match) => match[1])
+    .filter((field) => !['formId', 'return', 'formName', 'submit'].includes(field));
+
+  return { formName, fields };
+}
+
+async function fetchMauticForm(formId: number | string) {
+  const formUrl = `${MAUTIC_BASE_URL}/form/generate.js?id=${encodeURIComponent(String(formId))}`;
+  console.log('[mautic:form] fetch:start', { formId, url: formUrl });
+  const response = await fetch(formUrl, { headers: { Accept: 'application/javascript,text/javascript,*/*' } });
+  const script = await response.text();
+  if (!response.ok) {
+    throw new Error(`Mautic form fetch failed with status ${response.status}`);
+  }
+
+  const rawHtml = extractJsStringValue(script, 'var html');
+  if (!rawHtml) {
+    throw new Error('Mautic form HTML not found in generated script');
+  }
+
+  const html = rewriteMauticUrls(rawHtml);
+  const meta = getMauticFormMeta(html);
+  console.log('[mautic:form] fetch:done', {
+    formId,
+    formName: meta.formName,
+    fields: meta.fields,
+    htmlLength: html.length,
+  });
+
+  return {
+    html,
+    formName: meta.formName,
+    fields: meta.fields,
+    sdkUrl: `${MAUTIC_BASE_URL}/media/js/mautic-form.js`,
+  };
+}
+
+async function submitEbookLeadToMautic(data: z.infer<typeof ebookLeadSchema>) {
+  if (!data.mauticFormId) {
+    return { attempted: false, ok: false, reason: 'missing_form_id' };
+  }
+
+  let formMeta: Awaited<ReturnType<typeof fetchMauticForm>> | null = null;
+  try {
+    formMeta = await fetchMauticForm(data.mauticFormId);
+  } catch (error) {
+    console.warn('[ebook:mautic] form-meta:error', {
+      formId: data.mauticFormId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  const submitUrl = `${MAUTIC_BASE_URL}/form/submit?formId=${data.mauticFormId}`;
+  const payload = new URLSearchParams();
+  const candidates = {
+    nome: data.name,
+    name: data.name,
+    firstname: data.name,
+    email: data.email,
+    telefone: data.phone,
+    phone: data.phone,
+    whatsapp: data.phone,
+    ebook: data.ebookTitle,
+    source: 'ebook_download',
+    tags: `ebook,${data.ebookTitle}`,
+  };
+
+  const knownFields = new Set(formMeta?.fields ?? []);
+  const fieldsToSend = knownFields.size
+    ? Object.entries(candidates).filter(([key]) => knownFields.has(key))
+    : Object.entries(candidates);
+
+  fieldsToSend.forEach(([key, value]) => payload.append(`mauticform[${key}]`, value));
+  payload.append('mauticform[formId]', String(data.mauticFormId));
+  payload.append('mauticform[return]', '');
+  payload.append('mauticform[formName]', formMeta?.formName || `form${data.mauticFormId}`);
+  payload.append('mauticform[submit]', '1');
+
+  console.log('[ebook:mautic] submit:start', {
+    url: submitUrl,
+    formId: data.mauticFormId,
+    ebookTitle: data.ebookTitle,
+    formName: formMeta?.formName,
+    fields: fieldsToSend.map(([key]) => key),
+  });
+
+  try {
+    const response = await fetch(submitUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json,text/html,*/*',
+        'Origin': 'https://isentidos.com.br',
+        'Referer': 'https://isentidos.com.br/ebooks',
+      },
+      body: payload,
+      redirect: 'manual',
+    });
+
+    console.log('[ebook:mautic] submit:done', {
+      formId: data.mauticFormId,
+      status: response.status,
+      redirected: response.redirected,
+      location: response.headers.get('location'),
+    });
+
+    return {
+      attempted: true,
+      ok: response.ok || response.status === 302 || response.status === 303,
+      status: response.status,
+    };
+  } catch (error) {
+    console.error('[ebook:mautic] submit:error', {
+      formId: data.mauticFormId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      attempted: true,
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -678,6 +850,72 @@ app.post('/api/leads', async (req, res) => {
   );
 
   res.status(201).json({ data: lead });
+});
+
+app.post('/api/ebook-leads', async (req, res) => {
+  const parsed = ebookLeadSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    console.warn('[ebook:lead] invalid', parsed.error.flatten());
+    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+  }
+
+  console.log('[ebook:lead] submit:start', {
+    ebookId: parsed.data.ebookId,
+    ebookTitle: parsed.data.ebookTitle,
+    formId: parsed.data.mauticFormId,
+  });
+
+  const result = await withDatabase(
+    async () => {
+      const ebook = parsed.data.ebookId
+        ? await prisma.ebook.findUnique({ where: { id: parsed.data.ebookId } })
+        : null;
+      const lead = await prisma.lead.create({
+        data: {
+          name: parsed.data.name,
+          email: parsed.data.email,
+          phone: parsed.data.phone,
+          source: 'ebook_download',
+          notes: `E-book: ${parsed.data.ebookTitle}`,
+          consentLgpd: parsed.data.consentLgpd,
+        },
+      });
+      return { lead, ebook };
+    },
+    {
+      lead: {
+        id: `ebook-local-${Date.now()}`,
+        name: parsed.data.name,
+        email: parsed.data.email,
+        phone: parsed.data.phone,
+        createdAt: new Date(),
+        courseId: null,
+        status: 'novo' as const,
+        referralCode: null,
+        preferredFormat: null,
+        source: 'ebook_download',
+        notes: `E-book: ${parsed.data.ebookTitle}`,
+        consentLgpd: parsed.data.consentLgpd,
+      },
+      ebook: null,
+    },
+  );
+
+  const mautic = await submitEbookLeadToMautic(parsed.data);
+  console.log('[ebook:lead] submit:done', {
+    leadId: (result.lead as any).id,
+    ebookId: parsed.data.ebookId,
+    mautic,
+  });
+
+  res.status(201).json({
+    data: {
+      leadId: (result.lead as any).id,
+      mautic,
+      fileUrl: result.ebook?.fileUrl ?? '',
+    },
+  });
 });
 
 app.post('/api/admin/login', async (req, res) => {
@@ -1126,6 +1364,19 @@ app.get('/api/ebooks', async (_req, res) => {
     []
   );
   res.json({ data: ebooks });
+});
+
+app.get('/api/mautic/forms/:id', async (req, res) => {
+  try {
+    const form = await fetchMauticForm(req.params.id);
+    res.json({ data: form });
+  } catch (error) {
+    console.error('[mautic:form] fetch:error', {
+      formId: req.params.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    res.status(502).json({ error: 'Não foi possível carregar o formulário do Mautic.' });
+  }
 });
 
 app.get('/api/events', async (_req, res) => {

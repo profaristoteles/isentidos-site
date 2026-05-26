@@ -2,6 +2,7 @@ import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import {
   Award,
+  AlertCircle,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -16,6 +17,7 @@ import {
   ImagePlus,
   LayoutDashboard,
   LibraryBig,
+  Loader2,
   LockKeyhole,
   Mail,
   MapPin,
@@ -6390,27 +6392,271 @@ function BlogArticlePage({ postSlug }: { postSlug: string }) {
 
 interface MauticFormEmbedProps {
   formId: number | string;
+  ebook: Ebook;
+  onSubmitted: () => void;
 }
 
-function MauticFormEmbed({ formId }: MauticFormEmbedProps) {
+const MAUTIC_BASE_URL = 'https://mautic.isentidos.com.br';
+
+function MauticFormEmbed({ formId, ebook, onSubmitted }: MauticFormEmbedProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const submittingRef = React.useRef(false);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   React.useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    let cancelled = false;
+    let timeoutTimer: number | undefined;
+
     el.innerHTML = '';
-    const script = document.createElement('script');
-    script.type = 'text/javascript';
-    script.src = `https://mautic.isentidos.net.br/form/generate.js?id=${formId}`;
-    el.appendChild(script);
-  }, [formId]);
+    setStatus('loading');
+    setErrorMessage('');
+
+    const formUrl = `/api/mautic/forms/${encodeURIComponent(String(formId))}`;
+    console.log('[ebook:mautic] load:start', {
+      url: `${MAUTIC_BASE_URL}/form/generate.js?id=${encodeURIComponent(String(formId))}`,
+      formId,
+      ebookId: ebook.id,
+      ebookTitle: ebook.title,
+    });
+
+    const handleSubmit = async (event: globalThis.Event) => {
+      event.preventDefault();
+      if (submittingRef.current) return;
+      const form = event.currentTarget as HTMLFormElement;
+      const formData = new FormData(form);
+      const getField = (...names: string[]) => {
+        for (const name of names) {
+          const value = formData.get(`mauticform[${name}]`) || formData.get(name);
+          if (value) return String(value).trim();
+        }
+        return '';
+      };
+      const payload = {
+        ebookId: String(ebook.id),
+        ebookTitle: ebook.title,
+        mauticFormId: Number(formId),
+        name: getField('nome', 'name', 'firstname'),
+        email: getField('email'),
+        phone: getField('whatsapp', 'telefone', 'phone'),
+        consentLgpd: true,
+      };
+
+      console.log('[ebook:mautic] form:submit', { formId, ebookId: ebook.id });
+      submittingRef.current = true;
+      setSubmitting(true);
+      try {
+        const response = await fetch('/api/ebook-leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const json = await response.json().catch(() => ({}));
+        console.log('[ebook:mautic] proxy:done', {
+          status: response.status,
+          mautic: json?.data?.mautic,
+        });
+        if (!response.ok) throw new Error(json.error || 'Não foi possível enviar seus dados.');
+        if (ebook.fileUrl) window.open(ebook.fileUrl, '_blank', 'noopener,noreferrer');
+        onSubmitted();
+      } catch (error) {
+        console.error('[ebook:mautic] proxy:error', error);
+        setErrorMessage(error instanceof Error ? error.message : 'Erro ao enviar. Use o formulário alternativo.');
+        setStatus('failed');
+      } finally {
+        submittingRef.current = false;
+        setSubmitting(false);
+      }
+    };
+
+    const loadForm = async () => {
+      try {
+        const response = await fetch(formUrl);
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || !json.data?.html) {
+          throw new Error(json.error || 'Formulário Mautic indisponível.');
+        }
+        if (cancelled) return;
+
+        el.innerHTML = json.data.html;
+        const form = el.querySelector('form');
+        form?.setAttribute('target', '_self');
+        form?.addEventListener('submit', handleSubmit);
+
+        if (!(window as any).MauticSDKLoaded) {
+          (window as any).MauticSDKLoaded = true;
+          const script = document.createElement('script');
+          script.type = 'text/javascript';
+          script.async = true;
+          script.src = json.data.sdkUrl || `${MAUTIC_BASE_URL}/media/js/mautic-form.js`;
+          script.onload = () => {
+            console.log('[ebook:mautic] sdk:loaded', { formId, url: script.src });
+            (window as any).MauticSDK?.onLoad?.();
+          };
+          script.onerror = () => {
+            console.warn('[ebook:mautic] sdk:error', { formId, url: script.src });
+          };
+          document.head.appendChild(script);
+          (window as any).MauticDomain = MAUTIC_BASE_URL;
+          (window as any).MauticLang = { submittingMessage: 'Enviando...' };
+        } else {
+          (window as any).MauticSDK?.onLoad?.();
+        }
+
+        console.log('[ebook:mautic] form:ready', {
+          formId,
+          formName: json.data.formName,
+          fields: json.data.fields,
+        });
+        setStatus('ready');
+        if (timeoutTimer) window.clearTimeout(timeoutTimer);
+      } catch (error) {
+        console.error('[ebook:mautic] load:error', error);
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : 'Não foi possível carregar o formulário do Mautic agora.');
+          setStatus('failed');
+        }
+      }
+    };
+
+    timeoutTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      console.warn('[ebook:mautic] load:timeout', { formId, url: formUrl });
+      setErrorMessage('O formulário externo demorou para responder.');
+      setStatus('failed');
+    }, 8000);
+
+    loadForm();
+
+    return () => {
+      cancelled = true;
+      if (timeoutTimer) window.clearTimeout(timeoutTimer);
+      const form = el.querySelector('form');
+      form?.removeEventListener('submit', handleSubmit);
+      el.innerHTML = '';
+    };
+  }, [formId, ebook.id, ebook.title, ebook.fileUrl, onSubmitted]);
 
   return (
-    <div
-      ref={containerRef}
-      className="mautic-form-container min-h-[200px]"
-      style={{ '--mautic-brand': '#ea580c' } as React.CSSProperties}
-    />
+    <div className="space-y-4">
+      {status === 'loading' && (
+        <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 text-center">
+          <Loader2 className="h-6 w-6 animate-spin text-orange-primary" />
+          <p className="text-sm font-semibold text-slate-600">Carregando formulário seguro...</p>
+        </div>
+      )}
+      <div
+        ref={containerRef}
+        className={`mautic-form-container min-h-[200px] ${status === 'failed' ? 'hidden' : ''} ${submitting ? 'pointer-events-none opacity-60' : ''}`}
+        style={{ '--mautic-brand': '#ea580c' } as React.CSSProperties}
+      />
+      {submitting && (
+        <div className="flex items-center justify-center gap-2 rounded-lg bg-orange-50 p-3 text-sm font-bold text-orange-700">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Enviando seus dados...
+        </div>
+      )}
+      {status === 'failed' && (
+        <InternalEbookLeadForm
+          ebook={ebook}
+          errorMessage={errorMessage}
+          onSubmitted={onSubmitted}
+        />
+      )}
+    </div>
+  );
+}
+
+interface InternalEbookLeadFormProps {
+  ebook: Ebook;
+  errorMessage?: string;
+  onSubmitted: () => void;
+}
+
+function InternalEbookLeadForm({ ebook, errorMessage, onSubmitted }: InternalEbookLeadFormProps) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submitFallback(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
+    const form = new FormData(event.currentTarget);
+    const payload = {
+      ebookId: String(ebook.id),
+      ebookTitle: ebook.title,
+      mauticFormId: ebook.mauticFormId ?? null,
+      name: String(form.get('name') || '').trim(),
+      email: String(form.get('email') || '').trim(),
+      phone: String(form.get('phone') || '').trim(),
+      consentLgpd: form.get('consentLgpd') === 'on',
+    };
+
+    setSaving(true);
+    setError('');
+    console.log('[ebook:fallback] submit:start', {
+      ebookId: ebook.id,
+      formId: ebook.mauticFormId,
+    });
+
+    try {
+      const res = await fetch('/api/ebook-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json().catch(() => ({}));
+      console.log('[ebook:fallback] submit:done', {
+        status: res.status,
+        mautic: json?.data?.mautic,
+      });
+      if (!res.ok) throw new Error(json.error || 'Não foi possível registrar seus dados.');
+      if (ebook.fileUrl) window.open(ebook.fileUrl, '_blank', 'noopener,noreferrer');
+      onSubmitted();
+    } catch (err) {
+      console.error('[ebook:fallback] submit:error', err);
+      setError(err instanceof Error ? err.message : 'Erro ao enviar. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submitFallback} className="space-y-4 rounded-xl border border-orange-100 bg-orange-50/50 p-4">
+      <div className="flex gap-3 rounded-lg bg-white p-3 text-sm text-slate-600">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-orange-primary" />
+        <p>
+          {errorMessage || 'O formulário externo não respondeu.'} Use este cadastro seguro para liberar o download.
+        </p>
+      </div>
+      <label className="block">
+        <span className="text-sm font-bold text-navy">Nome completo</span>
+        <input name="name" required minLength={3} autoComplete="name" className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-primary focus:ring-2 focus:ring-orange-primary/20" />
+      </label>
+      <label className="block">
+        <span className="text-sm font-bold text-navy">E-mail</span>
+        <input name="email" required type="email" autoComplete="email" className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-primary focus:ring-2 focus:ring-orange-primary/20" />
+      </label>
+      <label className="block">
+        <span className="text-sm font-bold text-navy">Telefone / WhatsApp</span>
+        <input name="phone" required minLength={8} autoComplete="tel" className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-primary focus:ring-2 focus:ring-orange-primary/20" />
+      </label>
+      <label className="flex items-start gap-2 text-xs leading-relaxed text-slate-600">
+        <input name="consentLgpd" type="checkbox" defaultChecked className="mt-1 h-4 w-4 rounded border-slate-300 accent-orange-primary" />
+        Autorizo o Instituto Sentidos a armazenar meus dados para envio do material e comunicações relacionadas, conforme a LGPD.
+      </label>
+      {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
+      <button
+        type="submit"
+        disabled={saving}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-primary px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
+      >
+        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+        {saving ? 'Enviando...' : 'Enviar e baixar'}
+      </button>
+    </form>
   );
 }
 
@@ -6427,6 +6673,11 @@ function EbooksPage() {
   const [selectedEbook, setSelectedEbook] = useState<Ebook | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
+  const completeEbookDownload = React.useCallback(() => {
+    console.log('[ebook:modal] submit:confirmed');
+    setSubmitted(true);
+  }, []);
+
   useEffect(() => {
     fetch('/api/ebooks')
       .then((r) => r.json())
@@ -6442,12 +6693,13 @@ function EbooksPage() {
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       if (e.data?.mauticFormSubmitted || String(e.data).includes('mautic')) {
-        setSubmitted(true);
+        console.log('[ebook:mautic] message', { origin: e.origin, data: e.data });
+        completeEbookDownload();
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [completeEbookDownload]);
 
   useEffect(() => {
     setSubmitted(false);
@@ -6753,11 +7005,17 @@ function EbooksPage() {
                     </button>
                   </div>
                 ) : selectedEbook.mauticFormId ? (
-                  <MauticFormEmbed formId={selectedEbook.mauticFormId} />
+                  <MauticFormEmbed
+                    formId={selectedEbook.mauticFormId}
+                    ebook={selectedEbook}
+                    onSubmitted={completeEbookDownload}
+                  />
                 ) : (
-                  <p className="py-8 text-center text-sm text-slate-400">
-                    Formulário não configurado para este e-book.
-                  </p>
+                  <InternalEbookLeadForm
+                    ebook={selectedEbook}
+                    errorMessage="Formulário Mautic não configurado para este e-book."
+                    onSubmitted={completeEbookDownload}
+                  />
                 )}
               </div>
             </div>
