@@ -71,12 +71,18 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-navy text-white flex flex-col items-center justify-center p-6 text-center">
-          <div className="max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md">
+          <div className="max-w-2xl w-full rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md">
             <X className="mx-auto h-12 w-12 text-orange-primary mb-4" />
             <h1 className="font-display text-2xl font-bold mb-2">Ops! Algo deu errado.</h1>
             <p className="text-white/70 text-sm mb-6">
               Ocorreu um erro inesperado nesta página. Nós já fomos notificados e estamos trabalhando para corrigir.
             </p>
+            {import.meta.env.DEV && (
+              <div className="mb-6 text-left bg-black/30 p-4 rounded-lg overflow-auto text-xs text-red-300 font-mono">
+                <p className="font-bold mb-2">{this.state.error?.toString()}</p>
+                <pre>{this.state.error?.stack}</pre>
+              </div>
+            )}
             <button
               onClick={() => window.location.reload()}
               className="rounded-xl bg-orange-primary px-6 py-3 font-bold text-white transition hover:bg-orange-600 shadow-md shadow-orange-primary/20"
@@ -565,9 +571,9 @@ function PublicSite() {
       if (query.trim() !== '') {
         const q = query.toLowerCase();
         if (
-          !c.title.toLowerCase().includes(q) &&
-          !(c.summary || '').toLowerCase().includes(q) &&
-          !c.area.toLowerCase().includes(q)
+          !(c.title?.toLowerCase().includes(q)) &&
+          !(c.summary?.toLowerCase().includes(q)) &&
+          !(c.area?.toLowerCase().includes(q))
         ) {
           return false;
         }
@@ -5147,7 +5153,7 @@ function CoursesPage() {
     if (filterKind !== 'Todos' && c.kind !== filterKind) return false;
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
-      if (!c.title.toLowerCase().includes(q) && !c.summary?.toLowerCase().includes(q) && !c.area.toLowerCase().includes(q)) return false;
+      if (!(c.title?.toLowerCase().includes(q)) && !(c.summary?.toLowerCase().includes(q)) && !(c.area?.toLowerCase().includes(q))) return false;
     }
     return true;
   });
