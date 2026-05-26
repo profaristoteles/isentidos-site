@@ -3246,8 +3246,8 @@ function AdminApp() {
                           <Select
                             label="Status de Exibição"
                             name="active"
-                            options={['Ativo', 'Rascunho', 'Inativo']}
-                            defaultValue={editingCourse === null ? 'Ativo' : (editingCourse.active ? 'Ativo' : 'Rascunho')}
+                            options={['Ativo', 'Inativo']}
+                            defaultValue={editingCourse === null ? 'Ativo' : (editingCourse.active ? 'Ativo' : 'Inativo')}
                           />
                           <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-orange-100 bg-orange-50 p-4 text-sm font-bold text-navy transition hover:bg-orange-100">
                             <input
@@ -5453,9 +5453,9 @@ function mapApiCourse(c: any): Course {
     area: c.area || '',
     workload: c.workload || '',
     investment: c.price ? `R$ ${Number(c.price).toFixed(2)}` : 'Consulte',
-    summary: c.description || '',
-    featured: c.isFeatured ?? c.is_featured ?? false,
-    active: c.isActive ?? c.is_active ?? true,
+    summary: c.summary ?? c.description ?? '',
+    featured: c.featured ?? c.isFeatured ?? c.is_featured ?? false,
+    active: c.active ?? c.isActive ?? c.is_active ?? true,
     videoUrl: c.videoUrl || '',
     about: c.about || '',
     benefits: c.benefits ? (typeof c.benefits === 'string' ? c.benefits : JSON.stringify(c.benefits, null, 2)) : '',
