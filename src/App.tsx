@@ -1983,6 +1983,24 @@ function AdminApp() {
     setTimeout(() => setNotice(''), 4000);
   }
 
+  function clearAdminSession() {
+    localStorage.removeItem('isentidos_admin_token');
+    localStorage.removeItem('isentidos_admin_user');
+    localStorage.removeItem('isentidos_admin_local');
+    setToken('');
+    setLogged(false);
+    setCurrentUser(null);
+  }
+
+  async function handleAdminResponseError(res: Response, fallbackMessage = 'Erro desconhecido') {
+    const err = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      clearAdminSession();
+      return 'Sessão expirada ou inválida. Faça login novamente e tente salvar de novo.';
+    }
+    return err.error || fallbackMessage;
+  }
+
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -2033,9 +2051,7 @@ function AdminApp() {
             }
           } else {
             // Token expirado – limpar e pedir novo login
-            localStorage.removeItem('isentidos_admin_token');
-            localStorage.removeItem('isentidos_admin_user');
-            localStorage.removeItem('isentidos_admin_local');
+            clearAdminSession();
           }
         })
         .catch(() => {
@@ -4704,8 +4720,7 @@ function AdminApp() {
                         setAdminSettings(updated);
                         showNotice('Configurações gerais salvas com sucesso!');
                       } else {
-                        const err = await res.json();
-                        alert('Erro ao salvar: ' + (err.error || 'Erro desconhecido'));
+                        alert('Erro ao salvar: ' + await handleAdminResponseError(res));
                       }
                     } catch {
                       alert('Erro ao se conectar ao servidor.');
@@ -4758,8 +4773,7 @@ function AdminApp() {
                         setAdminSettings(updated);
                         showNotice('Configurações de pixels salvas!');
                       } else {
-                        const err = await res.json();
-                        alert('Erro ao salvar: ' + (err.error || 'Erro desconhecido'));
+                        alert('Erro ao salvar: ' + await handleAdminResponseError(res));
                       }
                     } catch {
                       alert('Erro de conexão.');
@@ -4802,8 +4816,7 @@ function AdminApp() {
                         setAdminSettings(updated);
                         showNotice('Chaves de API salvas com sucesso!');
                       } else {
-                        const err = await res.json();
-                        alert('Erro ao salvar: ' + (err.error || 'Erro desconhecido'));
+                        alert('Erro ao salvar: ' + await handleAdminResponseError(res));
                       }
                     } catch {
                       alert('Erro de conexão.');
