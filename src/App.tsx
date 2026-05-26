@@ -5828,7 +5828,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
         </div>
         
         <div className="mx-auto max-w-6xl px-4 relative z-10 text-center">
-          <span className="mb-6 inline-block rounded-full bg-orange-primary/20 px-5 py-2 text-sm font-bold text-orange-400 border border-orange-primary/30 uppercase tracking-widest">{course.kind} • {course.modality}</span>
+          <span className="mb-6 inline-block rounded-full bg-orange-primary/20 px-5 py-2 text-sm font-bold text-orange-400 border border-orange-primary/30 uppercase tracking-widest">{course.kind} • {getModalityLabel(course.modality, course.kind)}</span>
           <h1 className="mb-6 font-display text-4xl font-bold leading-tight md:text-6xl text-white">{course.title}</h1>
           <p className="mx-auto mb-10 max-w-3xl text-lg text-white/80">{course.summary}</p>
           
@@ -5959,7 +5959,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
                   </div>
                   <div>
                     <p className="text-[10px] uppercase font-bold text-slate-400">Modalidade</p>
-                    <p className="text-sm font-bold text-navy">{course.modality}</p>
+                    <p className="text-sm font-bold text-navy">{getModalityLabel(course.modality, course.kind)}</p>
                   </div>
                 </div>
                 
