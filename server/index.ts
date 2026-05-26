@@ -91,9 +91,9 @@ const loginSchema = z.object({
 });
 
 const courseSchema = z.object({
-  title: z.string().min(3),
-  slug: z.string().min(3),
-  description: z.string().min(10),
+  title: z.string().default('Curso sem titulo'),
+  slug: z.string().optional(),
+  description: z.string().default(''),
   kind: z.enum(['Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD', 'Evento']).optional(),
   type: z.enum([
     'livre',
@@ -106,13 +106,13 @@ const courseSchema = z.object({
     'preparatorio',
     'internacional',
   ]).optional(),
-  modality: z.enum(['presencial', 'online_ao_vivo', 'ead', 'internacional', 'PRESENTIAL', 'ONLINE', 'HYBRID']),
-  workload: z.string().min(2),
-  price: z.number().min(0),
-  maxInstallments: z.number().int().min(1).max(36),
+  modality: z.enum(['presencial', 'online_ao_vivo', 'ead', 'internacional', 'PRESENTIAL', 'ONLINE', 'HYBRID']).default('presencial'),
+  workload: z.string().default(''),
+  price: z.number().min(0).default(0),
+  maxInstallments: z.number().int().min(1).max(36).default(1),
   enrollmentFee: z.number().min(0).optional(),
   installmentValue: z.number().min(0).optional(),
-  area: z.string().min(2),
+  area: z.string().default(''),
   partnerInstitution: z.string().optional(),
   isFeatured: z.boolean().default(false),
   isActive: z.boolean().default(true),
@@ -763,6 +763,15 @@ app.get('/api/admin/dashboard', authMiddleware, async (_req, res) => {
   res.json({ data: dashboard });
 });
 
+function slugifyCourse(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
 function prepareCourseData(data: any) {
   const modalityEnum = mapDatabaseModality(data.modality);
   const modalityDb = mapModalityToDatabase(modalityEnum, data.type || data.kind);
@@ -809,10 +818,16 @@ app.post('/api/admin/courses', authMiddleware, async (req, res) => {
   }
 
   try {
-    const courseData = prepareCourseData(parsed.data);
+    const normalizedData = {
+      ...parsed.data,
+      title: parsed.data.title.trim() || 'Curso sem titulo',
+      slug: slugifyCourse(parsed.data.slug || parsed.data.title) || `curso-rascunho-${Date.now()}`,
+      type: parsed.data.type || mapCourseKindToDatabase((parsed.data.kind as CourseKindType | undefined) || CourseKindType.POS, mapDatabaseModality(parsed.data.modality)),
+    };
+    const courseData = prepareCourseData(normalizedData);
 
     const course = await prisma.course.upsert({
-      where: { slug: parsed.data.slug },
+      where: { slug: normalizedData.slug },
       update: courseData,
       create: courseData,
     });

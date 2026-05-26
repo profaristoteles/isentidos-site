@@ -482,7 +482,6 @@ function PublicSite() {
 
   const activeCourses = courses.filter((c) => c.active);
   const currentInterest = preEnrollInterest || (activeCourses[0]?.title ?? '');
-  const selectedPreEnrollCourse = activeCourses.find(c => c.title === currentInterest);
   const featuredCourses = [...activeCourses].sort((a, b) => Number(b.featured) - Number(a.featured)).slice(0, 3);
   const featuredEbooks = ebooks.filter((e) => e.active).slice(0, 3);
   const whatsappUrl = buildWhatsappUrl(publicSettings.whatsapp);
@@ -909,15 +908,8 @@ function PublicSite() {
                 <label className="block md:col-span-2">
                   <span className="text-sm font-bold text-navy">Modalidade desejada</span>
                   <select name="modality" className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4">
-                    {selectedPreEnrollCourse ? (
-                      <option value={selectedPreEnrollCourse.modality}>{selectedPreEnrollCourse.modality}</option>
-                    ) : (
-                      <>
-                        <option>Presencial</option>
-                        <option>Online ao vivo</option>
-                        <option>EAD</option>
-                      </>
-                    )}
+                    <option>Presencial</option>
+                    <option>Online ao vivo</option>
                   </select>
                 </label>
                 <label className="block md:col-span-2">
@@ -1079,17 +1071,9 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
                     <select
                       name="modality"
                       className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4 text-navy"
-                      disabled
                     >
-                      {selectedCourse ? (
-                        <option value={selectedCourse.modality}>{selectedCourse.modality}</option>
-                      ) : (
-                        <>
-                          <option>Presencial</option>
-                          <option>Online ao vivo</option>
-                          <option>EAD</option>
-                        </>
-                      )}
+                      <option>Presencial</option>
+                      <option>Online ao vivo</option>
                     </select>
                   </label>
                 </div>
@@ -2358,7 +2342,9 @@ function AdminApp() {
   function saveCourse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const title = String(form.get('title'));
+    const rawTitle = String(form.get('title') || '').trim();
+    const title = rawTitle || 'Curso sem titulo';
+    const courseSlug = slugify(rawTitle) || editingCourse?.slug || `curso-rascunho-${Date.now()}`;
     const enrollmentFee = Number(form.get('enrollmentFee')) || 0;
     const maxInstallments = Number(form.get('maxInstallments')) || 1;
     const installmentValue = Number(form.get('installmentValue')) || 0;
@@ -2371,7 +2357,7 @@ function AdminApp() {
       const updated: Course = { 
         ...editingCourse, 
         title, 
-        slug: slugify(title),
+        slug: courseSlug,
         kind: String(form.get('kind')) as CourseKindType, 
         modality: parseModalityUI(String(form.get('modality'))), 
         area: String(form.get('area')), 
@@ -2442,7 +2428,7 @@ function AdminApp() {
       const course: Course = { 
         id: String(Date.now()), 
         title, 
-        slug: slugify(title), 
+        slug: courseSlug, 
         kind: String(form.get('kind')) as CourseKindType, 
         modality: parseModalityUI(String(form.get('modality'))), 
         area: String(form.get('area')), 
@@ -3138,17 +3124,28 @@ function AdminApp() {
             <AdminGrid>
               <Panel title={editingCourse ? 'Editar curso' : 'Cadastrar curso ou programa'}>
                 <form key={editingCourse?.id ?? 'new-course'} onSubmit={saveCourse} className="grid gap-4">
-                  <Field label="Título" name="title" placeholder="Nome do curso" required defaultValue={editingCourse?.title} />
+                  <Field label="Título" name="title" placeholder="Nome do curso" defaultValue={editingCourse?.title} />
                   <div className="grid gap-4 md:grid-cols-2">
                     <Select label="Tipo" name="kind" options={['Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD', 'Evento']} defaultValue={editingCourse?.kind} />
                     <Select label="Modalidade" name="modality" options={['Presencial', 'Online ao vivo', 'EAD']} defaultValue={editingCourse ? getModalityLabel(editingCourse.modality, editingCourse.kind) : 'Presencial'} />
-                    <Field label="Área" name="area" placeholder="Educação inclusiva" required defaultValue={editingCourse?.area} />
-                    <Field label="Carga horária" name="workload" placeholder="360h" required defaultValue={editingCourse?.workload} />
-                    <Field label="Texto de Investimento (Exibição Geral)" name="investment" placeholder="Ex: Consulte ou 12x de R$ 150,00" required defaultValue={editingCourse?.investment} />
+                    <Field label="Área" name="area" placeholder="Educação inclusiva" defaultValue={editingCourse?.area} />
+                    <Field label="Carga horária" name="workload" placeholder="360h" defaultValue={editingCourse?.workload} />
+                    <Field label="Texto de Investimento (Exibição Geral)" name="investment" placeholder="Ex: Consulte ou 12x de R$ 150,00" defaultValue={editingCourse?.investment} />
                     <Field label="Valor de Matrícula (R$)" name="enrollmentFee" type="number" step="0.01" placeholder="Ex: 150.00" defaultValue={editingCourse?.enrollmentFee} />
                     <Field label="Quantidade de Mensalidades" name="maxInstallments" type="number" placeholder="Ex: 12" defaultValue={editingCourse?.maxInstallments} />
                     <Field label="Valor de cada Mensalidade (R$)" name="installmentValue" type="number" step="0.01" placeholder="Ex: 150.00" defaultValue={editingCourse?.installmentValue} />
-                    <Select label="Status de Exibição" name="active" options={['Ativo', 'Inativo']} defaultValue={editingCourse === null || editingCourse.active ? 'Ativo' : 'Inativo'} />
+                    <Select
+                      label="Status de Exibição"
+                      name="active"
+                      options={['Ativo', 'Rascunho', 'Inativo']}
+                      defaultValue={
+                        editingCourse === null
+                          ? 'Ativo'
+                          : editingCourse.active
+                          ? 'Ativo'
+                          : 'Rascunho'
+                      }
+                    />
                     <label className="flex items-center gap-3 rounded-lg bg-bg-light p-4 text-sm font-bold text-navy">
                       <input name="featured" type="checkbox" defaultChecked={editingCourse?.featured} className="h-4 w-4 accent-orange-primary" />
                       Destacar na home
@@ -3202,7 +3199,7 @@ function AdminApp() {
                     )}
                   </div>
                   
-                  <TextArea label="Resumo" name="summary" placeholder="Descrição curta para o card" required defaultValue={editingCourse?.summary} />
+                  <TextArea label="Resumo" name="summary" placeholder="Descrição curta para o card" defaultValue={editingCourse?.summary} />
                   
                   <input type="hidden" name="about" value={courseAbout} />
                   <input type="hidden" name="syllabus" value={courseSyllabus} />
@@ -6168,7 +6165,7 @@ function MauticFormEmbed({ formId }: MauticFormEmbedProps) {
     el.innerHTML = '';
     const script = document.createElement('script');
     script.type = 'text/javascript';
-    script.src = `https://mautic.isentidos.com.br/form/generate.js?id=${formId}`;
+    script.src = `https://mautic.isentidos.net.br/form/generate.js?id=${formId}`;
     el.appendChild(script);
   }, [formId]);
 
