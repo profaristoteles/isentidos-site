@@ -743,13 +743,18 @@ function PublicSite() {
                     </div>
                   </div>
                   <p className="text-sm text-slate-600 leading-relaxed">
-                    Parceira internacional na oferta de programas de <strong>stricto sensu (mestrados, doutorados e pós-doutorado)</strong>, além de curso de <strong>bacharelado em artes e teologia</strong>. Uma cooperação acadêmica que expande as fronteiras profissionais e conecta você a titulações globais.
+                    Parceira internacional na oferta de programas online de <strong>mestrado, doutorado e pós-doutorado</strong>. Os diplomas estrangeiros não possuem reconhecimento automático pelo MEC no Brasil; quando necessário, o reconhecimento de títulos de mestrado e doutorado deve ser solicitado pelo interessado por meio da <strong>Plataforma Carolina Bori</strong>, conforme as regras brasileiras aplicáveis.
                   </p>
                 </div>
                 <div className="mt-8 border-t border-slate-200/60 pt-6">
-                  <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-400">
-                    Programas Internacionais com Acompanhamento Consultivo
-                  </span>
+                  <a
+                    href="https://carolinabori.mec.gov.br/?pagina=plataforma"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-bold text-blue-action hover:text-navy transition"
+                  >
+                    Consultar Plataforma Carolina Bori <ChevronRight className="h-4 w-4" />
+                  </a>
                 </div>
               </div>
             </div>
@@ -5746,6 +5751,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   const modules = parseOrEmpty(course.modules);
   const teachers = parseOrEmpty(course.teachers);
   const testimonials = parseOrEmpty(course.testimonials);
+  const isAdvancedAcademic = isAdvancedAcademicCourse(course);
 
   async function handleLeadSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -5812,10 +5818,20 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   };
 
   const faqs = [
-    { q: "Os cursos são reconhecidos pelo MEC?", a: "Sim! Todos os cursos de pós-graduação e especialização do Instituto Sentidos são oferecidos em parceria com instituições de ensino superior devidamente credenciadas e reconhecidas pelo MEC, garantindo validade nacional ao seu certificado." },
+    {
+      q: isAdvancedAcademic ? "O mestrado/doutorado da Enber é reconhecido automaticamente pelo MEC?" : "Os cursos são reconhecidos pelo MEC?",
+      a: isAdvancedAcademic
+        ? "Não há reconhecimento automático pelo MEC para diplomas estrangeiros. Os programas online da Enber são internacionais; para uso acadêmico ou profissional no Brasil quando exigido, o interessado deve solicitar o reconhecimento individual do diploma pela Plataforma Carolina Bori, conforme as regras do MEC e das universidades brasileiras habilitadas."
+        : "Sim! Todos os cursos de pós-graduação e especialização do Instituto Sentidos são oferecidos em parceria com instituições de ensino superior devidamente credenciadas e reconhecidas pelo MEC, garantindo validade nacional ao seu certificado."
+    },
     { q: "Quais são os documentos necessários para a matrícula?", a: "Para efetivar a matrícula, é necessário apresentar cópia do RG, CPF, comprovante de residência e cópia do Diploma de Graduação ou declaração de conclusão de curso superior." },
     { q: "Como funciona a modalidade Online ao Vivo e EAD?", a: "Na modalidade Online ao Vivo, as aulas ocorrem em tempo real via internet em datas programadas, permitindo interação direta com professores e alunos. No EAD, as videoaulas e materiais ficam disponíveis 24h por dia para você estudar no seu ritmo." },
-    { q: "Como é feita a emissão do certificado?", a: "Após a conclusão com êxito de todas as disciplinas curriculares e a entrega dos documentos obrigatórios, o certificado de conclusão de pós-graduação Lato Sensu é emitido no prazo regulamentar pelas faculdades parceiras credenciadas pelo MEC." }
+    {
+      q: "Como é feita a emissão do certificado?",
+      a: isAdvancedAcademic
+        ? "Ao concluir o programa internacional, o diploma é emitido pela instituição estrangeira responsável. Esse diploma não equivale automaticamente a um título brasileiro; o reconhecimento no Brasil, quando necessário, deve ser solicitado posteriormente via Plataforma Carolina Bori."
+        : "Após a conclusão com êxito de todas as disciplinas curriculares e a entrega dos documentos obrigatórios, o certificado de conclusão de pós-graduação Lato Sensu é emitido no prazo regulamentar pelas faculdades parceiras credenciadas pelo MEC."
+    }
   ];
 
   const tabs = [
@@ -6000,7 +6016,9 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
                   </div>
                   <div>
                     <p className="text-[10px] uppercase font-bold text-slate-400">Certificado</p>
-                    <p className="text-sm font-bold text-navy">Reconhecido pelo MEC</p>
+                    <p className="text-sm font-bold text-navy">
+                      {isAdvancedAcademic ? 'Diploma estrangeiro; reconhecimento via Carolina Bori' : 'Reconhecido pelo MEC'}
+                    </p>
                   </div>
                 </div>
               </div>
