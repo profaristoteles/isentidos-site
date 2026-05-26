@@ -123,7 +123,7 @@ const courseSchema = z.object({
   modules: z.any().optional(),
   teachers: z.any().optional(),
   testimonials: z.any().optional(),
-  leadConnectorFormId: z.string().optional(),
+  leadConnectorFormId: z.string().optional().nullable(),
   coverImageUrl: z.string().optional().nullable(),
 });
 
