@@ -107,7 +107,7 @@ import {
   mapModalityToDatabase,
   translateModality,
   mapDatabaseCourseType,
-  mapCourseKindToDatabase,
+  normalizeCourseTypeToDatabase,
   mapDatabaseLeadStatus,
   mapLeadStatusToDatabase,
   serializeCourse,
@@ -118,7 +118,7 @@ import {
   serializeLead
 } from '../shared/serializers';
 
-export type CourseKind = 'Curso Livre' | 'Pós-graduação' | 'Mestrado EAD' | 'Doutorado EAD' | 'Evento';
+export type CourseKind = 'Curso Livre' | 'Pós-graduação' | 'Mestrado EAD' | 'Doutorado EAD';
 export type Modality = 'Presencial' | 'Online ao vivo' | 'EAD';
 export type LeadStatus = 'Novo' | 'Em atendimento' | 'Matriculado' | 'Perdido';
 
@@ -171,7 +171,7 @@ const initialPosts: BlogPost[] = [];
 const initialEbooks: Ebook[] = [];
 const initialEvents: EventItem[] = [];
 
-const courseKinds: Array<'Todos' | CourseKind> = ['Todos', 'Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD', 'Evento'];
+const courseKinds: Array<'Todos' | CourseKind> = ['Todos', 'Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD'];
 const modalities: Array<'Todos' | Modality> = ['Todos', 'Presencial', 'Online ao vivo', 'EAD'];
 
 const navItems = [
@@ -2436,6 +2436,9 @@ function AdminApp() {
         setCourseAbout('');
         setCourseSyllabus('');
         setCourseCoverUrl('');
+        const fresh = await fetch('/api/admin/courses', { headers: { Authorization: `Bearer ${token}` } });
+        const freshJson = await fresh.json();
+        if (fresh.ok && freshJson.data) setCourses(freshJson.data.map(mapApiCourse));
       } else {
         const msg = json.error || (json.details ? JSON.stringify(json.details) : 'Erro desconhecido');
         showNotice(`❌ Erro ao salvar: ${msg}`);
@@ -3137,7 +3140,7 @@ function AdminApp() {
                           <Select
                             label="Tipo de Curso"
                             name="kind"
-                            options={['Pós-graduação', 'Curso Livre', 'Mestrado EAD', 'Doutorado EAD', 'Evento']}
+                            options={['Pós-graduação', 'Curso Livre', 'Mestrado EAD', 'Doutorado EAD']}
                             defaultValue={editingCourse?.kind || 'Pós-graduação'}
                           />
                           <Select
@@ -3415,11 +3418,10 @@ function AdminApp() {
                     const posPresencial = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.POS && c.modality === ModalityType.PRESENTIAL));
                     const posOnline    = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.POS && c.modality === ModalityType.ONLINE));
                     const cursoLivre   = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.LIBRE));
-                    const outros       = sorted(filtered.filter((c: Course) =>
-                      c.kind !== CourseKindType.POS && c.kind !== CourseKindType.LIBRE
-                    ));
+                    const mestradoEad  = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.MESTRADO));
+                    const doutoradoEad = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.DOUTORADO));
 
-                    const total = posPresencial.length + posOnline.length + cursoLivre.length + outros.length;
+                    const total = posPresencial.length + posOnline.length + cursoLivre.length + mestradoEad.length + doutoradoEad.length;
 
                     if (total === 0) return (
                       <div className="rounded-xl bg-slate-50 py-10 text-center">
@@ -3509,7 +3511,8 @@ function AdminApp() {
                       { title: 'Pós-graduação Presencial', items: posPresencial, dot: 'bg-orange-primary' },
                       { title: 'Pós-graduação Online / EAD', items: posOnline,    dot: 'bg-blue-action'   },
                       { title: 'Cursos Livres',              items: cursoLivre,   dot: 'bg-green-500'     },
-                      { title: 'Outros',                     items: outros,       dot: 'bg-slate-400'     },
+                      { title: 'Mestrado EAD',               items: mestradoEad,  dot: 'bg-indigo-500'    },
+                      { title: 'Doutorado EAD',              items: doutoradoEad, dot: 'bg-violet-500'    },
                     ];
 
                     return (
@@ -5409,12 +5412,9 @@ function modalityToApi(modality: Modality | ModalityType) {
 }
 
 function courseTypeToApi(course: Course) {
-  if (course.kind === 'Curso Livre') return 'livre';
-  if (course.kind === 'Mestrado EAD') return 'mestrado_ead';
-  if (course.kind === 'Doutorado EAD') return 'doutorado_ead';
-  const isOnline = course.modality === ModalityType.ONLINE || course.modality === 'ONLINE' || course.modality === 'Online ao vivo' || course.modality === 'EAD';
-  if (course.kind === 'Evento') return isOnline ? 'evento_online' : 'evento_presencial';
-  return isOnline ? 'pos_online' : 'pos_presencial';
+  const modality = String(course.modality);
+  const isOnline = modality === ModalityType.ONLINE || modality === 'ONLINE' || modality === 'Online ao vivo' || modality === 'EAD';
+  return normalizeCourseTypeToDatabase(course.kind, isOnline ? ModalityType.ONLINE : ModalityType.PRESENTIAL);
 }
 
 function numericPrice(value: string) {
@@ -5431,8 +5431,10 @@ function mapApiCourse(c: any): Course {
     id: String(c.id),
     title: c.title || '',
     slug: c.slug || '',
-    kind: mapDatabaseCourseType(c.type || '', c.modality || ''),
-    modality: parseModalityUI(c.modality),
+    kind: c.kind ?? mapDatabaseCourseType(c.type || '', c.modality || ''),
+    modality: c.modality === ModalityType.ONLINE || c.modality === ModalityType.PRESENTIAL || c.modality === ModalityType.HYBRID
+      ? c.modality
+      : parseModalityUI(c.modality),
     area: c.area || '',
     workload: c.workload || '',
     investment: c.price ? `R$ ${Number(c.price).toFixed(2)}` : 'Consulte',
@@ -5496,7 +5498,7 @@ function CoursesPage() {
           <div>
             <h3 className="font-bold text-navy mb-4 border-b border-slate-200 pb-2">Tipo de Curso</h3>
             <div className="space-y-3">
-              {['Todos', 'Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD', 'Evento'].map(k => (
+              {courseKinds.map(k => (
                 <label key={k} className="flex items-center gap-3 cursor-pointer text-sm text-slate-700">
                   <input type="radio" checked={filterKind === k} onChange={() => setFilterKind(k)} className="h-4 w-4 accent-orange-primary" /> {k}
                 </label>

@@ -62,22 +62,43 @@ export function translateModality(m: ModalityType | string): string {
   return 'Presencial';
 }
 
-// Course Kind normalization
-export function mapDatabaseCourseType(type: string, modality: string): CourseKindType {
-  const norm = String(type || '').toLowerCase();
-  if (norm === 'livre') return CourseKindType.LIBRE;
-  if (norm.includes('mes')) return CourseKindType.MESTRADO;
-  if (norm.includes('dou')) return CourseKindType.DOUTORADO;
-  if (norm.includes('evento')) return CourseKindType.EVENTO;
+function normalizeCourseTypeValue(value: string): string {
+  return String(value || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_');
+}
+
+export function normalizeCourseTypeToDatabase(type: string | CourseKindType | undefined, modality: ModalityType = ModalityType.PRESENTIAL): string {
+  const norm = normalizeCourseTypeValue(String(type || ''));
+  if (['livre', 'curso_livre', 'free_course'].includes(norm)) return 'livre';
+  if (['mestrado_ead', 'master_ead'].includes(norm) || norm.includes('mestrado')) return 'mestrado_ead';
+  if (['doutorado_ead', 'doctorate_ead'].includes(norm) || norm.includes('doutorado')) return 'doutorado_ead';
+  if (['pos_online', 'postgraduate_online', 'postgraduate_ead'].includes(norm)) return 'pos_online';
+  if (['pos_presencial', 'pos', 'pos_graduacao', 'postgraduate', 'posgraduacao'].includes(norm)) {
+    return modality === ModalityType.ONLINE ? 'pos_online' : 'pos_presencial';
+  }
+  return modality === ModalityType.ONLINE ? 'pos_online' : 'pos_presencial';
+}
+
+export function normalizeCourseTypeFromDatabase(type: string, modality: string = ''): CourseKindType {
+  const norm = normalizeCourseTypeValue(type);
+  if (['livre', 'curso_livre', 'free_course'].includes(norm)) return CourseKindType.LIBRE;
+  if (['mestrado_ead', 'master_ead'].includes(norm) || norm.includes('mestrado')) return CourseKindType.MESTRADO;
+  if (['doutorado_ead', 'doctorate_ead'].includes(norm) || norm.includes('doutorado')) return CourseKindType.DOUTORADO;
   return CourseKindType.POS;
 }
 
+// Course Kind normalization
+export function mapDatabaseCourseType(type: string, modality: string): CourseKindType {
+  return normalizeCourseTypeFromDatabase(type, modality);
+}
+
 export function mapCourseKindToDatabase(kind: CourseKindType, m: ModalityType): string {
-  if (kind === CourseKindType.LIBRE) return 'livre';
-  if (kind === CourseKindType.MESTRADO) return 'mestrado_ead';
-  if (kind === CourseKindType.DOUTORADO) return 'doutorado_ead';
-  if (kind === CourseKindType.EVENTO) return (m === ModalityType.ONLINE) ? 'evento_online' : 'evento_presencial';
-  return (m === ModalityType.ONLINE) ? 'pos_online' : 'pos_presencial';
+  return normalizeCourseTypeToDatabase(kind, m);
 }
 
 // Lead Status normalization

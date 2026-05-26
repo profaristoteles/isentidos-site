@@ -21,8 +21,8 @@ import {
   serializeLead,
   mapDatabaseModality,
   mapModalityToDatabase,
-  mapDatabaseCourseType,
   mapCourseKindToDatabase,
+  normalizeCourseTypeToDatabase,
   mapDatabaseLeadStatus,
   mapLeadStatusToDatabase,
   sanitizeHtml
@@ -94,17 +94,24 @@ const courseSchema = z.object({
   title: z.string().default('Curso sem titulo'),
   slug: z.string().optional(),
   description: z.string().default(''),
-  kind: z.enum(['Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD', 'Evento']).optional(),
+  kind: z.enum(['Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD']).optional(),
   type: z.enum([
     'livre',
     'pos_presencial',
     'pos_online',
     'mestrado_ead',
     'doutorado_ead',
-    'evento_presencial',
-    'evento_online',
-    'preparatorio',
-    'internacional',
+    'curso_livre',
+    'Curso Livre',
+    'free_course',
+    'FREE_COURSE',
+    'pos',
+    'pos-graduacao',
+    'Pós-graduação',
+    'postgraduate',
+    'POSTGRADUATE',
+    'MASTER_EAD',
+    'DOCTORATE_EAD',
   ]).optional(),
   modality: z.enum(['presencial', 'online_ao_vivo', 'ead', 'internacional', 'PRESENTIAL', 'ONLINE', 'HYBRID']).default('presencial'),
   workload: z.string().default(''),
@@ -774,12 +781,10 @@ function slugifyCourse(value: string) {
 
 function prepareCourseData(data: any) {
   const modalityEnum = mapDatabaseModality(data.modality);
-  const modalityDb = mapModalityToDatabase(modalityEnum, data.type || data.kind);
-
-  let dbType = data.type;
-  if (!dbType && data.kind) {
-    dbType = mapCourseKindToDatabase(data.kind, modalityEnum);
-  }
+  const dbType = data.type !== undefined || data.kind !== undefined
+    ? normalizeCourseTypeToDatabase(data.type ?? data.kind, modalityEnum)
+    : undefined;
+  const modalityDb = mapModalityToDatabase(modalityEnum, dbType || data.kind);
 
   const result: any = {};
   if (data.title !== undefined) result.title = data.title;
@@ -1275,9 +1280,25 @@ app.put('/api/admin/courses/:id', authMiddleware, async (req, res) => {
   }
   try {
     const courseData = prepareCourseData(parsed.data);
+    console.log('[course:update] payload', {
+      courseId: req.params.id,
+      receivedType: req.body?.type,
+      receivedKind: req.body?.kind,
+      prismaDataType: courseData.type,
+    });
+    if ((req.body?.type !== undefined || req.body?.kind !== undefined) && courseData.type === undefined) {
+      return res.status(400).json({ error: 'Tipo de curso não foi reconhecido.' });
+    }
     const course = await prisma.course.update({ where: { id: req.params.id }, data: courseData });
-    logAction((req as any).user?.sub, 'Course', 'UPDATE', course.id, 'SUCCESS', { slug: course.slug });
-    res.json({ data: serializeCourse(course) });
+    const updatedCourse = await prisma.course.findUnique({ where: { id: course.id } });
+    const serializedCourse = serializeCourse(updatedCourse ?? course);
+    console.log('[course:update] saved', {
+      courseId: course.id,
+      savedType: (updatedCourse ?? course).type,
+      responseKind: serializedCourse.kind,
+    });
+    logAction((req as any).user?.sub, 'Course', 'UPDATE', course.id, 'SUCCESS', { slug: course.slug, type: (updatedCourse ?? course).type });
+    res.json({ data: serializedCourse });
   } catch (err: any) {
     logAction((req as any).user?.sub, 'Course', 'UPDATE_FAILED', req.params.id, 'ERROR', { error: err.message });
     res.status(404).json({ error: 'Curso não encontrado.' });

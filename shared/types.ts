@@ -8,8 +8,7 @@ export enum CourseKindType {
   LIBRE = 'Curso Livre',
   POS = 'Pós-graduação',
   MESTRADO = 'Mestrado EAD',
-  DOUTORADO = 'Doutorado EAD',
-  EVENTO = 'Evento'
+  DOUTORADO = 'Doutorado EAD'
 }
 
 export enum UserRoleType {
