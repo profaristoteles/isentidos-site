@@ -151,69 +151,12 @@ const WHATSAPP =
 
 const SITE_LOGO = '/logo-isentidos-laranja.png';
 
-const initialBanners: Banner[] = [
-  {
-    id: 1,
-    title: 'Pós-graduação para educadores que querem ir além',
-    subtitle:
-      'Turmas presenciais e online ao vivo, com professores experientes e atendimento próximo do primeiro contato à matrícula.',
-    ctaLabel: 'Conhecer cursos',
-    ctaUrl: '#cursos',
-    imageUrl:
-      'https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1400&q=80',
-    active: true,
-  },
-  {
-    id: 2,
-    title: 'Mestrado e Doutorado EAD com suporte consultivo completo',
-    subtitle:
-      'Programas acadêmicos internacionais em parceria com Ivy Enber University e FAEPI, com acompanhamento personalizado.',
-    ctaLabel: 'Saiba mais',
-    ctaUrl: '#cursos',
-    imageUrl:
-      'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1400&q=80',
-    active: true,
-  },
-  {
-    id: 3,
-    title: 'Cursos livres e eventos para aperfeiçoamento rápido',
-    subtitle:
-      'Libras, práticas inclusivas e muito mais. Aprenda no seu ritmo com os especialistas do Instituto Sentidos.',
-    ctaLabel: 'Ver eventos',
-    ctaUrl: '#eventos',
-    imageUrl:
-      'https://images.unsplash.com/photo-1544531586-fde5298cdd40?auto=format&fit=crop&w=1400&q=80',
-    active: true,
-  },
-];
-
-const initialCourses: Course[] = [
-  { id: 1, title: 'Educação Especial Inclusiva', slug: 'educacao-especial-inclusiva-presencial', kind: 'Pós-graduação', modality: 'Presencial', area: 'Educação inclusiva', workload: '360h', investment: '12x de R$ 150,00', summary: 'Especialização para atuação com práticas pedagógicas inclusivas e atendimento educacional especializado.', featured: true, active: true },
-  { id: 2, title: 'Educação Especial Inclusiva', slug: 'educacao-especial-inclusiva-online', kind: 'Pós-graduação', modality: 'Online ao vivo', area: 'Educação inclusiva', workload: '360h', investment: '12x de R$ 140,00', summary: 'Turma ao vivo para quem precisa de flexibilidade sem perder a interação com professores.', featured: true, active: true },
-  { id: 3, title: 'LIBRAS para Educadores', slug: 'libras-para-educadores', kind: 'Curso Livre', modality: 'Presencial', area: 'Aperfeiçoamento', workload: '60h', investment: 'R$ 97,00', summary: 'Curso de aperfeiçoamento para comunicação inicial em Libras na rotina escolar.', featured: false, active: true },
-  { id: 4, title: 'Mestrado em Ciências da Educação', slug: 'mestrado-ciencias-da-educacao-ead', kind: 'Mestrado EAD', modality: 'EAD', area: 'Programas internacionais', workload: '24 meses', investment: 'Atendimento consultivo', summary: 'Programa EAD para docentes e gestores que buscam avançar na trajetória acadêmica.', featured: true, active: true },
-  { id: 5, title: 'Doutorado em Educação', slug: 'doutorado-em-educacao-ead', kind: 'Doutorado EAD', modality: 'EAD', area: 'Programas internacionais', workload: '36 meses', investment: 'Atendimento consultivo', summary: 'Acompanhamento consultivo para candidatura, matrícula e jornada acadêmica internacional.', featured: false, active: true },
-  { id: 6, title: 'Jornada de Práticas Inclusivas', slug: 'jornada-praticas-inclusivas-online', kind: 'Evento', modality: 'Online ao vivo', area: 'Eventos', workload: '8h', investment: 'Inscrições abertas', summary: 'Encontro ao vivo com especialistas para discussão de práticas inclusivas aplicadas.', featured: false, active: true },
-];
-
-const initialLeads: Lead[] = [
-  { id: 1, name: 'Ana Clara Mendes', phone: '(99) 98888-1020', email: 'ana.clara@example.com', interest: 'Educação Especial Inclusiva', modality: 'Online ao vivo', status: 'Novo', origin: 'Site' },
-  { id: 2, name: 'João Lima', phone: '(99) 97777-2040', email: 'joao.lima@example.com', interest: 'Psicopedagogia', modality: 'Presencial', status: 'Em atendimento', origin: 'WhatsApp' },
-];
-
-const initialPosts: BlogPost[] = [
-  { id: 1, title: 'Educação inclusiva na prática escolar', category: 'Inclusão', excerpt: 'Estratégias para tornar o planejamento pedagógico mais acolhedor e efetivo.', published: true },
-  { id: 2, title: 'Como escolher uma pós-graduação lato sensu', category: 'Carreira', excerpt: 'Critérios para avaliar formato, carga horária, professores e aderência ao seu momento profissional.', published: true },
-];
-
-const initialEbooks: Ebook[] = [
-  { id: 1, title: 'Guia de Educação Inclusiva', description: 'Material introdutório para professores que desejam começar com segurança.', category: 'Livro Digital', coverUrl: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=800&q=80', mauticFormId: 7, pages: '120 páginas', year: '2024', active: true },
-];
-
-const initialEvents: EventItem[] = [
-  { id: 1, title: 'Aula Aberta: Pós-graduação em Educação Especial', modality: 'Online ao vivo', date: '25/05/2026', description: 'Encontro de apresentação com coordenação pedagógica e consultores.', active: true },
-  { id: 2, title: 'Imersão Presencial em Práticas Inclusivas', modality: 'Presencial', date: '06/06/2026', description: 'Atividade presencial em Caxias (MA), com vagas limitadas.', active: true },
-];
+const initialBanners: Banner[] = [];
+const initialCourses: Course[] = [];
+const initialLeads: Lead[] = [];
+const initialPosts: BlogPost[] = [];
+const initialEbooks: Ebook[] = [];
+const initialEvents: EventItem[] = [];
 
 const courseKinds: Array<'Todos' | CourseKind> = ['Todos', 'Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD', 'Evento'];
 const modalities: Array<'Todos' | Modality> = ['Todos', 'Presencial', 'Online ao vivo', 'EAD'];
