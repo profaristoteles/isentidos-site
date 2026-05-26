@@ -86,6 +86,14 @@ const leadSchema = z.object({
   consentLgpd: z.boolean(),
 });
 
+function isPublicCourseVisible(course: any): boolean {
+  const title = String(course?.title || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const type = normalizeCourseTypeToDatabase(course?.type, mapDatabaseModality(course?.modality));
+  const looksLikeAdvancedAcademic = title.includes('mestrado') || title.includes('doutorado');
+  if (!looksLikeAdvancedAcademic) return true;
+  return type === 'mestrado_ead' || type === 'doutorado_ead';
+}
+
 const ebookLeadSchema = z.object({
   ebookId: z.string().optional(),
   ebookTitle: z.string().min(2),
@@ -596,7 +604,7 @@ app.get('/sitemap.xml', async (_req, res) => {
     async () => {
       return await prisma.course.findMany({
         where: { isActive: true },
-        select: { slug: true }
+        select: { slug: true, title: true, type: true, modality: true }
       });
     },
     []
@@ -623,7 +631,7 @@ app.get('/sitemap.xml', async (_req, res) => {
     { loc: `${baseUrl}/indique-e-ganhe`, priority: '0.7', changefreq: 'monthly' }
   ];
 
-  const courseUrls = courses.map(c => ({
+  const courseUrls = courses.filter(isPublicCourseVisible).map(c => ({
     loc: `${baseUrl}/cursos/${c.slug}`,
     priority: '0.8',
     changefreq: 'weekly'
@@ -670,7 +678,7 @@ app.get('/api/courses', async (_req, res) => {
         where: { isActive: true },
         orderBy: [{ isFeatured: 'desc' }, { title: 'asc' }],
       });
-      return rows.map(serializeCourse);
+      return rows.filter(isPublicCourseVisible).map(serializeCourse);
     },
     [],
   );
@@ -689,7 +697,7 @@ app.get('/api/courses/:slug', async (req, res) => {
     null
   );
 
-  if (!course) {
+  if (!course || !isPublicCourseVisible(course)) {
     return res.status(404).json({ error: 'Curso nÃ£o encontrado.' });
   }
 
@@ -767,7 +775,7 @@ app.get('/api/site-content', async (_req, res) => {
 
       return {
         banners: banners.map(serializeBanner),
-        courses: courses.map(serializeCourse),
+        courses: courses.filter(isPublicCourseVisible).map(serializeCourse),
         posts: posts.map(serializeBlogPost),
         ebooks: ebooks.map(serializeEbook),
         events: events.map(serializeEvent),

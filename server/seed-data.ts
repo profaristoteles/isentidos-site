@@ -1216,6 +1216,7 @@ export const seedCourses = [
     "area": "Educação",
     "partnerInstitution": "Ivy Enber University",
     "isFeatured": true,
+    "isActive": false,
     "modules": [
       {
         "title": "Metodologia da Pesquisa Científica",
