@@ -98,96 +98,32 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types & Shared Imports ───────────────────────────────────────────────────
+import { ModalityType, CourseKindType, LeadStatusType } from '../shared/types';
+import type { Course, Banner, BlogPost, Ebook, Event, Lead } from '../shared/types';
+import {
+  sanitizeHtml,
+  mapDatabaseModality,
+  mapModalityToDatabase,
+  translateModality,
+  mapDatabaseCourseType,
+  mapCourseKindToDatabase,
+  mapDatabaseLeadStatus,
+  mapLeadStatusToDatabase,
+  serializeCourse,
+  serializeBanner,
+  serializeBlogPost,
+  serializeEbook,
+  serializeEvent,
+  serializeLead
+} from '../shared/serializers';
 
-type CourseKind = 'Curso Livre' | 'Pós-graduação' | 'Mestrado EAD' | 'Doutorado EAD' | 'Evento';
-type Modality = 'Presencial' | 'Online ao vivo' | 'EAD';
-type LeadStatus = 'Novo' | 'Em atendimento' | 'Matriculado' | 'Perdido';
+export type CourseKind = 'Curso Livre' | 'Pós-graduação' | 'Mestrado EAD' | 'Doutorado EAD' | 'Evento';
+export type Modality = 'Presencial' | 'Online ao vivo' | 'EAD';
+export type LeadStatus = 'Novo' | 'Em atendimento' | 'Matriculado' | 'Perdido';
 
-interface Banner {
-  id: number | string;
-  title: string;
-  subtitle: string;
-  ctaLabel: string;
-  ctaUrl: string;
-  imageUrl: string;
-  active: boolean;
-}
-
-interface Course {
-  id: number | string;
-  title: string;
-  slug: string;
-  kind: CourseKind;
-  modality: Modality;
-  area: string;
-  workload: string;
-  investment: string;
-  summary: string;
-  featured: boolean;
-  active: boolean;
-  videoUrl?: string;
-  about?: string;
-  benefits?: string;
-  modules?: string;
-  teachers?: string;
-  testimonials?: string;
-  enrollmentFee?: number;
-  installmentValue?: number;
-  maxInstallments?: number;
-  createdAt?: string;
-  leadConnectorFormId?: string;
-  syllabus?: string;
-}
-
-interface Lead {
-  id: number | string;
-  name: string;
-  phone: string;
-  email: string;
-  interest: string;
-  modality: Modality;
-  status: LeadStatus;
-  origin: string;
-  referralCode?: string;
-}
-
-interface BlogPost {
-  id: number | string;
-  title: string;
-  category: string;
-  excerpt: string;
-  published: boolean;
-  content?: string;
-  tags?: string[];
-  coverImageUrl?: string;
-  publishedAt?: string;
-  slug?: string;
-}
-
-interface Ebook {
-  id: string | number;
-  title: string;
-  description: string;
-  category: string;
-  coverUrl: string;
-  fileUrl?: string;
-  mauticFormId?: number | null;
-  pages?: string;
-  year?: string;
-  position?: number;
-  active: boolean;
-}
-
-interface EventItem {
-  id: number | string;
-  title: string;
-  modality: 'Presencial' | 'Online ao vivo';
-  date: string;
-  description: string;
-  active: boolean;
-  link?: string;
-  coverUrl?: string;
+export interface EventItem extends Event {
+  date?: string;
 }
 
 interface ReferralCode {
@@ -197,6 +133,28 @@ interface ReferralCode {
   studentEmail: string;
   conversions: number;
   isActive: boolean;
+}
+
+export function parseModalityUI(value: string): ModalityType {
+  const norm = String(value || '').trim().toLowerCase();
+  if (norm === 'online ao vivo' || norm === 'ead' || norm === 'online' || norm === 'online_ao_vivo') {
+    return ModalityType.ONLINE;
+  }
+  if (norm === 'internacional' || norm === 'hibrido' || norm === 'hybrid') {
+    return ModalityType.HYBRID;
+  }
+  return ModalityType.PRESENTIAL;
+}
+
+export function getModalityLabel(modality: ModalityType, kind?: string): string {
+  if (modality === ModalityType.ONLINE) {
+    if (kind?.toLowerCase().includes('ead') || kind?.toLowerCase().includes('mestrado') || kind?.toLowerCase().includes('doutorado')) {
+      return 'EAD';
+    }
+    return 'Online ao vivo';
+  }
+  if (modality === ModalityType.HYBRID) return 'Internacional';
+  return 'Presencial';
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -499,7 +457,7 @@ function PublicSite() {
         if (data?.courses?.length) setCourses(data.courses.map(mapApiCourse));
         if (data?.posts?.length) setPosts(data.posts.map((p: any) => ({ id: p.id, title: p.title, category: p.category, excerpt: p.excerpt, published: p.isPublished, publishedAt: p.publishedAt, slug: p.slug })));
         if (data?.ebooks?.length) setEbooks(data.ebooks.map((e: any) => ({ id: e.id, title: e.title, description: e.description, category: e.category ?? 'Livro Digital', coverUrl: e.coverUrl ?? '', mauticFormId: e.mauticFormId ?? null, pages: e.pages ?? '', year: e.year ?? '', position: e.position ?? 0, active: e.isActive })));
-        if (data?.events?.length) setEvents(data.events.map((ev: any) => ({ id: ev.id, title: ev.title, modality: ev.modality === 'online_ao_vivo' ? 'Online ao vivo' : 'Presencial', date: ev.startsAt ? new Date(ev.startsAt).toLocaleDateString('pt-BR') : '', description: ev.description, active: ev.isActive })));
+        if (data?.events?.length) setEvents(data.events.map((ev: any) => ({ id: String(ev.id), title: ev.title, modality: parseModalityUI(ev.modality), date: ev.startsAt ? new Date(ev.startsAt).toLocaleDateString('pt-BR') : '', description: ev.description, active: ev.isActive })));
         if (data?.settings) setPublicSettings({ ...defaultPublicSettings, ...data.settings });
       })
       .catch(() => {});
@@ -673,7 +631,16 @@ function PublicSite() {
             <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {homeCourses.length > 0 ? (
                 homeCourses.map((course) => (
-                  <article key={course.id} className="flex flex-col rounded-lg border border-slate-200 bg-white shadow-soft">
+                  <article key={course.id} className="flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-soft">
+                    {course.coverImageUrl ? (
+                      <div className="relative h-44 w-full overflow-hidden bg-slate-100">
+                        <img src={course.coverImageUrl} alt={course.title} className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="relative h-44 w-full bg-gradient-to-br from-navy to-blue-action flex items-center justify-center">
+                        <GraduationCap className="h-12 w-12 text-white/30" />
+                      </div>
+                    )}
                     <div className="p-5">
                       <div className="flex items-center justify-between gap-3">
                         <span className="rounded-md bg-orange-primary/10 px-3 py-1 text-xs font-bold uppercase text-orange-primary">{course.kind}</span>
@@ -685,7 +652,7 @@ function PublicSite() {
                     <div className="mt-auto px-5 pb-5 text-sm space-y-3">
                       <div className="grid grid-cols-2 gap-2">
                         <InfoBlock label="Área" value={course.area} />
-                        <InfoBlock label="Modalidade" value={course.modality} />
+                        <InfoBlock label="Modalidade" value={getModalityLabel(course.modality, course.kind)} />
                       </div>
                       {course.installmentValue && course.installmentValue > 0 ? (
                         <div className="rounded-lg bg-slate-50 p-2 border border-slate-100/50">
@@ -884,7 +851,7 @@ function PublicSite() {
                   <article key={ev.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-soft">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-xs font-bold uppercase text-orange-primary">{ev.modality}</p>
+                        <p className="text-xs font-bold uppercase text-orange-primary">{translateModality(ev.modality)}</p>
                         <h3 className="mt-2 font-display text-2xl font-bold text-navy">{ev.title}</h3>
                       </div>
                       <CalendarDays className="h-8 w-8 text-blue-action" aria-hidden />
@@ -2005,10 +1972,12 @@ function AdminApp() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [courseAbout, setCourseAbout] = useState('');
   const [courseSyllabus, setCourseSyllabus] = useState('');
+  const [courseCoverUrl, setCourseCoverUrl] = useState('');
 
   useEffect(() => {
     setCourseAbout(editingCourse?.about || '');
     setCourseSyllabus(editingCourse?.syllabus || '');
+    setCourseCoverUrl(editingCourse?.coverImageUrl || '');
   }, [editingCourse]);
 
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
@@ -2016,6 +1985,7 @@ function AdminApp() {
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
 
   const [ebookCoverUrl, setEbookCoverUrl] = useState('');
+  const [ebookFileUrl, setEbookFileUrl] = useState('');
   const [eventCoverUrl, setEventCoverUrl] = useState('');
 
   const [bannerPreview, setBannerPreview] = useState('');
@@ -2120,37 +2090,53 @@ function AdminApp() {
       if (b.data?.length) setBanners(b.data.map(mapApiBanner));
       if (c.data?.length) setCourses(c.data.map(mapApiCourse));
       if (l.data?.length) setLeads(l.data.map((lead: any) => ({
-        id: lead.id, name: lead.name, phone: lead.phone, email: lead.email,
-        interest: lead.course?.title ?? lead.notes ?? '',
-        modality: lead.preferredFormat === 'online_ao_vivo' ? 'Online ao vivo' : lead.preferredFormat === 'presencial' ? 'Presencial' : 'EAD',
-        status: lead.status === 'novo' ? 'Novo' : lead.status === 'em_atendimento' ? 'Em atendimento' : lead.status === 'matriculado' ? 'Matriculado' : 'Perdido',
-        origin: lead.source ?? 'Site',
-        referralCode: lead.referralCode,
+        id: lead.id,
+        name: lead.name || '',
+        phone: lead.phone || '',
+        email: lead.email || '',
+        interest: lead.interest || lead.course?.title || lead.notes || '',
+        modality: lead.modality || ModalityType.PRESENTIAL,
+        status: lead.status || 'Novo',
+        origin: lead.origin || lead.source || 'Site',
+        referralCode: lead.referralCode || null,
+        notes: lead.notes || '',
       })));
       if (p.data?.length) setPosts(p.data.map((post: any) => ({
         id: post.id,
-        title: post.title,
-        category: post.category,
-        excerpt: post.excerpt,
-        published: post.isPublished,
-        content: post.content,
-        tags: post.tags,
-        coverImageUrl: post.coverImageUrl,
-        publishedAt: post.publishedAt
+        title: post.title || '',
+        category: post.category || 'Geral',
+        excerpt: post.excerpt || '',
+        published: post.published ?? post.isPublished ?? false,
+        content: post.content || '',
+        tags: post.tags || [],
+        coverImageUrl: post.coverImageUrl || '',
+        publishedAt: post.publishedAt || ''
       })));
       if (e.data?.length) setEbooks(e.data.map((ebook: any) => ({
         id: ebook.id,
-        title: ebook.title,
-        description: ebook.description,
+        title: ebook.title || '',
+        description: ebook.description || '',
         category: ebook.category ?? 'Livro Digital',
         coverUrl: ebook.coverUrl ?? '',
+        fileUrl: ebook.fileUrl ?? '',
         mauticFormId: ebook.mauticFormId ?? null,
         pages: ebook.pages ?? '',
         year: ebook.year ?? '',
         position: ebook.position ?? 0,
-        active: ebook.isActive
+        active: ebook.active ?? ebook.isActive ?? true,
       })));
-      if (ev.data?.length) setEvents(ev.data.map((event: any) => ({ id: event.id, title: event.title, modality: event.modality === 'online_ao_vivo' ? 'Online ao vivo' : 'Presencial', date: event.startsAt ? new Date(event.startsAt).toLocaleDateString('pt-BR') : '', description: event.description, active: event.isActive })));
+      if (ev.data?.length) setEvents(ev.data.map((event: any) => ({
+        id: String(event.id),
+        title: event.title || '',
+        modality: event.modality || ModalityType.PRESENTIAL,
+        date: event.startsAt ? new Date(event.startsAt).toLocaleDateString('pt-BR') : '',
+        description: event.description || '',
+        link: event.link || '',
+        coverUrl: event.coverUrl || '',
+        active: event.active ?? event.isActive ?? true,
+        price: event.price ?? 0,
+        slug: event.slug || '',
+      })));
       if (rc.data?.length) setReferralCodes(rc.data.map((code: any) => ({
         id: code.id, code: code.code,
         studentName: (code as any).student?.name ?? '',
@@ -2334,16 +2320,17 @@ function AdminApp() {
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const imageUrl = await uploadImage((form.get('image') as File | null) ?? null);
+    const active = form.get('active') === 'Ativo';
     if (editingBanner) {
-      const updated: Banner = { ...editingBanner, title: String(form.get('title')), subtitle: String(form.get('subtitle')), ctaLabel: String(form.get('ctaLabel')), ctaUrl: String(form.get('ctaUrl')), imageUrl: imageUrl || editingBanner.imageUrl };
+      const updated: Banner = { ...editingBanner, title: String(form.get('title')), subtitle: String(form.get('subtitle')), ctaLabel: String(form.get('ctaLabel')), ctaUrl: String(form.get('ctaUrl')), imageUrl: imageUrl || editingBanner.imageUrl, active };
       setBanners((prev) => prev.map((b) => b.id === editingBanner.id ? updated : b));
-      if (token) fetch(`/api/admin/banners/${editingBanner.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ title: updated.title, subtitle: updated.subtitle, ctaLabel: updated.ctaLabel, ctaUrl: updated.ctaUrl, isActive: updated.active }) }).catch(() => {});
+      if (token) fetch(`/api/admin/banners/${editingBanner.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ title: updated.title, subtitle: updated.subtitle, ctaLabel: updated.ctaLabel, ctaUrl: updated.ctaUrl, imageUrl: updated.imageUrl, isActive: updated.active }) }).catch(() => {});
       setEditingBanner(null);
       showNotice('Banner atualizado.');
     } else {
-      const banner: Banner = { id: Date.now(), title: String(form.get('title')), subtitle: String(form.get('subtitle')), ctaLabel: String(form.get('ctaLabel')), ctaUrl: String(form.get('ctaUrl')), imageUrl, active: true };
+      const banner: Banner = { id: String(Date.now()), title: String(form.get('title')), subtitle: String(form.get('subtitle')), ctaLabel: String(form.get('ctaLabel')), ctaUrl: String(form.get('ctaUrl')), imageUrl, active };
       setBanners((prev) => [banner, ...prev]);
-      if (token) fetch('/api/admin/banners', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...banner, isActive: true, sortOrder: 0, position: 'home_hero' }) }).catch(() => {});
+      if (token) fetch('/api/admin/banners', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...banner, isActive: active, sortOrder: 0, position: 'home_hero' }) }).catch(() => {});
       showNotice('Banner criado e aplicado na home.');
     }
     formElement.reset();
@@ -2385,8 +2372,8 @@ function AdminApp() {
         ...editingCourse, 
         title, 
         slug: slugify(title),
-        kind: String(form.get('kind')) as CourseKind, 
-        modality: String(form.get('modality')) as Modality, 
+        kind: String(form.get('kind')) as CourseKindType, 
+        modality: parseModalityUI(String(form.get('modality'))), 
         area: String(form.get('area')), 
         workload: String(form.get('workload')), 
         investment: String(form.get('investment')), 
@@ -2403,7 +2390,8 @@ function AdminApp() {
         enrollmentFee,
         installmentValue,
         maxInstallments,
-        leadConnectorFormId
+        leadConnectorFormId,
+        coverImageUrl: courseCoverUrl
       };
       setCourses((prev) => prev.map((c) => c.id === editingCourse.id ? updated : c));
       const parseJsonSafely = (str: string) => { try { return str ? JSON.parse(str) : null; } catch { return null; } };
@@ -2412,7 +2400,7 @@ function AdminApp() {
         slug: updated.slug,
         description: updated.summary, 
         type: courseTypeToApi(updated as Course), 
-        modality: modalityToApi(updated.modality), 
+        modality: mapModalityToDatabase(updated.modality, courseTypeToApi(updated)), 
         workload: updated.workload, 
         price: installmentValue > 0 ? (installmentValue * maxInstallments) : numericPrice(updated.investment), 
         area: updated.area, 
@@ -2428,7 +2416,8 @@ function AdminApp() {
         enrollmentFee,
         installmentValue,
         maxInstallments,
-        leadConnectorFormId: leadConnectorFormId || null
+        leadConnectorFormId: leadConnectorFormId || null,
+        coverImageUrl: updated.coverImageUrl
       };
       if (token) {
         fetch(`/api/admin/courses/${editingCourse.id}`, { 
@@ -2446,15 +2435,16 @@ function AdminApp() {
         .catch(() => {});
       }
       setEditingCourse(null);
+      setCourseCoverUrl('');
       showNotice('Curso atualizado.');
     } else {
       const parseJsonSafely = (str: string) => { try { return str ? JSON.parse(str) : null; } catch { return null; } };
       const course: Course = { 
-        id: Date.now(), 
+        id: String(Date.now()), 
         title, 
         slug: slugify(title), 
-        kind: String(form.get('kind')) as CourseKind, 
-        modality: String(form.get('modality')) as Modality, 
+        kind: String(form.get('kind')) as CourseKindType, 
+        modality: parseModalityUI(String(form.get('modality'))), 
         area: String(form.get('area')), 
         workload: String(form.get('workload')), 
         investment: String(form.get('investment')), 
@@ -2471,7 +2461,8 @@ function AdminApp() {
         enrollmentFee,
         installmentValue,
         maxInstallments,
-        leadConnectorFormId
+        leadConnectorFormId,
+        coverImageUrl: courseCoverUrl
       };
       setCourses((prev) => [course, ...prev]);
       const apiData = { 
@@ -2479,7 +2470,7 @@ function AdminApp() {
         slug: course.slug, 
         description: course.summary, 
         type: courseTypeToApi(course), 
-        modality: modalityToApi(course.modality), 
+        modality: mapModalityToDatabase(course.modality, courseTypeToApi(course)), 
         workload: course.workload, 
         price: installmentValue > 0 ? (installmentValue * maxInstallments) : numericPrice(course.investment), 
         maxInstallments, 
@@ -2496,7 +2487,8 @@ function AdminApp() {
         testimonials: parseJsonSafely(course.testimonials || ''),
         enrollmentFee,
         installmentValue,
-        leadConnectorFormId: leadConnectorFormId || null
+        leadConnectorFormId: leadConnectorFormId || null,
+        coverImageUrl: course.coverImageUrl
       };
       if (token) {
         fetch('/api/admin/courses', { 
@@ -2513,6 +2505,7 @@ function AdminApp() {
         })
         .catch(() => {});
       }
+      setCourseCoverUrl('');
       showNotice('Curso cadastrado.');
     }
     event.currentTarget.reset();
@@ -2709,6 +2702,7 @@ function AdminApp() {
     const positionRaw = form.get('position');
     const position = positionRaw ? parseInt(String(positionRaw), 10) || 0 : 0;
     const category = String(form.get('category') || 'Livro Digital');
+    const fileUrl = ebookFileUrl || (editingEbook?.fileUrl ?? '');
 
     if (editingEbook) {
       const updated: Ebook = {
@@ -2717,7 +2711,7 @@ function AdminApp() {
         description: String(form.get('description')),
         category,
         coverUrl: ebookCoverUrl || editingEbook.coverUrl,
-        fileUrl: '',
+        fileUrl,
         mauticFormId,
         pages: String(form.get('pages')),
         year: String(form.get('year')),
@@ -2733,7 +2727,7 @@ function AdminApp() {
             description: updated.description,
             category: updated.category,
             coverUrl: updated.coverUrl,
-            fileUrl: '',
+            fileUrl: updated.fileUrl,
             mauticFormId: updated.mauticFormId,
             pages: updated.pages,
             year: updated.year,
@@ -2744,6 +2738,7 @@ function AdminApp() {
       }
       setEditingEbook(null);
       setEbookCoverUrl('');
+      setEbookFileUrl('');
       showNotice('E-book atualizado.');
     } else {
       const ebook: Ebook = {
@@ -2752,7 +2747,7 @@ function AdminApp() {
         description: String(form.get('description')),
         category,
         coverUrl: ebookCoverUrl || 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=800&q=80',
-        fileUrl: '',
+        fileUrl,
         mauticFormId,
         pages: String(form.get('pages')),
         year: String(form.get('year')),
@@ -2769,7 +2764,7 @@ function AdminApp() {
             description: ebook.description,
             category: ebook.category,
             coverUrl: ebook.coverUrl,
-            fileUrl: '',
+            fileUrl: ebook.fileUrl,
             mauticFormId: ebook.mauticFormId,
             pages: ebook.pages,
             year: ebook.year,
@@ -2779,6 +2774,7 @@ function AdminApp() {
         }).catch(() => {});
       }
       setEbookCoverUrl('');
+      setEbookFileUrl('');
       showNotice('E-book cadastrado.');
     }
     event.currentTarget.reset();
@@ -2806,7 +2802,7 @@ function AdminApp() {
   function saveEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const modality = String(form.get('modality')) as EventItem['modality'];
+    const modality = parseModalityUI(String(form.get('modality')));
     const active = form.get('active') === 'Ativo';
     if (editingEvent) {
       const updated: EventItem = {
@@ -2827,7 +2823,7 @@ function AdminApp() {
           body: JSON.stringify({
             title: updated.title,
             description: updated.description,
-            modality: modality === 'Online ao vivo' ? 'online_ao_vivo' : 'presencial',
+            modality: mapModalityToDatabase(modality),
             startsAt: updated.date,
             link: updated.link,
             coverUrl: updated.coverUrl,
@@ -2840,7 +2836,7 @@ function AdminApp() {
       showNotice('Evento atualizado.');
     } else {
       const ev: EventItem = {
-        id: Date.now(),
+        id: String(Date.now()),
         title: String(form.get('title')),
         modality,
         date: String(form.get('date')),
@@ -2848,6 +2844,8 @@ function AdminApp() {
         link: String(form.get('link') || ''),
         coverUrl: eventCoverUrl || '',
         active,
+        price: 0,
+        slug: slugify(String(form.get('title'))),
       };
       setEvents((prev) => [ev, ...prev]);
       if (token) {
@@ -2856,9 +2854,9 @@ function AdminApp() {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             title: ev.title,
-            slug: slugify(ev.title),
+            slug: ev.slug,
             description: ev.description,
-            modality: modality === 'Online ao vivo' ? 'online_ao_vivo': 'presencial',
+            modality: mapModalityToDatabase(modality),
             startsAt: ev.date,
             link: ev.link,
             coverUrl: ev.coverUrl,
@@ -3112,6 +3110,7 @@ function AdminApp() {
                     <Field label="Texto do botão" name="ctaLabel" placeholder="Conhecer cursos" required defaultValue={editingBanner?.ctaLabel} />
                     <Field label="Link do botão" name="ctaUrl" placeholder="#cursos" required defaultValue={editingBanner?.ctaUrl} />
                   </div>
+                  <Select label="Status de Exibição" name="active" options={['Ativo', 'Inativo']} defaultValue={editingBanner === null || editingBanner.active ? 'Ativo' : 'Inativo'} />
                   <label className="block">
                     <span className="text-sm font-bold text-navy">Imagem do banner</span>
                     <input name="image" type="file" accept="image/*" onChange={(e) => { const f = e.currentTarget.files?.[0]; if (f) readFileAsDataUrl(f).then(setBannerPreview); }} className="mt-2 w-full rounded-lg border border-dashed border-slate-300 bg-bg-light px-4 py-4 text-sm" />
@@ -3142,7 +3141,7 @@ function AdminApp() {
                   <Field label="Título" name="title" placeholder="Nome do curso" required defaultValue={editingCourse?.title} />
                   <div className="grid gap-4 md:grid-cols-2">
                     <Select label="Tipo" name="kind" options={['Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD', 'Evento']} defaultValue={editingCourse?.kind} />
-                    <Select label="Modalidade" name="modality" options={['Presencial', 'Online ao vivo', 'EAD']} defaultValue={editingCourse?.modality} />
+                    <Select label="Modalidade" name="modality" options={['Presencial', 'Online ao vivo', 'EAD']} defaultValue={editingCourse ? getModalityLabel(editingCourse.modality, editingCourse.kind) : 'Presencial'} />
                     <Field label="Área" name="area" placeholder="Educação inclusiva" required defaultValue={editingCourse?.area} />
                     <Field label="Carga horária" name="workload" placeholder="360h" required defaultValue={editingCourse?.workload} />
                     <Field label="Texto de Investimento (Exibição Geral)" name="investment" placeholder="Ex: Consulte ou 12x de R$ 150,00" required defaultValue={editingCourse?.investment} />
@@ -3155,6 +3154,54 @@ function AdminApp() {
                       Destacar na home
                     </label>
                   </div>
+                  
+                  <div>
+                    <label className="mb-1 block text-xs font-bold text-slate-700">Imagem de Capa (Upload ou URL)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        name="coverImageUrl"
+                        value={courseCoverUrl}
+                        onChange={(e) => setCourseCoverUrl(e.target.value)}
+                        placeholder="https://exemplo.com/capa.jpg"
+                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-primary/20 text-navy"
+                      />
+                      <label className="cursor-pointer rounded-lg bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition flex items-center justify-center">
+                        <span>Fazer Upload</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            try {
+                              const res = await fetch('/api/admin/upload', {
+                                method: 'POST',
+                                headers: { Authorization: `Bearer ${token}` },
+                                body: formData
+                              });
+                              const json = await res.json();
+                              if (json.data?.url) {
+                                setCourseCoverUrl(json.data.url);
+                                showNotice('Capa enviada com sucesso.');
+                              }
+                            } catch {
+                              alert('Erro ao fazer upload da capa.');
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {courseCoverUrl && (
+                      <div className="mt-2">
+                        <img src={courseCoverUrl} alt="Visualização da Capa" className="h-24 rounded-lg border object-cover shadow-sm" />
+                      </div>
+                    )}
+                  </div>
+                  
                   <TextArea label="Resumo" name="summary" placeholder="Descrição curta para o card" required defaultValue={editingCourse?.summary} />
                   
                   <input type="hidden" name="about" value={courseAbout} />
@@ -3835,10 +3882,9 @@ function AdminApp() {
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        name="coverUrl"
                         value={ebookCoverUrl}
                         onChange={(e) => setEbookCoverUrl(e.target.value)}
-                        placeholder="https://exemplo.com/capa.jpg"
+                        placeholder={editingEbook?.coverUrl || 'https://exemplo.com/capa.jpg'}
                         className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-primary/20 text-navy"
                       />
                       <label className="cursor-pointer rounded-lg bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition flex items-center justify-center">
@@ -3876,10 +3922,53 @@ function AdminApp() {
                       </div>
                     )}
                   </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold text-slate-700">Link do Arquivo PDF (URL ou Upload)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={ebookFileUrl}
+                        onChange={(e) => setEbookFileUrl(e.target.value)}
+                        placeholder={editingEbook?.fileUrl || 'https://exemplo.com/arquivo.pdf'}
+                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-primary/20 text-navy"
+                      />
+                      <label className="cursor-pointer rounded-lg bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition flex items-center justify-center">
+                        <span>Upload PDF</span>
+                        <input
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            try {
+                              const res = await fetch('/api/admin/upload', {
+                                method: 'POST',
+                                headers: { Authorization: `Bearer ${token}` },
+                                body: formData
+                              });
+                              const json = await res.json();
+                              if (json.data?.url) {
+                                setEbookFileUrl(json.data.url);
+                                showNotice('PDF enviado com sucesso.');
+                              }
+                            } catch {
+                              alert('Erro ao fazer upload do PDF.');
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {(ebookFileUrl || editingEbook?.fileUrl) && (
+                      <p className="mt-1 text-xs text-slate-500 truncate">Atual: {ebookFileUrl || editingEbook?.fileUrl}</p>
+                    )}
+                  </div>
 
                   <div className="flex gap-3 mt-2">
                     <button className="flex-1 rounded-lg bg-orange-primary px-5 py-3 font-bold text-white">{editingEbook ? 'Atualizar e-book' : 'Salvar e-book'}</button>
-                    {editingEbook && <button type="button" onClick={() => { setEditingEbook(null); setEbookCoverUrl(''); }} className="rounded-lg border border-slate-200 px-5 py-3 font-bold text-slate-600">Cancelar</button>}
+                    {editingEbook && <button type="button" onClick={() => { setEditingEbook(null); setEbookCoverUrl(''); setEbookFileUrl(''); }} className="rounded-lg border border-slate-200 px-5 py-3 font-bold text-slate-600">Cancelar</button>}
                   </div>
                 </form>
               </Panel>
@@ -3891,7 +3980,7 @@ function AdminApp() {
                     badge: `${e.category} ${e.mauticFormId ? `(Mautic Form ID: ${e.mauticFormId})` : '(Sem Mautic)'}`,
                     badgeGreen: e.active
                   }))}
-                  onEdit={(id) => { const e = ebooks.find((x) => x.id === id); if (e) { setEditingEbook(e); setEbookCoverUrl(e.coverUrl || ''); } }}
+                  onEdit={(id) => { const e = ebooks.find((x) => x.id === id); if (e) { setEditingEbook(e); setEbookCoverUrl(e.coverUrl || ''); setEbookFileUrl(e.fileUrl || ''); } }}
                   onDelete={deleteEbook}
                 />
               </Panel>
@@ -5085,18 +5174,18 @@ function slugify(value: string) {
   return value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-function modalityToApi(modality: Modality) {
-  if (modality === 'Online ao vivo') return 'online_ao_vivo';
-  if (modality === 'EAD') return 'ead';
-  return 'presencial';
+function modalityToApi(modality: Modality | ModalityType) {
+  const norm = parseModalityUI(String(modality));
+  return mapModalityToDatabase(norm);
 }
 
 function courseTypeToApi(course: Course) {
   if (course.kind === 'Curso Livre') return 'livre';
   if (course.kind === 'Mestrado EAD') return 'mestrado_ead';
   if (course.kind === 'Doutorado EAD') return 'doutorado_ead';
-  if (course.kind === 'Evento') return course.modality === 'Online ao vivo' ? 'evento_online' : 'evento_presencial';
-  return course.modality === 'Online ao vivo' ? 'pos_online' : 'pos_presencial';
+  const isOnline = course.modality === ModalityType.ONLINE || course.modality === 'ONLINE' || course.modality === 'Online ao vivo' || course.modality === 'EAD';
+  if (course.kind === 'Evento') return isOnline ? 'evento_online' : 'evento_presencial';
+  return isOnline ? 'pos_online' : 'pos_presencial';
 }
 
 function numericPrice(value: string) {
@@ -5110,22 +5199,29 @@ function mapApiBanner(b: any): Banner {
 
 function mapApiCourse(c: any): Course {
   return {
-    id: c.id, title: c.title, slug: c.slug,
-    kind: c.type === 'livre' ? 'Curso Livre' : c.type?.includes('mes') ? 'Mestrado EAD' : c.type?.includes('dou') ? 'Doutorado EAD' : c.type?.includes('evento') ? 'Evento' : 'Pós-graduação',
-    modality: c.modality === 'online_ao_vivo' ? 'Online ao vivo' : c.modality === 'ead' ? 'EAD' : 'Presencial',
-    area: c.area, workload: c.workload, investment: c.price ? `R$ ${Number(c.price).toFixed(2)}` : 'Consulte', summary: c.description,
-    featured: c.isFeatured ?? c.is_featured ?? false, active: c.isActive ?? c.is_active ?? true,
+    id: String(c.id),
+    title: c.title || '',
+    slug: c.slug || '',
+    kind: mapDatabaseCourseType(c.type || '', c.modality || ''),
+    modality: parseModalityUI(c.modality),
+    area: c.area || '',
+    workload: c.workload || '',
+    investment: c.price ? `R$ ${Number(c.price).toFixed(2)}` : 'Consulte',
+    summary: c.description || '',
+    featured: c.isFeatured ?? c.is_featured ?? false,
+    active: c.isActive ?? c.is_active ?? true,
     videoUrl: c.videoUrl || '',
     about: c.about || '',
-    benefits: c.benefits ? JSON.stringify(c.benefits, null, 2) : '',
-    modules: c.modules ? JSON.stringify(c.modules, null, 2) : '',
-    teachers: c.teachers ? JSON.stringify(c.teachers, null, 2) : '',
-    testimonials: c.testimonials ? JSON.stringify(c.testimonials, null, 2) : '',
+    benefits: c.benefits ? (typeof c.benefits === 'string' ? c.benefits : JSON.stringify(c.benefits, null, 2)) : '',
+    modules: c.modules ? (typeof c.modules === 'string' ? c.modules : JSON.stringify(c.modules, null, 2)) : '',
+    teachers: c.teachers ? (typeof c.teachers === 'string' ? c.teachers : JSON.stringify(c.teachers, null, 2)) : '',
+    testimonials: c.testimonials ? (typeof c.testimonials === 'string' ? c.testimonials : JSON.stringify(c.testimonials, null, 2)) : '',
     enrollmentFee: c.enrollmentFee ? Number(c.enrollmentFee) : 0,
     installmentValue: c.installmentValue ? Number(c.installmentValue) : 0,
     maxInstallments: c.maxInstallments ? Number(c.maxInstallments) : 1,
     createdAt: c.createdAt || c.created_at || '',
     leadConnectorFormId: c.leadConnectorFormId || '',
+    coverImageUrl: c.coverImageUrl || c.cover_image_url || '',
   };
 }
 
@@ -5148,7 +5244,7 @@ function CoursesPage() {
   const areas = ['Todas', ...Array.from(new Set(courses.map(c => c.area)))];
 
   const filtered = courses.filter(c => {
-    if (filterModality !== 'Todos' && c.modality !== filterModality) return false;
+    if (filterModality !== 'Todos' && getModalityLabel(c.modality, c.kind) !== filterModality) return false;
     if (filterArea !== 'Todas' && c.area !== filterArea) return false;
     if (filterKind !== 'Todos' && c.kind !== filterKind) return false;
     if (searchQuery.trim() !== '') {
@@ -5208,6 +5304,15 @@ function CoursesPage() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map(c => (
               <a key={c.id} href={`/cursos/${c.slug}`} className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition hover:shadow-xl hover:-translate-y-1">
+                {c.coverImageUrl ? (
+                  <div className="relative h-48 w-full overflow-hidden bg-slate-100">
+                    <img src={c.coverImageUrl} alt={c.title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                  </div>
+                ) : (
+                  <div className="relative h-48 w-full bg-gradient-to-br from-navy to-blue-action flex items-center justify-center">
+                    <GraduationCap className="h-16 w-16 text-white/30" />
+                  </div>
+                )}
                 <div className="p-6 flex-1">
                   <span className="inline-block rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-600">{c.kind}</span>
                   <h3 className="mt-4 font-display text-xl font-bold text-navy group-hover:text-orange-primary">{c.title}</h3>
@@ -5228,7 +5333,7 @@ function CoursesPage() {
                   )}
                 </div>
                 <div className="bg-slate-50 px-6 py-4 flex items-center justify-between border-t border-slate-100">
-                  <span className="text-sm font-bold text-navy">{c.modality}</span>
+                  <span className="text-sm font-bold text-navy">{getModalityLabel(c.modality, c.kind)}</span>
                   <ChevronRight className="h-4 w-4 text-orange-primary" />
                 </div>
               </a>

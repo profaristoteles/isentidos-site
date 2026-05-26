@@ -12,6 +12,22 @@ import multer from 'multer';
 import { z } from 'zod';
 import { prisma } from './db.js';
 import { seedCourses, seedLeads, seedPosts } from './seed-data.js';
+import {
+  serializeCourse,
+  serializeBanner,
+  serializeBlogPost,
+  serializeEbook,
+  serializeEvent,
+  serializeLead,
+  mapDatabaseModality,
+  mapModalityToDatabase,
+  mapDatabaseCourseType,
+  mapCourseKindToDatabase,
+  mapDatabaseLeadStatus,
+  mapLeadStatusToDatabase,
+  sanitizeHtml
+} from '../shared/serializers.js';
+import { ModalityType, CourseKindType, LeadStatusType } from '../shared/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,6 +66,13 @@ app.use(
   }),
 );
 
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 const leadSchema = z.object({
   name: z.string().min(3),
   email: z.string().email(),
@@ -71,6 +94,7 @@ const courseSchema = z.object({
   title: z.string().min(3),
   slug: z.string().min(3),
   description: z.string().min(10),
+  kind: z.enum(['Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD', 'Evento']).optional(),
   type: z.enum([
     'livre',
     'pos_presencial',
@@ -81,8 +105,8 @@ const courseSchema = z.object({
     'evento_online',
     'preparatorio',
     'internacional',
-  ]),
-  modality: z.enum(['presencial', 'online_ao_vivo', 'ead', 'internacional']),
+  ]).optional(),
+  modality: z.enum(['presencial', 'online_ao_vivo', 'ead', 'internacional', 'PRESENTIAL', 'ONLINE', 'HYBRID']),
   workload: z.string().min(2),
   price: z.number().min(0),
   maxInstallments: z.number().int().min(1).max(36),
@@ -100,6 +124,7 @@ const courseSchema = z.object({
   teachers: z.any().optional(),
   testimonials: z.any().optional(),
   leadConnectorFormId: z.string().optional(),
+  coverImageUrl: z.string().optional().nullable(),
 });
 
 const bannerSchema = z.object({
@@ -141,7 +166,7 @@ const eventSchema = z.object({
   title: z.string().min(3),
   slug: z.string().min(3),
   description: z.string().min(5),
-  modality: z.enum(['presencial', 'online_ao_vivo', 'ead', 'internacional']),
+  modality: z.enum(['presencial', 'online_ao_vivo', 'ead', 'internacional', 'PRESENTIAL', 'ONLINE', 'HYBRID']),
   startsAt: z.string().optional(),
   price: z.number().min(0).default(0),
   coverUrl: z.string().nullable().optional().transform(v => v ?? ''),
@@ -203,6 +228,39 @@ function adminOnlyMiddleware(req: express.Request, res: express.Response, next: 
     return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
   }
   return next();
+}
+
+function logAction(userId: string | undefined, entity: string, action: string, entityId: string | undefined, status: 'SUCCESS' | 'ERROR', extra?: any) {
+  const timestamp = new Date().toISOString();
+  let safeExtra = undefined;
+  if (extra) {
+    const cleanExtra = { ...extra };
+    const sensitiveKeys = ['password', 'passwordHash', 'token', 'jwt', 'cpf', 'phone', 'email', 'name'];
+    for (const key of sensitiveKeys) {
+      if (key in cleanExtra) {
+        if (key === 'cpf' && typeof cleanExtra[key] === 'string') {
+          const cpf = cleanExtra[key];
+          cleanExtra[key] = cpf.length >= 11 ? `${cpf.slice(0, 3)}.***.***-${cpf.slice(-2)}` : '***';
+        } else if (key === 'email' && typeof cleanExtra[key] === 'string') {
+          const email = cleanExtra[key];
+          const parts = email.split('@');
+          cleanExtra[key] = parts.length === 2 ? `${parts[0].slice(0, 2)}***@${parts[1]}` : '***';
+        } else {
+          cleanExtra[key] = '***';
+        }
+      }
+    }
+    safeExtra = cleanExtra;
+  }
+  console.log(JSON.stringify({
+    timestamp,
+    userId: userId || 'anonymous',
+    entity,
+    action,
+    entityId: entityId || 'N/A',
+    status,
+    details: safeExtra
+  }));
 }
 
 async function withDatabase<T>(operation: () => Promise<T>, fallback: T): Promise<T> {
@@ -351,14 +409,7 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
 }
 
 
-function serializeCourse(course: any) {
-  return {
-    ...course,
-    price: Number(course.price),
-    enrollmentFee: Number(course.enrollmentFee || 0),
-    installmentValue: Number(course.installmentValue || 0),
-  };
-}
+// Course serializer imported from shared/serializers.ts
 app.get('/sitemap.xml', async (_req, res) => {
   const baseUrl = 'https://isentidos.com.br';
 
@@ -442,7 +493,7 @@ app.get('/api/courses', async (_req, res) => {
       });
       return rows.map(serializeCourse);
     },
-    seedCourses,
+    seedCourses.map((c, idx) => serializeCourse({ ...c, id: `seed-${idx}` })),
   );
 
   res.json({ data: courses });
@@ -536,11 +587,11 @@ app.get('/api/site-content', async (_req, res) => {
       };
 
       return {
-        banners,
+        banners: banners.map(serializeBanner),
         courses: courses.map(serializeCourse),
-        posts,
-        ebooks,
-        events: events.map((event) => ({ ...event, price: Number(event.price) })),
+        posts: posts.map(serializeBlogPost),
+        ebooks: ebooks.map(serializeEbook),
+        events: events.map(serializeEvent),
         settings,
         menuItems,
       };
@@ -712,20 +763,66 @@ app.get('/api/admin/dashboard', authMiddleware, async (_req, res) => {
   res.json({ data: dashboard });
 });
 
+function prepareCourseData(data: any) {
+  const modalityEnum = mapDatabaseModality(data.modality);
+  const modalityDb = mapModalityToDatabase(modalityEnum, data.type || data.kind);
+
+  let dbType = data.type;
+  if (!dbType && data.kind) {
+    dbType = mapCourseKindToDatabase(data.kind, modalityEnum);
+  }
+
+  const result: any = {};
+  if (data.title !== undefined) result.title = data.title;
+  if (data.slug !== undefined) result.slug = data.slug;
+  if (data.description !== undefined) result.description = data.description;
+  if (dbType !== undefined) result.type = dbType;
+  if (modalityDb !== undefined) result.modality = modalityDb;
+  if (data.workload !== undefined) result.workload = data.workload;
+  if (data.price !== undefined) result.price = data.price;
+  if (data.maxInstallments !== undefined) result.maxInstallments = data.maxInstallments;
+  if (data.enrollmentFee !== undefined) result.enrollmentFee = data.enrollmentFee;
+  if (data.installmentValue !== undefined) result.installmentValue = data.installmentValue;
+  if (data.area !== undefined) result.area = data.area;
+  if (data.partnerInstitution !== undefined) result.partnerInstitution = data.partnerInstitution;
+  if (data.isFeatured !== undefined) result.isFeatured = data.isFeatured;
+  if (data.isActive !== undefined) result.isActive = data.isActive;
+  if (data.videoUrl !== undefined) result.videoUrl = data.videoUrl;
+  if (data.about !== undefined) result.about = sanitizeHtml(data.about);
+  if (data.syllabus !== undefined) result.syllabus = sanitizeHtml(data.syllabus);
+  if (data.benefits !== undefined) result.benefits = data.benefits;
+  if (data.modules !== undefined) result.modules = data.modules;
+  if (data.teachers !== undefined) result.teachers = data.teachers;
+  if (data.testimonials !== undefined) result.testimonials = data.testimonials;
+  if (data.leadConnectorFormId !== undefined) result.leadConnectorFormId = data.leadConnectorFormId;
+  if (data.coverImageUrl !== undefined) result.coverImageUrl = data.coverImageUrl;
+
+  return result;
+}
+
 app.post('/api/admin/courses', authMiddleware, async (req, res) => {
   const parsed = courseSchema.safeParse(req.body);
 
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Curso invÃ¡lido.', details: parsed.error.flatten() });
+    logAction((req as any).user?.sub, 'Course', 'CREATE_FAILED', undefined, 'ERROR', { details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Curso inválido.', details: parsed.error.flatten() });
   }
 
-  const course = await prisma.course.upsert({
-    where: { slug: parsed.data.slug },
-    update: parsed.data,
-    create: parsed.data,
-  });
+  try {
+    const courseData = prepareCourseData(parsed.data);
 
-  res.status(201).json({ data: serializeCourse(course) });
+    const course = await prisma.course.upsert({
+      where: { slug: parsed.data.slug },
+      update: courseData,
+      create: courseData,
+    });
+
+    logAction((req as any).user?.sub, 'Course', 'UPSERT', course.id, 'SUCCESS', { slug: course.slug });
+    res.status(201).json({ data: serializeCourse(course) });
+  } catch (err: any) {
+    logAction((req as any).user?.sub, 'Course', 'UPSERT_FAILED', undefined, 'ERROR', { error: err.message });
+    res.status(500).json({ error: 'Erro ao salvar curso.' });
+  }
 });
 
 app.post('/api/admin/upload', authMiddleware, upload.single('file'), (req, res) => {
@@ -745,33 +842,52 @@ app.post('/api/admin/banners', authMiddleware, async (req, res) => {
   const parsed = bannerSchema.safeParse(req.body);
 
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Banner invÃ¡lido.', details: parsed.error.flatten() });
+    logAction((req as any).user?.sub, 'Banner', 'CREATE_FAILED', undefined, 'ERROR', { details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Banner inválido.', details: parsed.error.flatten() });
   }
 
-  const banner = await prisma.banner.create({ data: parsed.data });
-  res.status(201).json({ data: banner });
+  try {
+    const data = {
+      ...parsed.data,
+      subtitle: sanitizeHtml(parsed.data.subtitle),
+    };
+
+    const banner = await prisma.banner.create({ data });
+    logAction((req as any).user?.sub, 'Banner', 'CREATE', banner.id, 'SUCCESS', { title: banner.title });
+    res.status(201).json({ data: serializeBanner(banner) });
+  } catch (err: any) {
+    logAction((req as any).user?.sub, 'Banner', 'CREATE_FAILED', undefined, 'ERROR', { error: err.message });
+    res.status(500).json({ error: 'Erro ao criar banner.' });
+  }
 });
 
 app.post('/api/admin/blog-posts', authMiddleware, async (req, res) => {
   const parsed = blogPostSchema.safeParse(req.body);
 
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Post invÃ¡lido.', details: parsed.error.flatten() });
+    logAction((req as any).user?.sub, 'BlogPost', 'CREATE_FAILED', undefined, 'ERROR', { details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Post inválido.', details: parsed.error.flatten() });
   }
 
-  const post = await prisma.blogPost.upsert({
-    where: { slug: parsed.data.slug },
-    update: {
+  try {
+    const dbData = {
       ...parsed.data,
+      content: sanitizeHtml(parsed.data.content),
       publishedAt: parsed.data.isPublished ? new Date() : null,
-    },
-    create: {
-      ...parsed.data,
-      publishedAt: parsed.data.isPublished ? new Date() : null,
-    },
-  });
+    };
 
-  res.status(201).json({ data: post });
+    const post = await prisma.blogPost.upsert({
+      where: { slug: parsed.data.slug },
+      update: dbData,
+      create: dbData,
+    });
+
+    logAction((req as any).user?.sub, 'BlogPost', 'UPSERT', post.id, 'SUCCESS', { slug: post.slug });
+    res.status(201).json({ data: serializeBlogPost(post) });
+  } catch (err: any) {
+    logAction((req as any).user?.sub, 'BlogPost', 'UPSERT_FAILED', undefined, 'ERROR', { error: err.message });
+    res.status(500).json({ error: 'Erro ao salvar artigo.' });
+  }
 });
 
 // â”€â”€ AI generation endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -983,11 +1099,10 @@ app.post('/api/admin/blog-posts/generate-alt', authMiddleware, async (req, res) 
 
 app.get('/api/ebooks', async (_req, res) => {
   const ebooks = await withDatabase(
-    () => prisma.ebook.findMany({
+    async () => (await prisma.ebook.findMany({
       where: { isActive: true },
       orderBy: { position: 'asc' },
-      select: { id: true, title: true, description: true, category: true, coverUrl: true, fileUrl: true, mauticFormId: true, pages: true, year: true },
-    }),
+    })).map(serializeEbook),
     []
   );
   res.json({ data: ebooks });
@@ -995,22 +1110,29 @@ app.get('/api/ebooks', async (_req, res) => {
 
 app.get('/api/events', async (_req, res) => {
   const events = await withDatabase(
-    () => prisma.event.findMany({
+    async () => (await prisma.event.findMany({
       where: { isActive: true },
       orderBy: { startsAt: 'asc' },
-    }),
+    })).map(serializeEvent),
     []
   );
-  res.json({ data: events.map((e) => ({ ...e, price: Number(e.price) })) });
+  res.json({ data: events });
 });
 
 app.post('/api/admin/ebooks', authMiddleware, async (req, res) => {
   const parsed = ebookSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'E-book invÃ¡lido.', details: parsed.error.flatten() });
+    logAction((req as any).user?.sub, 'Ebook', 'CREATE_FAILED', undefined, 'ERROR', { details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'E-book inválido.', details: parsed.error.flatten() });
   }
-  const ebook = await prisma.ebook.create({ data: parsed.data });
-  res.status(201).json({ data: ebook });
+  try {
+    const ebook = await prisma.ebook.create({ data: parsed.data });
+    logAction((req as any).user?.sub, 'Ebook', 'CREATE', ebook.id, 'SUCCESS', { title: ebook.title });
+    res.status(201).json({ data: serializeEbook(ebook) });
+  } catch (err: any) {
+    logAction((req as any).user?.sub, 'Ebook', 'CREATE_FAILED', undefined, 'ERROR', { error: err.message });
+    res.status(500).json({ error: 'Erro ao criar e-book.' });
+  }
 });
 
 function parseLocalDate(dateStr?: string | null): Date | null {
@@ -1028,56 +1150,67 @@ app.post('/api/admin/events', authMiddleware, async (req, res) => {
   const parsed = eventSchema.safeParse(req.body);
 
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Evento invÃ¡lido.', details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Evento inválido.', details: parsed.error.flatten() });
   }
+
+  const modalityEnum = mapDatabaseModality(parsed.data.modality);
+  const modalityDb = mapModalityToDatabase(modalityEnum) as any;
 
   const event = await prisma.event.upsert({
     where: { slug: parsed.data.slug },
     update: {
       ...parsed.data,
+      modality: modalityDb,
       startsAt: parseLocalDate(parsed.data.startsAt),
     },
     create: {
       ...parsed.data,
+      modality: modalityDb,
       startsAt: parseLocalDate(parsed.data.startsAt),
     },
   });
 
-  res.status(201).json({ data: { ...event, price: Number(event.price) } });
+  res.status(201).json({ data: serializeEvent(event) });
 });
 
 // â”€â”€ Admin list endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/admin/banners', authMiddleware, async (_req, res) => {
-  const banners = await withDatabase(() => prisma.banner.findMany({ orderBy: { sortOrder: 'asc' } }), []);
+  const banners = await withDatabase(async () => (await prisma.banner.findMany({ orderBy: { sortOrder: 'asc' } })).map(serializeBanner), []);
   res.json({ data: banners });
 });
 
 app.get('/api/admin/courses', authMiddleware, async (_req, res) => {
-  const courses = await withDatabase(async () => (await prisma.course.findMany({ orderBy: { title: 'asc' } })).map(serializeCourse), seedCourses);
+  const courses = await withDatabase(
+    async () => (await prisma.course.findMany({ orderBy: { title: 'asc' } })).map(serializeCourse),
+    seedCourses.map((c, idx) => serializeCourse({ ...c, id: `seed-${idx}` })),
+  );
   res.json({ data: courses });
 });
 
 app.get('/api/admin/blog-posts', authMiddleware, async (_req, res) => {
-  const posts = await withDatabase(() => prisma.blogPost.findMany({ orderBy: { publishedAt: 'desc' } }), []);
+  const posts = await withDatabase(async () => (await prisma.blogPost.findMany({ orderBy: { publishedAt: 'desc' } })).map(serializeBlogPost), []);
   res.json({ data: posts });
 });
 
 app.get('/api/admin/ebooks', authMiddleware, async (_req, res) => {
   const ebooks = await withDatabase(
-    () => prisma.ebook.findMany({ orderBy: { position: 'asc' } }),
+    async () => (await prisma.ebook.findMany({ orderBy: { position: 'asc' } })).map(serializeEbook),
     []
   );
   res.json({ data: ebooks });
 });
 
 app.get('/api/admin/events', authMiddleware, async (_req, res) => {
-  const events = await withDatabase(async () => (await prisma.event.findMany({ orderBy: { startsAt: 'asc' } })).map((e) => ({ ...e, price: Number(e.price) })), []);
+  const events = await withDatabase(async () => (await prisma.event.findMany({ orderBy: { startsAt: 'asc' } })).map(serializeEvent), []);
   res.json({ data: events });
 });
 
 app.get('/api/admin/leads', authMiddleware, async (_req, res) => {
-  const leads = await withDatabase(() => prisma.lead.findMany({ orderBy: { createdAt: 'desc' }, include: { course: true } }), seedLeads as any);
+  const leads = await withDatabase(
+    async () => (await prisma.lead.findMany({ orderBy: { createdAt: 'desc' }, include: { course: true } })).map(serializeLead),
+    (seedLeads as any).map(serializeLead)
+  );
   res.json({ data: leads });
 });
 
@@ -1085,19 +1218,35 @@ app.get('/api/admin/leads', authMiddleware, async (_req, res) => {
 
 app.put('/api/admin/banners/:id', authMiddleware, async (req, res) => {
   const parsed = bannerSchema.partial().safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Dados invÃ¡lidos.' });
+  if (!parsed.success) {
+    logAction((req as any).user?.sub, 'Banner', 'UPDATE_FAILED', req.params.id, 'ERROR', { details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.' });
+  }
   try {
-    const banner = await prisma.banner.update({ where: { id: req.params.id }, data: parsed.data });
-    res.json({ data: banner });
-  } catch { res.status(404).json({ error: 'Banner nÃ£o encontrado.' }); }
+    const data = {
+      ...parsed.data,
+      subtitle: parsed.data.subtitle ? sanitizeHtml(parsed.data.subtitle) : undefined,
+    };
+    const banner = await prisma.banner.update({ where: { id: req.params.id }, data });
+    logAction((req as any).user?.sub, 'Banner', 'UPDATE', banner.id, 'SUCCESS', { title: banner.title });
+    res.json({ data: serializeBanner(banner) });
+  } catch (err: any) {
+    logAction((req as any).user?.sub, 'Banner', 'UPDATE_FAILED', req.params.id, 'ERROR', { error: err.message });
+    res.status(404).json({ error: 'Banner não encontrado.' });
+  }
 });
 
 app.delete('/api/admin/banners/:id', authMiddleware, async (req, res) => {
   try {
     const { count } = await prisma.banner.deleteMany({ where: { id: req.params.id } });
-    if (count === 0) return res.status(404).json({ error: 'Banner não encontrado ou já excluído.' });
+    if (count === 0) {
+      logAction((req as any).user?.sub, 'Banner', 'DELETE_NOT_FOUND', req.params.id, 'ERROR');
+      return res.status(404).json({ error: 'Banner não encontrado ou já excluído.' });
+    }
+    logAction((req as any).user?.sub, 'Banner', 'DELETE', req.params.id, 'SUCCESS');
     res.json({ ok: true });
-  } catch (error) {
+  } catch (error: any) {
+    logAction((req as any).user?.sub, 'Banner', 'DELETE_FAILED', req.params.id, 'ERROR', { error: error.message });
     console.error('Erro ao excluir banner:', error);
     res.status(500).json({ error: 'Erro ao processar exclusão.' });
   }
@@ -1105,19 +1254,32 @@ app.delete('/api/admin/banners/:id', authMiddleware, async (req, res) => {
 
 app.put('/api/admin/courses/:id', authMiddleware, async (req, res) => {
   const parsed = courseSchema.partial().safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Dados invÃ¡lidos.' });
+  if (!parsed.success) {
+    logAction((req as any).user?.sub, 'Course', 'UPDATE_FAILED', req.params.id, 'ERROR', { details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.' });
+  }
   try {
-    const course = await prisma.course.update({ where: { id: req.params.id }, data: parsed.data });
+    const courseData = prepareCourseData(parsed.data);
+    const course = await prisma.course.update({ where: { id: req.params.id }, data: courseData });
+    logAction((req as any).user?.sub, 'Course', 'UPDATE', course.id, 'SUCCESS', { slug: course.slug });
     res.json({ data: serializeCourse(course) });
-  } catch { res.status(404).json({ error: 'Curso nÃ£o encontrado.' }); }
+  } catch (err: any) {
+    logAction((req as any).user?.sub, 'Course', 'UPDATE_FAILED', req.params.id, 'ERROR', { error: err.message });
+    res.status(404).json({ error: 'Curso não encontrado.' });
+  }
 });
 
 app.delete('/api/admin/courses/:id', authMiddleware, async (req, res) => {
   try {
     const { count } = await prisma.course.deleteMany({ where: { id: req.params.id } });
-    if (count === 0) return res.status(404).json({ error: 'Curso não encontrado ou já excluído.' });
+    if (count === 0) {
+      logAction((req as any).user?.sub, 'Course', 'DELETE_NOT_FOUND', req.params.id, 'ERROR');
+      return res.status(404).json({ error: 'Curso não encontrado ou já excluído.' });
+    }
+    logAction((req as any).user?.sub, 'Course', 'DELETE', req.params.id, 'SUCCESS');
     res.json({ ok: true });
-  } catch (error) {
+  } catch (error: any) {
+    logAction((req as any).user?.sub, 'Course', 'DELETE_FAILED', req.params.id, 'ERROR', { error: error.message });
     console.error('Erro ao excluir curso:', error);
     res.status(500).json({ error: 'Erro ao processar exclusão.' });
   }
@@ -1125,22 +1287,39 @@ app.delete('/api/admin/courses/:id', authMiddleware, async (req, res) => {
 
 app.put('/api/admin/blog-posts/:id', authMiddleware, async (req, res) => {
   const parsed = blogPostSchema.partial().safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Dados invÃ¡lidos.' });
+  if (!parsed.success) {
+    logAction((req as any).user?.sub, 'BlogPost', 'UPDATE_FAILED', req.params.id, 'ERROR', { details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.' });
+  }
   try {
+    const dbData = {
+      ...parsed.data,
+      content: parsed.data.content ? sanitizeHtml(parsed.data.content) : undefined,
+      publishedAt: parsed.data.isPublished ? new Date() : null,
+    };
     const post = await prisma.blogPost.update({
       where: { id: req.params.id },
-      data: { ...parsed.data, publishedAt: parsed.data.isPublished ? new Date() : null },
+      data: dbData,
     });
-    res.json({ data: post });
-  } catch { res.status(404).json({ error: 'Post nÃ£o encontrado.' }); }
+    logAction((req as any).user?.sub, 'BlogPost', 'UPDATE', post.id, 'SUCCESS', { slug: post.slug });
+    res.json({ data: serializeBlogPost(post) });
+  } catch (err: any) {
+    logAction((req as any).user?.sub, 'BlogPost', 'UPDATE_FAILED', req.params.id, 'ERROR', { error: err.message });
+    res.status(404).json({ error: 'Post não encontrado.' });
+  }
 });
 
 app.delete('/api/admin/blog-posts/:id', authMiddleware, async (req, res) => {
   try {
     const { count } = await prisma.blogPost.deleteMany({ where: { id: req.params.id } });
-    if (count === 0) return res.status(404).json({ error: 'Post não encontrado ou já excluído.' });
+    if (count === 0) {
+      logAction((req as any).user?.sub, 'BlogPost', 'DELETE_NOT_FOUND', req.params.id, 'ERROR');
+      return res.status(404).json({ error: 'Post não encontrado ou já excluído.' });
+    }
+    logAction((req as any).user?.sub, 'BlogPost', 'DELETE', req.params.id, 'SUCCESS');
     res.json({ ok: true });
-  } catch (error) {
+  } catch (error: any) {
+    logAction((req as any).user?.sub, 'BlogPost', 'DELETE_FAILED', req.params.id, 'ERROR', { error: error.message });
     console.error('Erro ao excluir post:', error);
     res.status(500).json({ error: 'Erro ao processar exclusão.' });
   }
@@ -1148,19 +1327,31 @@ app.delete('/api/admin/blog-posts/:id', authMiddleware, async (req, res) => {
 
 app.put('/api/admin/ebooks/:id', authMiddleware, async (req, res) => {
   const parsed = ebookSchema.partial().safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Dados invÃ¡lidos.', details: parsed.error.flatten() });
+  if (!parsed.success) {
+    logAction((req as any).user?.sub, 'Ebook', 'UPDATE_FAILED', req.params.id, 'ERROR', { details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+  }
   try {
     const ebook = await prisma.ebook.update({ where: { id: req.params.id }, data: parsed.data });
-    res.json({ data: ebook });
-  } catch { res.status(404).json({ error: 'E-book nÃ£o encontrado.' }); }
+    logAction((req as any).user?.sub, 'Ebook', 'UPDATE', ebook.id, 'SUCCESS', { title: ebook.title });
+    res.json({ data: serializeEbook(ebook) });
+  } catch (err: any) {
+    logAction((req as any).user?.sub, 'Ebook', 'UPDATE_FAILED', req.params.id, 'ERROR', { error: err.message });
+    res.status(404).json({ error: 'E-book não encontrado.' });
+  }
 });
 
 app.delete('/api/admin/ebooks/:id', authMiddleware, async (req, res) => {
   try {
     const { count } = await prisma.ebook.deleteMany({ where: { id: req.params.id } });
-    if (count === 0) return res.status(404).json({ error: 'E-book não encontrado ou já excluído.' });
+    if (count === 0) {
+      logAction((req as any).user?.sub, 'Ebook', 'DELETE_NOT_FOUND', req.params.id, 'ERROR');
+      return res.status(404).json({ error: 'E-book não encontrado ou já excluído.' });
+    }
+    logAction((req as any).user?.sub, 'Ebook', 'DELETE', req.params.id, 'SUCCESS');
     res.json({ ok: true });
-  } catch (error) {
+  } catch (error: any) {
+    logAction((req as any).user?.sub, 'Ebook', 'DELETE_FAILED', req.params.id, 'ERROR', { error: error.message });
     console.error('Erro ao excluir e-book:', error);
     res.status(500).json({ error: 'Erro ao processar exclusão.' });
   }
@@ -1168,22 +1359,41 @@ app.delete('/api/admin/ebooks/:id', authMiddleware, async (req, res) => {
 
 app.put('/api/admin/events/:id', authMiddleware, async (req, res) => {
   const parsed = eventSchema.partial().safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Dados invÃ¡lidos.' });
+  if (!parsed.success) {
+    logAction((req as any).user?.sub, 'Event', 'UPDATE_FAILED', req.params.id, 'ERROR', { details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.' });
+  }
   try {
+    const updateData: any = { ...parsed.data };
+    if (parsed.data.modality !== undefined) {
+      updateData.modality = mapModalityToDatabase(mapDatabaseModality(parsed.data.modality));
+    }
+    if (parsed.data.startsAt !== undefined) {
+      updateData.startsAt = parseLocalDate(parsed.data.startsAt);
+    }
     const ev = await prisma.event.update({
       where: { id: req.params.id },
-      data: { ...parsed.data, startsAt: parsed.data.startsAt !== undefined ? parseLocalDate(parsed.data.startsAt) : undefined },
+      data: updateData,
     });
-    res.json({ data: { ...ev, price: Number(ev.price) } });
-  } catch { res.status(404).json({ error: 'Evento nÃ£o encontrado.' }); }
+    logAction((req as any).user?.sub, 'Event', 'UPDATE', ev.id, 'SUCCESS', { slug: ev.slug });
+    res.json({ data: serializeEvent(ev) });
+  } catch (err: any) {
+    logAction((req as any).user?.sub, 'Event', 'UPDATE_FAILED', req.params.id, 'ERROR', { error: err.message });
+    res.status(404).json({ error: 'Evento não encontrado.' });
+  }
 });
 
 app.delete('/api/admin/events/:id', authMiddleware, async (req, res) => {
   try {
     const { count } = await prisma.event.deleteMany({ where: { id: req.params.id } });
-    if (count === 0) return res.status(404).json({ error: 'Evento não encontrado ou já excluído.' });
+    if (count === 0) {
+      logAction((req as any).user?.sub, 'Event', 'DELETE_NOT_FOUND', req.params.id, 'ERROR');
+      return res.status(404).json({ error: 'Evento não encontrado ou já excluído.' });
+    }
+    logAction((req as any).user?.sub, 'Event', 'DELETE', req.params.id, 'SUCCESS');
     res.json({ ok: true });
-  } catch (error) {
+  } catch (error: any) {
+    logAction((req as any).user?.sub, 'Event', 'DELETE_FAILED', req.params.id, 'ERROR', { error: error.message });
     console.error('Erro ao excluir evento:', error);
     res.status(500).json({ error: 'Erro ao processar exclusão.' });
   }
@@ -1192,11 +1402,18 @@ app.delete('/api/admin/events/:id', authMiddleware, async (req, res) => {
 app.put('/api/admin/leads/:id', authMiddleware, async (req, res) => {
   const schema = z.object({ status: z.enum(['novo', 'em_atendimento', 'matriculado', 'perdido']), notes: z.string().optional() });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Dados invÃ¡lidos.' });
+  if (!parsed.success) {
+    logAction((req as any).user?.sub, 'Lead', 'UPDATE_FAILED', req.params.id, 'ERROR', { details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.' });
+  }
   try {
     const lead = await prisma.lead.update({ where: { id: req.params.id }, data: parsed.data });
-    res.json({ data: lead });
-  } catch { res.status(404).json({ error: 'Lead nÃ£o encontrado.' }); }
+    logAction((req as any).user?.sub, 'Lead', 'UPDATE', lead.id, 'SUCCESS', { status: lead.status });
+    res.json({ data: serializeLead(lead) });
+  } catch (err: any) {
+    logAction((req as any).user?.sub, 'Lead', 'UPDATE_FAILED', req.params.id, 'ERROR', { error: err.message });
+    res.status(404).json({ error: 'Lead não encontrado.' });
+  }
 });
 
 // â”€â”€ Referral system â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1903,8 +2120,17 @@ app.post('/api/admin/menu/reorder', authMiddleware, async (req, res) => {
 
 
 const clientDist = path.resolve(process.cwd(), 'dist');
-app.use(express.static(clientDist));
+app.use(express.static(clientDist, {
+  setHeaders: (res, filePath) => {
+    if (filePath.includes('/assets/') || filePath.includes('\\assets\\')) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    }
+  }
+}));
 app.get('*', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.sendFile(path.join(clientDist, 'index.html'));
 });
 

@@ -64,6 +64,20 @@ const seedEbooks = [
 ];
 
 async function main() {
+  // Safety check: check if any real data already exists in key tables
+  const hasUsers = await prisma.user.count() > 0;
+  const hasCourses = await prisma.course.count() > 0;
+  const hasBanners = await prisma.banner.count() > 0;
+  const hasPosts = await prisma.blogPost.count() > 0;
+  const hasEvents = await prisma.event.count() > 0;
+  const hasEbooks = await prisma.ebook.count() > 0;
+  const hasSettings = await prisma.systemSetting.findUnique({ where: { id: 'default' } }) !== null;
+
+  if (hasUsers || hasCourses || hasBanners || hasPosts || hasEvents || hasEbooks || hasSettings) {
+    console.log('Aviso: Registros existentes encontrados no banco de dados. Ignorando a execução do seed para evitar a perda ou sobrescrita de dados.');
+    return;
+  }
+
   const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@isentidos.com.br';
   const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin123';
 
