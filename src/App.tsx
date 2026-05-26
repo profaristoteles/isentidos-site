@@ -43,6 +43,55 @@ import {
 import AccessibilityWidget from './components/AccessibilityWidget';
 import RichTextEditor from './components/RichTextEditor';
 
+// ── Error Boundary ────────────────────────────────────────────────────────────
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-navy text-white flex flex-col items-center justify-center p-6 text-center">
+          <div className="max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md">
+            <X className="mx-auto h-12 w-12 text-orange-primary mb-4" />
+            <h1 className="font-display text-2xl font-bold mb-2">Ops! Algo deu errado.</h1>
+            <p className="text-white/70 text-sm mb-6">
+              Ocorreu um erro inesperado nesta página. Nós já fomos notificados e estamos trabalhando para corrigir.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-xl bg-orange-primary px-6 py-3 font-bold text-white transition hover:bg-orange-600 shadow-md shadow-orange-primary/20"
+            >
+              Recarregar página
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type CourseKind = 'Curso Livre' | 'Pós-graduação' | 'Mestrado EAD' | 'Doutorado EAD' | 'Evento';
@@ -456,7 +505,16 @@ function PublicSite() {
     return () => clearInterval(t);
   }, [activeBanners.length]);
 
-  const hero = activeBanners[bannerIdx] ?? initialBanners[0];
+  const heroFallback: Banner = {
+    id: 'default-hero',
+    title: 'Instituto Sentidos',
+    subtitle: 'Formação continuada, pós-graduação, programas EAD e eventos de aperfeiçoamento.',
+    ctaLabel: 'Ver cursos',
+    ctaUrl: '#cursos',
+    imageUrl: 'https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1400&q=80',
+    active: true
+  };
+  const hero = activeBanners[bannerIdx] ?? heroFallback;
 
   const activeCourses = courses.filter((c) => c.active);
   const currentInterest = preEnrollInterest || (activeCourses[0]?.title ?? '');
@@ -607,41 +665,49 @@ function PublicSite() {
             <SectionHeader eyebrow="Cursos" title="Escolha o curso ideal para consolidar sua carreira" text="Explore nossas especializações e capacitações de curto e longo prazo desenvolvidas por especialistas." />
             
             <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {homeCourses.map((course) => (
-                <article key={course.id} className="flex flex-col rounded-lg border border-slate-200 bg-white shadow-soft">
-                  <div className="p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="rounded-md bg-orange-primary/10 px-3 py-1 text-xs font-bold uppercase text-orange-primary">{course.kind}</span>
-                      {course.featured && <Star className="h-5 w-5 fill-orange-primary text-orange-primary" aria-label="Destaque" />}
-                    </div>
-                    <h3 className="mt-4 font-display text-xl font-bold text-navy line-clamp-2 min-h-[3.5rem]">{course.title}</h3>
-                    <p className="mt-3 text-sm leading-6 text-slate-600 line-clamp-3">{course.summary}</p>
-                  </div>
-                  <div className="mt-auto px-5 pb-5 text-sm space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <InfoBlock label="Área" value={course.area} />
-                      <InfoBlock label="Modalidade" value={course.modality} />
-                    </div>
-                    {course.installmentValue && course.installmentValue > 0 ? (
-                      <div className="rounded-lg bg-slate-50 p-2 border border-slate-100/50">
-                        <span className="text-[10px] font-bold uppercase text-slate-400 block">Investimento</span>
-                        <div className="text-navy text-xs mt-0.5 leading-relaxed font-semibold">
-                          {course.enrollmentFee && course.enrollmentFee > 0 && (
-                            <span>Matrícula: <strong className="text-orange-primary">R$ {Number(course.enrollmentFee).toFixed(2)}</strong> + </span>
-                          )}
-                          <span><strong className="text-navy">{course.maxInstallments || 1}x</strong> de <strong className="text-navy font-bold text-sm">R$ {Number(course.installmentValue).toFixed(2)}</strong></span>
-                        </div>
+              {homeCourses.length > 0 ? (
+                homeCourses.map((course) => (
+                  <article key={course.id} className="flex flex-col rounded-lg border border-slate-200 bg-white shadow-soft">
+                    <div className="p-5">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="rounded-md bg-orange-primary/10 px-3 py-1 text-xs font-bold uppercase text-orange-primary">{course.kind}</span>
+                        {course.featured && <Star className="h-5 w-5 fill-orange-primary text-orange-primary" aria-label="Destaque" />}
                       </div>
-                    ) : (
-                      <InfoBlock label="Investimento" value={course.investment} />
-                    )}
-                  </div>
-                  <div className="flex gap-2 border-t border-slate-100 p-5 mt-2">
-                    <a href={`/cursos/${course.slug}`} className="flex-1 rounded-lg bg-orange-primary px-3 py-2.5 text-center text-sm font-bold text-white transition hover:bg-orange-600">Ver detalhes</a>
-                    <a href={WHATSAPP} className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-bold text-navy transition hover:border-blue-action hover:text-blue-action">WhatsApp</a>
-                  </div>
-                </article>
-              ))}
+                      <h3 className="mt-4 font-display text-xl font-bold text-navy line-clamp-2 min-h-[3.5rem]">{course.title}</h3>
+                      <p className="mt-3 text-sm leading-6 text-slate-600 line-clamp-3">{course.summary}</p>
+                    </div>
+                    <div className="mt-auto px-5 pb-5 text-sm space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <InfoBlock label="Área" value={course.area} />
+                        <InfoBlock label="Modalidade" value={course.modality} />
+                      </div>
+                      {course.installmentValue && course.installmentValue > 0 ? (
+                        <div className="rounded-lg bg-slate-50 p-2 border border-slate-100/50">
+                          <span className="text-[10px] font-bold uppercase text-slate-400 block">Investimento</span>
+                          <div className="text-navy text-xs mt-0.5 leading-relaxed font-semibold">
+                            {course.enrollmentFee && course.enrollmentFee > 0 && (
+                              <span>Matrícula: <strong className="text-orange-primary">R$ {Number(course.enrollmentFee).toFixed(2)}</strong> + </span>
+                            )}
+                            <span><strong className="text-navy">{course.maxInstallments || 1}x</strong> de <strong className="text-navy font-bold text-sm">R$ {Number(course.installmentValue).toFixed(2)}</strong></span>
+                          </div>
+                        </div>
+                      ) : (
+                        <InfoBlock label="Investimento" value={course.investment} />
+                      )}
+                    </div>
+                    <div className="flex gap-2 border-t border-slate-100 p-5 mt-2">
+                      <a href={`/cursos/${course.slug}`} className="flex-1 rounded-lg bg-orange-primary px-3 py-2.5 text-center text-sm font-bold text-white transition hover:bg-orange-600">Ver detalhes</a>
+                      <a href={WHATSAPP} className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-bold text-navy transition hover:border-blue-action hover:text-blue-action">WhatsApp</a>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12 bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+                  <GraduationCap className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-lg font-bold text-navy">Nenhum curso disponível no momento.</p>
+                  <p className="text-slate-500 mt-2">Por favor, volte mais tarde ou entre em contato conosco.</p>
+                </div>
+              )}
             </div>
 
             <div className="mt-12 text-center">
@@ -720,17 +786,25 @@ function PublicSite() {
           <div className="mx-auto max-w-7xl px-4 lg:px-8">
             <SectionHeader eyebrow="Blog" title="Conteúdos para quem educa e inclui" text="Artigos para fortalecer autoridade, SEO e relacionamento com futuros alunos." />
             <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {homePosts.map((post) => (
-                <article key={post.id} className="flex flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-soft">
-                  <Newspaper className="h-7 w-7 text-orange-primary" aria-hidden />
-                  <p className="mt-4 text-xs font-bold uppercase text-blue-action">{post.category}</p>
-                  <h3 className="mt-2 font-display text-lg font-bold text-navy line-clamp-2 min-h-[3rem]">{post.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-600 line-clamp-3 mb-4">{post.excerpt}</p>
-                  <a href={`/blog/${post.slug}`} className="mt-auto inline-flex items-center gap-2 text-sm font-bold text-orange-primary transition hover:text-orange-600">
-                    Ler artigo <ChevronRight className="h-4 w-4" />
-                  </a>
-                </article>
-              ))}
+              {homePosts.length > 0 ? (
+                homePosts.map((post) => (
+                  <article key={post.id} className="flex flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-soft">
+                    <Newspaper className="h-7 w-7 text-orange-primary" aria-hidden />
+                    <p className="mt-4 text-xs font-bold uppercase text-blue-action">{post.category}</p>
+                    <h3 className="mt-2 font-display text-lg font-bold text-navy line-clamp-2 min-h-[3rem]">{post.title}</h3>
+                    <p className="mt-3 text-sm leading-6 text-slate-600 line-clamp-3 mb-4">{post.excerpt}</p>
+                    <a href={`/blog/${post.slug}`} className="mt-auto inline-flex items-center gap-2 text-sm font-bold text-orange-primary transition hover:text-orange-600">
+                      Ler artigo <ChevronRight className="h-4 w-4" />
+                    </a>
+                  </article>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12 bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+                  <Newspaper className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-lg font-bold text-navy">Nenhuma postagem no blog disponível.</p>
+                  <p className="text-slate-500 mt-2">Fique ligado, novidades serão publicadas em breve!</p>
+                </div>
+              )}
             </div>
             <div className="mt-12 text-center">
               <a href="/blog" className="inline-flex items-center gap-2 rounded-full border-2 border-orange-primary px-8 py-3.5 text-center text-base font-bold text-orange-primary hover:bg-orange-primary/10 transition hover:-translate-y-0.5">
@@ -799,19 +873,27 @@ function PublicSite() {
           <div className="mx-auto max-w-7xl px-4 lg:px-8">
             <SectionHeader eyebrow="Eventos" title="Encontros presenciais e online ao vivo" text="Aulas abertas, imersões e eventos de relacionamento para aproximar alunos e professores." />
             <div className="mt-8 grid gap-5 md:grid-cols-2">
-              {homeEvents.map((ev) => (
-                <article key={ev.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-soft">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-bold uppercase text-orange-primary">{ev.modality}</p>
-                      <h3 className="mt-2 font-display text-2xl font-bold text-navy">{ev.title}</h3>
+              {homeEvents.length > 0 ? (
+                homeEvents.map((ev) => (
+                  <article key={ev.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-soft">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase text-orange-primary">{ev.modality}</p>
+                        <h3 className="mt-2 font-display text-2xl font-bold text-navy">{ev.title}</h3>
+                      </div>
+                      <CalendarDays className="h-8 w-8 text-blue-action" aria-hidden />
                     </div>
-                    <CalendarDays className="h-8 w-8 text-blue-action" aria-hidden />
-                  </div>
-                  <p className="mt-4 text-slate-600">{ev.description}</p>
-                  <p className="mt-5 font-bold text-navy">{ev.date}</p>
-                </article>
-              ))}
+                    <p className="mt-4 text-slate-600">{ev.description}</p>
+                    <p className="mt-5 font-bold text-navy">{ev.date}</p>
+                  </article>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12 bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+                  <CalendarDays className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-lg font-bold text-navy">Nenhum evento agendado no momento.</p>
+                  <p className="text-slate-500 mt-2">Novos eventos e encontros presenciais ou virtuais serão anunciados aqui.</p>
+                </div>
+              )}
             </div>
             <div className="mt-12 text-center">
               <a href="/eventos" className="inline-flex items-center gap-2 rounded-full border-2 border-orange-primary px-8 py-3.5 text-center text-base font-bold text-orange-primary hover:bg-orange-primary/10 transition hover:-translate-y-0.5">
@@ -1930,7 +2012,7 @@ function AdminApp() {
   const [ebookCoverUrl, setEbookCoverUrl] = useState('');
   const [eventCoverUrl, setEventCoverUrl] = useState('');
 
-  const [bannerPreview, setBannerPreview] = useState(initialBanners[0].imageUrl);
+  const [bannerPreview, setBannerPreview] = useState('');
 
   function showNotice(msg: string) {
     setNotice(msg);
@@ -5893,14 +5975,14 @@ function BlogArticlePage({ postSlug }: { postSlug: string }) {
             <div className="bg-bg-light rounded-xl p-6 mb-12 border border-slate-200">
               <h3 className="font-bold text-navy mb-4 flex items-center gap-2"><BookOpen className="h-5 w-5 text-orange-primary" /> O que você vai encontrar neste artigo</h3>
               <ul className="space-y-2 text-sm text-slate-700 font-medium">
-                {post.content.match(/<h2[^>]*>(.*?)<\/h2>/g)?.map((h2: string, i: number) => {
+                {(post.content || '').match(/<h2[^>]*>(.*?)<\/h2>/g)?.map((h2: string, i: number) => {
                    const title = h2.replace(/<\/?[^>]+(>|$)/g, "");
                    return <li key={i} className="flex items-center gap-2"><ChevronRight className="h-4 w-4 text-orange-primary" /> {title}</li>
                 }) || <li><ChevronRight className="h-4 w-4 text-orange-primary" /> Tópicos principais do texto</li>}
               </ul>
             </div>
 
-            <div className="prose prose-lg prose-slate prose-headings:font-display prose-headings:font-bold prose-headings:text-navy prose-a:text-blue-action prose-img:rounded-xl max-w-none" dangerouslySetInnerHTML={{ __html: post.content }} />
+            <div className="prose prose-lg prose-slate prose-headings:font-display prose-headings:font-bold prose-headings:text-navy prose-a:text-blue-action prose-img:rounded-xl max-w-none" dangerouslySetInnerHTML={{ __html: post.content || '' }} />
 
             <div className="mt-16 flex flex-wrap gap-2">
               {post.tags?.map((tag: string) => (
