@@ -1,33 +1,45 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import { prisma } from './db.js';
 dotenv.config();
 
-// ZeptoMail SMTP Configuration
-// Provide these in your .env file
-const SMTP_HOST = process.env.SMTP_HOST || 'smtp.zeptomail.com';
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
-const SMTP_USER = process.env.SMTP_USER || 'emailapikey';
-const SMTP_PASS = process.env.SMTP_PASS || '';
-const FROM_EMAIL = process.env.FROM_EMAIL || 'no-reply@isentidos.com.br';
+export async function getSmtpConfig() {
+  let settings;
+  try {
+    settings = await prisma.systemSetting.findUnique({ where: { id: 'default' } });
+  } catch (error) {
+    console.error('Erro ao buscar SystemSetting para SMTP:', error);
+  }
 
-const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: SMTP_PORT,
-  auth: {
-    user: SMTP_USER,
-    pass: SMTP_PASS,
-  },
-});
+  return {
+    host: settings?.smtpHost || process.env.SMTP_HOST || 'smtp.zeptomail.com',
+    port: parseInt(settings?.smtpPort || process.env.SMTP_PORT || '587', 10),
+    user: settings?.smtpUser || process.env.SMTP_USER || 'emailapikey',
+    pass: settings?.smtpPass || process.env.SMTP_PASS || '',
+    fromEmail: settings?.smtpFromEmail || process.env.SMTP_FROM_EMAIL || 'no-reply@isentidos.com.br',
+  };
+}
 
 export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
-  if (!SMTP_PASS) {
-    console.warn('⚠️ SMTP_PASS não configurado. E-mail não enviado:', subject);
+  const config = await getSmtpConfig();
+
+  if (!config.pass) {
+    console.warn('⚠️ Senha SMTP não configurada. E-mail não enviado:', subject);
     return false;
   }
   
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+  });
+
   try {
     const info = await transporter.sendMail({
-      from: `"Instituto Sentidos" <${FROM_EMAIL}>`,
+      from: `"Instituto Sentidos" <${config.fromEmail}>`,
       to,
       subject,
       html,

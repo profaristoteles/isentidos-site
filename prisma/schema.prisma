@@ -262,6 +262,11 @@ model SystemSetting {
   linkedin           String   @default("")
   youtube            String   @default("")
   twitter            String   @default("")
+  smtpHost           String   @default("") @map("smtp_host")
+  smtpPort           String   @default("587") @map("smtp_port")
+  smtpUser           String   @default("") @map("smtp_user")
+  smtpPass           String   @default("") @map("smtp_pass")
+  smtpFromEmail      String   @default("") @map("smtp_from_email")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")

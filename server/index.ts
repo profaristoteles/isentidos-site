@@ -220,6 +220,11 @@ const systemSettingSchema = z.object({
   linkedin: z.string().nullable().optional().transform(v => v ?? ''),
   youtube: z.string().nullable().optional().transform(v => v ?? ''),
   twitter: z.string().nullable().optional().transform(v => v ?? ''),
+  smtpHost: z.string().nullable().optional().transform(v => v ?? ''),
+  smtpPort: z.string().nullable().optional().transform(v => v ?? ''),
+  smtpUser: z.string().nullable().optional().transform(v => v ?? ''),
+  smtpPass: z.string().nullable().optional().transform(v => v ?? ''),
+  smtpFromEmail: z.string().nullable().optional().transform(v => v ?? ''),
 });
 
 const menuItemSchema = z.object({
@@ -495,6 +500,11 @@ async function getSystemSettings() {
     linkedin: '',
     youtube: '',
     twitter: '',
+    smtpHost: '',
+    smtpPort: '587',
+    smtpUser: '',
+    smtpPass: '',
+    smtpFromEmail: '',
     updatedAt: new Date()
   });
 }

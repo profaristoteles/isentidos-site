@@ -1841,6 +1841,11 @@ function AdminApp() {
     linkedin: '',
     youtube: '',
     twitter: '',
+    smtpHost: '',
+    smtpPort: '587',
+    smtpUser: '',
+    smtpPass: '',
+    smtpFromEmail: '',
   });
 
   interface AdminMenuItem {
@@ -4733,6 +4738,7 @@ function AdminApp() {
                   ['geral', 'Geral'],
                   ['pixels', 'Pixels & Tráfego Pago'],
                   ['api', 'Chaves de API'],
+                  ['smtp', 'E-mail (SMTP)'],
                   ['menu', 'Menu do Site'],
                   ['webhooks', 'Webhooks / CRM'],
                 ].map(([sub, label]) => (
@@ -4842,6 +4848,50 @@ function AdminApp() {
                     <TextArea label="Scripts customizados adicionais (Header/Body)" name="customScripts" placeholder="<!-- Insira seus scripts customizados aqui -->" defaultValue={adminSettings.customScripts} />
                     <button className="rounded-lg bg-orange-primary px-5 py-3 font-bold text-white max-w-xs transition hover:bg-orange-600 shadow-md">
                       Salvar Pixels
+                    </button>
+                  </form>
+                </Panel>
+              )}
+
+              {settingsSubtab === 'smtp' && (
+                <Panel title="Configurações de E-mail (SMTP ZeptoMail/Zoho)">
+                  <p className="text-xs text-slate-500 mb-4">Insira as credenciais do seu servidor de e-mail SMTP para disparar e-mails da aplicação (como "Esqueci minha senha" e e-mail de Boas Vindas para Leads).</p>
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!token) { alert('Sessão expirada. Por favor, faça login novamente.'); return; }
+                    const form = new FormData(e.currentTarget);
+                    const updated = {
+                      ...adminSettings,
+                      smtpHost: String(form.get('smtpHost')),
+                      smtpPort: String(form.get('smtpPort')),
+                      smtpUser: String(form.get('smtpUser')),
+                      smtpPass: String(form.get('smtpPass')),
+                      smtpFromEmail: String(form.get('smtpFromEmail')),
+                    };
+                    try {
+                      const res = await fetch('/api/admin/settings', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify(updated),
+                      });
+                      if (!res.ok) throw new Error();
+                      setAdminSettings(updated);
+                      showNotice('Configurações de SMTP salvas com sucesso!');
+                    } catch {
+                      showNotice('Erro ao salvar as configurações.');
+                    }
+                  }}>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Host SMTP" name="smtpHost" placeholder="smtp.zeptomail.com" defaultValue={adminSettings.smtpHost} />
+                      <Field label="Porta SMTP" name="smtpPort" placeholder="587" defaultValue={adminSettings.smtpPort} />
+                      <Field label="Usuário SMTP" name="smtpUser" placeholder="emailapikey" defaultValue={adminSettings.smtpUser} />
+                      <Field label="Senha SMTP" name="smtpPass" placeholder="Sua senha secreta" type="password" defaultValue={adminSettings.smtpPass} />
+                      <div className="sm:col-span-2">
+                        <Field label="E-mail de Remetente (From)" name="smtpFromEmail" placeholder="contato@isentidos.net.br" defaultValue={adminSettings.smtpFromEmail} />
+                      </div>
+                    </div>
+                    <button className="mt-4 rounded-lg bg-orange-primary px-5 py-3 font-bold text-white max-w-xs transition hover:bg-orange-600 shadow-md">
+                      Salvar E-mail (SMTP)
                     </button>
                   </form>
                 </Panel>
