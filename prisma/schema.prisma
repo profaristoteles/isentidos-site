@@ -267,6 +267,7 @@ model SystemSetting {
   smtpUser           String   @default("") @map("smtp_user")
   smtpPass           String   @default("") @map("smtp_pass")
   smtpFromEmail      String   @default("") @map("smtp_from_email")
+  outboundWebhookUrl String   @default("") @map("outbound_webhook_url")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")

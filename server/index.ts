@@ -225,6 +225,7 @@ const systemSettingSchema = z.object({
   smtpUser: z.string().nullable().optional().transform(v => v ?? ''),
   smtpPass: z.string().nullable().optional().transform(v => v ?? ''),
   smtpFromEmail: z.string().nullable().optional().transform(v => v ?? ''),
+  outboundWebhookUrl: z.string().nullable().optional().transform(v => v ?? ''),
 });
 
 const menuItemSchema = z.object({
@@ -505,8 +506,55 @@ async function getSystemSettings() {
     smtpUser: '',
     smtpPass: '',
     smtpFromEmail: '',
+    outboundWebhookUrl: '',
     updatedAt: new Date()
   });
+}
+
+async function sendToCrmWebhook(event: string, data: any) {
+  try {
+    const settings = await getSystemSettings();
+    if (!settings.outboundWebhookUrl) return;
+
+    let payload: any = {
+      event,
+      timestamp: new Date().toISOString(),
+      data
+    };
+
+    // Flatten core contact fields to root level for simpler GHL/LeadConnector mapping
+    if (event === 'lead_created') {
+      payload.name = data.name || '';
+      payload.email = data.email || '';
+      payload.phone = data.phone || '';
+      payload.referralCode = data.referralCode || '';
+      payload.source = data.source || 'site';
+      payload.notes = data.notes || '';
+    } else if (event === 'referral_code_created') {
+      const student = data.student || {};
+      payload.name = student.name || '';
+      payload.email = student.email || '';
+      payload.phone = student.phone || '';
+      payload.cpf = student.cpf || '';
+      payload.code = data.code || '';
+    }
+
+    console.log(`[Webhook CRM] Enviando payload para ${settings.outboundWebhookUrl}:`, JSON.stringify(payload, null, 2));
+
+    const res = await fetch(settings.outboundWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!res.ok) {
+      console.error(`[Webhook CRM] Falha ao enviar ${event}: Status ${res.status}`);
+    } else {
+      console.log(`[Webhook CRM] ${event} enviado com sucesso.`);
+    }
+  } catch (err) {
+    console.error(`[Webhook CRM] Erro na requisição do webhook:`, err);
+  }
 }
 
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
@@ -871,6 +919,10 @@ app.post('/api/leads', async (req, res) => {
   // Send welcome email using ZeptoMail
   if (lead && (lead as any).email && (lead as any).name) {
     sendWelcomeEmail((lead as any).email, (lead as any).name).catch(console.error);
+  }
+
+  if (lead) {
+    sendToCrmWebhook('lead_created', lead);
   }
 
   res.status(201).json({ data: lead });
@@ -1826,8 +1878,8 @@ app.post('/api/referrals/register', async (req, res) => {
         data: {
           name: parsed.data.name,
           email: parsed.data.email,
-          phone: parsed.data.phone,
-          cpf: parsed.data.cpf,
+          phone: parsed.data.phone || null,
+          cpf: parsed.data.cpf || null,
           role: 'student',
         },
       });
@@ -1848,6 +1900,12 @@ app.post('/api/referrals/register', async (req, res) => {
   }, null);
 
   if (!result) return res.status(503).json({ error: 'Falha ao registrar.' });
+  
+  sendToCrmWebhook('referral_code_created', { 
+    ...result, 
+    student: { name: parsed.data.name, email: parsed.data.email, phone: parsed.data.phone } 
+  });
+  
   res.status(201).json({ data: result });
 });
 
@@ -2221,7 +2279,14 @@ app.post('/api/admin/referral-codes', authMiddleware, async (req, res) => {
     });
   }, null);
 
-  if (!result) return res.status(503).json({ error: 'Banco de dados indisponÃ­vel.' });
+  if (!result) return res.status(503).json({ error: 'Banco de dados indisponível.' });
+  
+  sendToCrmWebhook('referral_code_created', {
+    ...result,
+    studentName: result.student.name,
+    studentEmail: result.student.email
+  });
+  
   res.status(201).json({ data: result });
 });
 
@@ -2274,11 +2339,14 @@ app.post('/api/turma/:slug/registro', async (req, res) => {
   });
 
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Dados invÃ¡lidos.', details: parsed.error.flatten() });
+  if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+
+  let createdLead: any = null;
+  let createdRefCode: any = null;
 
   const result = await withDatabase(async () => {
     const course = await prisma.course.findUnique({ where: { slug: req.params.slug } });
-    if (!course) throw new Error('Curso nÃ£o encontrado');
+    if (!course) throw new Error('Curso não encontrado');
 
     const lead = await prisma.lead.create({
       data: {
@@ -2292,6 +2360,7 @@ app.post('/api/turma/:slug/registro', async (req, res) => {
         notes: `PrÃ©-inscriÃ§Ã£o via pÃ¡gina de turma. ${parsed.data.referralCode ? `Indicado por: ${parsed.data.referralCode}` : 'Acesso direto'}`,
       },
     });
+    createdLead = lead;
 
     if (parsed.data.referralCode) {
       const refCode = await prisma.referralCode.findUnique({ where: { code: parsed.data.referralCode } });
@@ -2310,7 +2379,11 @@ app.post('/api/turma/:slug/registro', async (req, res) => {
     }
 
     const code = generateReferralCode();
-    await prisma.referralCode.create({ data: { studentId: user.id, code } });
+    const refCodeObj = await prisma.referralCode.create({
+      data: { studentId: user.id, code },
+      include: { student: { select: { name: true, email: true, phone: true } } },
+    });
+    createdRefCode = refCodeObj;
 
     const enrollmentCount = await prisma.lead.count({
       where: { courseId: course.id, source: 'turma_indicacao' },
@@ -2327,6 +2400,13 @@ app.post('/api/turma/:slug/registro', async (req, res) => {
     myReferralCount: 0,
     position: 1,
   });
+
+  if (createdLead) {
+    sendToCrmWebhook('lead_created', createdLead);
+  }
+  if (createdRefCode) {
+    sendToCrmWebhook('referral_code_created', createdRefCode);
+  }
 
   res.status(201).json({ data: result });
 });

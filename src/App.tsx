@@ -1846,6 +1846,7 @@ function AdminApp() {
     smtpUser: '',
     smtpPass: '',
     smtpFromEmail: '',
+    outboundWebhookUrl: '',
   });
 
   interface AdminMenuItem {
@@ -5177,6 +5178,43 @@ function AdminApp() {
               {settingsSubtab === 'webhooks' && (
                 <Panel title="Configurações de Webhook (Integração CRM)">
                   <div className="grid gap-6">
+                    <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
+                      <h3 className="font-bold text-navy text-base mb-2">Envio de Dados para o CRM (Outbound Webhook)</h3>
+                      <p className="text-sm text-slate-600 mb-4">
+                        Cole aqui a URL fornecida pelo seu CRM (ex: LeadConnector). Toda vez que um novo Lead for capturado no site ou um novo código de indicação for criado, o sistema enviará os dados automaticamente para esta URL via POST.
+                      </p>
+                      <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!token) { alert('Sessão expirada. Por favor, faça login novamente.'); return; }
+                        const form = new FormData(e.currentTarget);
+                        const updated = {
+                          ...adminSettings,
+                          outboundWebhookUrl: String(form.get('outboundWebhookUrl')),
+                        };
+                        try {
+                          const res = await fetch('/api/admin/settings', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify(updated),
+                          });
+                          if (!res.ok) throw new Error();
+                          setAdminSettings(updated);
+                          showNotice('URL do CRM salva com sucesso!');
+                        } catch {
+                          showNotice('Erro ao salvar as configurações.');
+                        }
+                      }}>
+                        <div className="flex flex-col sm:flex-row gap-3 items-end">
+                          <div className="flex-1 w-full">
+                            <Field label="URL do Webhook do CRM" name="outboundWebhookUrl" placeholder="https://services.leadconnectorhq.com/hooks/..." defaultValue={adminSettings.outboundWebhookUrl} />
+                          </div>
+                          <button className="rounded-lg bg-orange-primary px-5 py-3 h-[46px] font-bold text-white transition hover:bg-orange-600 shadow-md whitespace-nowrap">
+                            Salvar URL
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
                     <div className="rounded-xl bg-slate-50 border border-slate-200 p-5">
                       <h3 className="font-bold text-navy text-base mb-2">URL de Recebimento de Webhook</h3>
                       <p className="text-sm text-slate-600 mb-4">
