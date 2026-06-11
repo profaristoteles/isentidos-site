@@ -998,7 +998,7 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
           name: String(form.get('name')),
           email: String(form.get('email')),
           phone: String(form.get('phone')),
-          courseSlug: slugify(currentInterest),
+          courseSlug: selectedCourse?.slug || slugify(currentInterest),
           preferredFormat: selectedModality === 'Online ao vivo' ? 'online_ao_vivo' : selectedModality === 'Presencial' ? 'presencial' : 'ead',
           source: 'indicacao',
           referralCode,
@@ -1722,7 +1722,7 @@ function IndiqueEGanhePage() {
                   </div>
                   <label className="flex items-start gap-3 text-sm text-slate-600 mt-2 cursor-pointer">
                     <input required type="checkbox" className="mt-1 h-4 w-4 accent-orange-primary rounded border-slate-300" />
-                    <span>Confirmo que sou aluno(a) do Instituto Sentidos e aceito os termos do programa.</span>
+                    <span>Confirmo que sou aluno(a) ou pré-matriculado(a) do Instituto Sentidos e aceito os termos do programa.</span>
                   </label>
                   <button disabled={sending} className="mt-4 w-full rounded-2xl bg-orange-primary px-5 py-4 font-bold text-white transition hover:bg-orange-600 hover:-translate-y-0.5 shadow-lg shadow-orange-primary/30 disabled:opacity-60">
                     {sending ? 'Gerando link...' : 'Criar meu Link de Indicação'}
@@ -4326,7 +4326,7 @@ function AdminApp() {
                       <th className="p-3">Modalidade</th>
                       <th className="p-3">Indicação</th>
                       <th className="p-3">Status</th>
-                      <th className="p-3">Origem</th>
+                      <th className="p-3">Origem</th>\n                      <th className="p-3 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4341,6 +4341,11 @@ function AdminApp() {
                         <td className="p-3">{lead.referralCode ? <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-700">{lead.referralCode}</span> : <span className="text-slate-400">—</span>}</td>
                         <td className="p-3"><StatusBadge status={lead.status} /></td>
                         <td className="p-3">{lead.origin}</td>
+                        <td className="p-3 text-right">
+                          <button onClick={() => deleteLead(lead.id)} className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500" title="Excluir lead">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

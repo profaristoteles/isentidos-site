@@ -1495,6 +1495,23 @@ app.get('/api/admin/leads', authMiddleware, async (_req, res) => {
 
 // â”€â”€ Admin update / delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+
+app.delete('/api/admin/leads/:id', authMiddleware, async (req, res) => {
+  try {
+    const { count } = await prisma.lead.deleteMany({ where: { id: req.params.id } });
+    if (count === 0) {
+      logAction((req as any).user?.sub, 'Lead', 'DELETE_NOT_FOUND', req.params.id, 'ERROR');
+      return res.status(404).json({ error: 'Lead não encontrado ou já excluído.' });
+    }
+    logAction((req as any).user?.sub, 'Lead', 'DELETE', req.params.id, 'SUCCESS');
+    res.json({ ok: true });
+  } catch (error: any) {
+    logAction((req as any).user?.sub, 'Lead', 'DELETE_FAILED', req.params.id, 'ERROR', { error: error.message });
+    console.error('Erro ao excluir lead:', error);
+    res.status(500).json({ error: 'Erro ao processar exclusão.' });
+  }
+});
+
 app.put('/api/admin/banners/:id', authMiddleware, async (req, res) => {
   const parsed = bannerSchema.partial().safeParse(req.body);
   if (!parsed.success) {
