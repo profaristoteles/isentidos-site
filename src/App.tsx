@@ -181,7 +181,7 @@ const navItems = [
   ['Blog', '/blog'],
   ['E-books', '/ebooks'],
   ['Eventos', '/eventos'],
-  ['Indique e Ganhe', '/indique-e-ganhe'],
+  ['Cadastro de Indicador', '/indique-e-ganhe'],
   ['Contato', '/#contato'],
 ];
 
@@ -957,6 +957,7 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
   const [sending, setSending] = useState(false);
   const [courses, setCourses] = useState<Course[]>(initialCourses);
   const [selectedInterest, setSelectedInterest] = useState('');
+  const [selectedModality, setSelectedModality] = useState('Presencial');
 
   useEffect(() => {
     fetch('/api/courses')
@@ -970,8 +971,9 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
   }, []);
 
   const activeCourses = courses.filter((c) => c.active);
-  const currentInterest = selectedInterest || (activeCourses[0]?.title ?? '');
-  const selectedCourse = activeCourses.find(c => c.title === currentInterest);
+  const filteredCourses = activeCourses.filter((c) => getModalityLabel(c.modality, c.kind) === selectedModality);
+  const currentInterest = selectedInterest || (filteredCourses[0]?.title ?? '');
+  const selectedCourse = filteredCourses.find(c => c.title === currentInterest);
 
   useEffect(() => {
     if (!referralCode) { setLoadError(true); return; }
@@ -1061,6 +1063,22 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
               <div className="mt-6 grid gap-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="block">
+                    <span className="text-sm font-bold text-navy">Modalidade desejada</span>
+                    <select
+                      name="modality"
+                      value={selectedModality}
+                      onChange={(e) => {
+                        setSelectedModality(e.target.value);
+                        setSelectedInterest('');
+                      }}
+                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4 text-navy"
+                    >
+                      <option>Presencial</option>
+                      <option>Online ao vivo</option>
+                      <option>EAD</option>
+                    </select>
+                  </label>
+                  <label className="block">
                     <span className="text-sm font-bold text-navy">O que você quer estudar?</span>
                     <select
                       name="interest"
@@ -1068,49 +1086,29 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
                       onChange={(e) => setSelectedInterest(e.target.value)}
                       className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4 text-navy"
                     >
-                      {activeCourses.map((c) => (
+                      {filteredCourses.map((c) => (
                         <option key={c.id} value={c.title}>{c.title}</option>
                       ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-bold text-navy">Modalidade desejada</span>
-                    <select
-                      name="modality"
-                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4 text-navy"
-                    >
-                      <option>Presencial</option>
-                      <option>Online ao vivo</option>
                     </select>
                   </label>
                 </div>
 
                 {selectedCourse && (
                   <div className="mt-4 border-t border-slate-100 pt-6">
-                    {(() => {
-                      const crmForm = resolveLeadConnectorForm(selectedCourse, referralCode);
-                      if (crmForm.isNative) {
-                        return (
-                          <form onSubmit={handleSubmit} className="grid gap-4">
-                            <Field label="Nome completo" name="name" placeholder="Seu nome completo" required />
-                            <div className="grid gap-4 md:grid-cols-2">
-                              <Field label="WhatsApp" name="phone" placeholder="(99) 99999-9999" required />
-                              <Field label="E-mail" name="email" placeholder="voce@email.com" type="email" required />
-                            </div>
-                            <label className="flex items-start gap-3 text-sm text-slate-600">
-                              <input required type="checkbox" className="mt-1 h-4 w-4 accent-orange-primary" />
-                              Autorizo o contato do Instituto Sentidos e o tratamento dos meus dados conforme a LGPD.
-                            </label>
-                            <button disabled={sending} className="w-full rounded-lg bg-orange-primary px-5 py-4 font-bold text-white transition hover:bg-orange-600 disabled:opacity-60">
-                              {sending ? 'Enviando…' : 'Quero ser contactado'}
-                            </button>
-                          </form>
-                        );
-                      }
-                      return (
-                        <LeadConnectorFormFrame config={crmForm} height={540} />
-                      );
-                    })()}
+                    <form onSubmit={handleSubmit} className="grid gap-4">
+                      <Field label="Nome completo do indicado" name="name" placeholder="Nome completo" required />
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <Field label="WhatsApp do indicado" name="phone" placeholder="(99) 99999-9999" required />
+                        <Field label="E-mail do indicado" name="email" placeholder="voce@email.com" type="email" required />
+                      </div>
+                      <label className="flex items-start gap-3 text-sm text-slate-600">
+                        <input required type="checkbox" className="mt-1 h-4 w-4 accent-orange-primary" />
+                        Autorizo o contato do Instituto Sentidos e o tratamento dos meus dados conforme a LGPD.
+                      </label>
+                      <button disabled={sending} className="w-full rounded-lg bg-orange-primary px-5 py-4 font-bold text-white transition hover:bg-orange-600 disabled:opacity-60">
+                        {sending ? 'Enviando…' : 'Quero indicar e cadastrar'}
+                      </button>
+                    </form>
                   </div>
                 )}
               </div>
