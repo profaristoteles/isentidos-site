@@ -2814,6 +2814,24 @@ function AdminApp() {
     event.currentTarget.reset();
   }
 
+  async function deleteLead(id: string) {
+    if (!confirm('Tem certeza que deseja excluir este lead?')) return;
+    try {
+      const res = await fetch(`/api/admin/leads/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setLeads((prev) => prev.filter((l) => l.id !== id));
+        showNotice('Lead excluído com sucesso.');
+      } else {
+        showNotice('❌ Erro ao excluir lead.');
+      }
+    } catch {
+      showNotice('❌ Erro de conexão.');
+    }
+  }
+
   function deleteEvent(id: number | string) {
     if (!confirm('Excluir este evento?')) return;
     if (token) {
