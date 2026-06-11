@@ -973,6 +973,22 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
   }, []);
 
   const activeCourses = courses.filter((c) => c.active);
+
+  const availableModalities = useMemo(() => {
+    const mods = new Set<string>();
+    activeCourses.forEach((c) => {
+      const label = getModalityLabel(c.modality, c.kind);
+      if (label) mods.add(label);
+    });
+    return Array.from(mods);
+  }, [activeCourses]);
+
+  useEffect(() => {
+    if (availableModalities.length > 0 && !availableModalities.includes(selectedModality)) {
+      setSelectedModality(availableModalities[0]);
+    }
+  }, [availableModalities, selectedModality]);
+
   const filteredCourses = activeCourses.filter((c) => getModalityLabel(c.modality, c.kind) === selectedModality);
   const currentInterest = selectedInterest || (filteredCourses[0]?.title ?? '');
   const selectedCourse = filteredCourses.find(c => c.title === currentInterest);
@@ -1075,9 +1091,11 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
                       }}
                       className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4 text-navy"
                     >
-                      <option>Presencial</option>
-                      <option>Online ao vivo</option>
-                      <option>EAD</option>
+                      {availableModalities.map((mod) => (
+                        <option key={mod} value={mod}>
+                          {mod}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label className="block">
