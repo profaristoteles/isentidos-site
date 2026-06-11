@@ -998,11 +998,11 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
           name: String(form.get('name')),
           email: String(form.get('email')),
           phone: String(form.get('phone')),
-          courseSlug: slugify(String(form.get('interest'))),
-          preferredFormat: String(form.get('modality')) === 'Online ao vivo' ? 'online_ao_vivo' : String(form.get('modality')) === 'Presencial' ? 'presencial' : undefined,
+          courseSlug: slugify(currentInterest),
+          preferredFormat: selectedModality === 'Online ao vivo' ? 'online_ao_vivo' : selectedModality === 'Presencial' ? 'presencial' : 'ead',
           source: 'indicacao',
           referralCode,
-          notes: `Indicação pelo código ${referralCode}. Interesse: ${form.get('interest')} | Modalidade: ${form.get('modality')}`,
+          notes: `Indicação pelo código ${referralCode}. Interesse: ${currentInterest} | Modalidade: ${selectedModality}`,
           consentLgpd: true,
         }),
       });
@@ -4337,7 +4337,7 @@ function AdminApp() {
                           <span className="text-slate-500">{lead.phone}</span>
                         </td>
                         <td className="p-3">{lead.interest}</td>
-                        <td className="p-3">{lead.modality}</td>
+                        <td className="p-3">{getModalityLabel(lead.modality as any)}</td>
                         <td className="p-3">{lead.referralCode ? <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-700">{lead.referralCode}</span> : <span className="text-slate-400">—</span>}</td>
                         <td className="p-3"><StatusBadge status={lead.status} /></td>
                         <td className="p-3">{lead.origin}</td>
