@@ -40,6 +40,8 @@ import {
   Linkedin,
   Youtube,
   Twitter,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 import AccessibilityWidget from './components/AccessibilityWidget';
@@ -1804,7 +1806,14 @@ function JsonListEditor({ label, name, defaultValue, fields, itemLabel }: { labe
 function AdminApp() {
   const [logged, setLogged] = useState(false);
   const [token, setToken] = useState('');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('isentidos_admin_tab') || 'dashboard';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('isentidos_admin_tab', activeTab);
+  }, [activeTab]);
   const [notice, setNotice] = useState('');
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string } | null>(() => {
     const saved = localStorage.getItem('isentidos_admin_user');
@@ -1985,6 +1994,24 @@ function AdminApp() {
       return 'Sessão expirada ou inválida. Faça login novamente e tente salvar de novo.';
     }
     return err.error || fallbackMessage;
+  }
+
+  async function handleForgotPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get('email'));
+    try {
+      const res = await fetch('/api/admin/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      showNotice(data.message || 'Solicitação enviada.');
+      setForgotPasswordMode(false);
+    } catch {
+      showNotice('❌ Erro ao solicitar recuperação de senha.');
+    }
   }
 
   async function login(event: FormEvent<HTMLFormElement>) {
@@ -2895,19 +2922,39 @@ function AdminApp() {
   if (!logged) {
     return (
       <div className="grid min-h-screen place-items-center bg-navy px-4">
-        <form onSubmit={login} className="w-full max-w-md rounded-lg bg-white p-8 shadow-2xl">
-          <div className="flex justify-center mb-6">
-            <img src={SITE_LOGO} alt="Instituto Sentidos" className="h-16 w-auto object-contain" />
-          </div>
-          <h1 className="text-center font-display text-2xl font-bold text-navy">Painel Administrativo</h1>
-          <p className="mt-2 text-center text-sm text-slate-500">Instituto Sentidos</p>
-          <div className="mt-6 grid gap-4">
-            <Field label="E-mail" name="email" placeholder="admin@isentidos.com.br" type="email" required />
-            <Field label="Senha" name="password" placeholder="admin123" type="password" required />
-          </div>
-          <button className="mt-6 w-full rounded-lg bg-navy px-5 py-4 font-bold text-white transition hover:bg-blue-action">Entrar</button>
-          <a href="/" className="mt-4 block text-center text-sm font-bold text-orange-primary hover:text-orange-600 transition">Voltar ao site</a>
-        </form>
+        {forgotPasswordMode ? (
+          <form onSubmit={handleForgotPassword} className="w-full max-w-md rounded-lg bg-white p-8 shadow-2xl">
+            <div className="flex justify-center mb-6">
+              <img src={SITE_LOGO} alt="Instituto Sentidos" className="h-16 w-auto object-contain" />
+            </div>
+            <h1 className="text-center font-display text-2xl font-bold text-navy">Recuperar Senha</h1>
+            <p className="mt-2 text-center text-sm text-slate-500">Informe seu e-mail para receber um link de recuperação.</p>
+            <div className="mt-6 grid gap-4">
+              <Field label="E-mail" name="email" placeholder="admin@isentidos.com.br" type="email" required />
+            </div>
+            <button className="mt-6 w-full rounded-lg bg-navy px-5 py-4 font-bold text-white transition hover:bg-blue-action">Enviar link de recuperação</button>
+            <div className="mt-4 text-center">
+              <button type="button" onClick={() => setForgotPasswordMode(false)} className="text-sm font-semibold text-orange-primary hover:underline">Voltar para o login</button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={login} className="w-full max-w-md rounded-lg bg-white p-8 shadow-2xl">
+            <div className="flex justify-center mb-6">
+              <img src={SITE_LOGO} alt="Instituto Sentidos" className="h-16 w-auto object-contain" />
+            </div>
+            <h1 className="text-center font-display text-2xl font-bold text-navy">Painel Administrativo</h1>
+            <p className="mt-2 text-center text-sm text-slate-500">Instituto Sentidos</p>
+            <div className="mt-6 grid gap-4">
+              <Field label="E-mail" name="email" placeholder="admin@isentidos.com.br" type="email" required autoComplete="username" />
+              <Field label="Senha" name="password" placeholder="admin123" type="password" required autoComplete="current-password" />
+            </div>
+            <div className="mt-2 text-right">
+              <button type="button" onClick={() => setForgotPasswordMode(true)} className="text-sm font-semibold text-orange-primary hover:underline">Esqueci a senha</button>
+            </div>
+            <button className="mt-6 w-full rounded-lg bg-navy px-5 py-4 font-bold text-white transition hover:bg-blue-action">Entrar</button>
+            <a href="/" className="mt-4 block text-center text-sm font-bold text-orange-primary hover:text-orange-600 transition">Voltar ao site</a>
+          </form>
+        )}
       </div>
     );
   }
@@ -5324,11 +5371,20 @@ function ContactCard({ icon: Icon, title, text }: { icon: ComponentType<{ classN
   );
 }
 
-function Field({ label, name, placeholder, type = 'text', required = false, defaultValue, step }: { label: string; name: string; placeholder: string; type?: string; required?: boolean; defaultValue?: string | number; step?: string }) {
+function Field({ label, name, placeholder, type = 'text', required = false, defaultValue, step, autoComplete }: { label: string; name: string; placeholder: string; type?: string; required?: boolean; defaultValue?: string | number; step?: string; autoComplete?: string }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === 'password';
+  const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
   return (
-    <label className="block">
+    <label className="block relative">
       <span className="text-sm font-bold text-navy">{label}</span>
-      <input name={name} required={required} type={type} step={step} defaultValue={defaultValue} className="mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4" placeholder={placeholder} />
+      <input name={name} required={required} type={inputType} step={step} defaultValue={defaultValue} autoComplete={autoComplete} className="mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4" placeholder={placeholder} />
+      {isPassword && (
+        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute bottom-3 right-4 text-slate-400 hover:text-navy" aria-label="Alternar visibilidade da senha">
+          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+        </button>
+      )}
     </label>
   );
 }

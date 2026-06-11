@@ -11,6 +11,7 @@ import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import { z } from 'zod';
 import { prisma } from './db.js';
+import { sendPasswordResetEmail, sendWelcomeEmail } from './mailer.js';
 import { seedCourses, seedLeads, seedPosts } from './seed-data.js';
 import {
   serializeCourse,
@@ -857,6 +858,11 @@ app.post('/api/leads', async (req, res) => {
     },
   );
 
+  // Send welcome email using ZeptoMail
+  if (lead && (lead as any).email && (lead as any).name) {
+    sendWelcomeEmail((lead as any).email, (lead as any).name).catch(console.error);
+  }
+
   res.status(201).json({ data: lead });
 });
 
@@ -972,6 +978,49 @@ app.post('/api/admin/login', async (req, res) => {
       role: userRole,
     },
   });
+});
+
+app.post('/api/admin/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'E-mail inválido.' });
+  }
+
+  const admin = await prisma.user.findUnique({ where: { email } });
+  if (!admin) {
+    return res.json({ message: 'Se o e-mail existir, um link de recuperação foi enviado.' });
+  }
+
+  const resetToken = jwt.sign({ sub: admin.id, intent: 'reset_password' }, jwtSecret, { expiresIn: '1h' });
+  const settings = await getSystemSettings();
+  
+  await sendPasswordResetEmail(admin.email, resetToken, settings.domain || req.get('host') || 'isentidos.com.br');
+
+  res.json({ message: 'Se o e-mail existir, um link de recuperação foi enviado.' });
+});
+
+app.post('/api/admin/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+  if (!token || !newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'Token inválido ou senha muito curta (mínimo 6 caracteres).' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, jwtSecret) as any;
+    if (decoded.intent !== 'reset_password') {
+      return res.status(400).json({ error: 'Token inválido para esta operação.' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: decoded.sub },
+      data: { passwordHash }
+    });
+
+    res.json({ message: 'Senha redefinida com sucesso. Faça login com a nova senha.' });
+  } catch (err) {
+    return res.status(401).json({ error: 'Token inválido ou expirado.' });
+  }
 });
 
 app.get('/api/admin/dashboard', authMiddleware, async (_req, res) => {
