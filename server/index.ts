@@ -2580,9 +2580,170 @@ app.use(express.static(clientDist, {
     }
   }
 }));
-app.get('*', (_req, res) => {
+app.get('*', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.sendFile(path.join(clientDist, 'index.html'));
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+
+  const indexPath = path.join(clientDist, 'index.html');
+  if (!fs.existsSync(indexPath)) {
+    return res.status(404).send('Frontend build not found. Please build the frontend first.');
+  }
+
+  try {
+    let html = fs.readFileSync(indexPath, 'utf8');
+
+    // Default metadata
+    let domain = 'isentidos.com.br';
+    let siteName = 'Instituto Sentidos';
+    try {
+      const settings = await getSystemSettings();
+      if (settings && !('error' in settings)) {
+        domain = (settings as any).domain || domain;
+        siteName = (settings as any).siteName || siteName;
+      }
+    } catch (e) {
+      console.error('Error fetching system settings for meta tags:', e);
+    }
+
+    let baseUrl = domain;
+    if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+      baseUrl = `https://${baseUrl}`;
+    }
+
+    let title = `${siteName} - Pós-Graduações e Cursos Livres`;
+    let description = `${siteName} - Especialização, pós-graduação e cursos livres em Caxias, MA. Venha se especializar conosco e impulsione sua carreira!`;
+    let imageUrl = `${baseUrl}/logo-isentidos-laranja.png`;
+    const url = `${baseUrl}${req.originalUrl}`;
+
+    const reqPath = req.path;
+
+    if (reqPath.startsWith('/indique-e-ganhe')) {
+      title = `Programa Indique e Ganhe - ${siteName}`;
+      description = `Indique amigos para estudar no ${siteName} e ganhe descontos progressivos em suas mensalidades!`;
+    } else if (reqPath.startsWith('/indicacao/')) {
+      const code = reqPath.split('/')[2] ?? '';
+      let studentName = 'Um aluno';
+      if (code) {
+        try {
+          const refCode = await prisma.referralCode.findUnique({
+            where: { code },
+            include: { student: { select: { name: true } } },
+          });
+          if (refCode?.student?.name) {
+            studentName = refCode.student.name;
+          }
+        } catch (e) {
+          console.error('Error fetching referral student name for meta tags:', e);
+        }
+      }
+      title = `Você recebeu uma indicação de ${studentName}!`;
+      description = `Faça sua matrícula no ${siteName} utilizando a indicação de ${studentName} e ganhe benefícios especiais.`;
+    } else if (reqPath === '/cursos') {
+      title = `Cursos e Especializações - ${siteName}`;
+      description = 'Confira nosso catálogo de pós-graduações, MBA, cursos de extensão e programas stricto sensu.';
+    } else if (reqPath.startsWith('/cursos/')) {
+      const slug = reqPath.split('/')[2] ?? '';
+      if (slug) {
+        try {
+          const course = await prisma.course.findUnique({ where: { slug } });
+          if (course) {
+            title = `${course.title} - ${siteName}`;
+            description = course.description || description;
+            if (course.coverImageUrl) {
+              imageUrl = course.coverImageUrl.startsWith('http') 
+                ? course.coverImageUrl 
+                : `${baseUrl}${course.coverImageUrl}`;
+            }
+          }
+        } catch (e) {
+          console.error('Error fetching course for meta tags:', e);
+        }
+      }
+    } else if (reqPath === '/ebooks') {
+      title = `Materiais e E-books Gratuitos - ${siteName}`;
+      description = 'Baixe nossos livros digitais e guias exclusivos sobre inclusão, autismo, educação especial e desenvolvimento humano.';
+    } else if (reqPath === '/eventos') {
+      title = `Eventos e Encontros - ${siteName}`;
+      description = 'Acompanhe nosso calendário de imersões, aulas abertas e eventos presenciais e online.';
+    } else if (reqPath === '/blog') {
+      title = `Blog - ${siteName}`;
+      description = 'Conteúdos, artigos e notícias atualizadas sobre educação inclusiva, análise do comportamento (ABA) e pedagogia.';
+    } else if (reqPath.startsWith('/blog/')) {
+      const slug = reqPath.split('/')[2] ?? '';
+      if (slug) {
+        try {
+          const post = await prisma.blogPost.findUnique({ where: { slug } });
+          if (post) {
+            title = `${post.title} - Blog ${siteName}`;
+            description = post.excerpt || description;
+            if (post.coverImageUrl) {
+              imageUrl = post.coverImageUrl.startsWith('http') 
+                ? post.coverImageUrl 
+                : `${baseUrl}${post.coverImageUrl}`;
+            }
+          }
+        } catch (e) {
+          console.error('Error fetching blog post for meta tags:', e);
+        }
+      }
+    } else if (reqPath.startsWith('/turma/')) {
+      const slug = reqPath.split('/')[2] ?? '';
+      if (slug) {
+        try {
+          const course = await prisma.course.findUnique({ where: { slug } });
+          if (course) {
+            title = `Formação de Turma: ${course.title} - ${siteName}`;
+            description = `Ajude a fechar a turma do curso ${course.title} indicando amigos. Quanto mais indicados, maior o desconto de todos!`;
+            if (course.coverImageUrl) {
+              imageUrl = course.coverImageUrl.startsWith('http') 
+                ? course.coverImageUrl 
+                : `${baseUrl}${course.coverImageUrl}`;
+            }
+          }
+        } catch (e) {
+          console.error('Error fetching course for turma meta tags:', e);
+        }
+      }
+    }
+
+    // 1. Replace or insert Title
+    if (html.includes('<title>')) {
+      html = html.replace(/<title>.*?<\/title>/, `<title>${title}</title>`);
+    } else {
+      html = html.replace('<head>', `<head><title>${title}</title>`);
+    }
+
+    // 2. Replace or insert Description
+    if (html.includes('name="description"')) {
+      html = html.replace(/<meta name="description" content=".*?"\s*\/?>/, `<meta name="description" content="${description}" />`);
+    } else {
+      html = html.replace('<head>', `<head><meta name="description" content="${description}" />`);
+    }
+
+    // 3. Inject Open Graph and Twitter Card tags
+    const ogTags = `
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${url}" />
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${imageUrl}" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="${url}" />
+  <meta property="twitter:title" content="${title}" />
+  <meta property="twitter:description" content="${description}" />
+  <meta property="twitter:image" content="${imageUrl}" />
+`;
+
+    html = html.replace('</head>', `${ogTags}\n</head>`);
+
+    res.send(html);
+  } catch (error) {
+    console.error('Error serving index.html with custom metadata:', error);
+    res.sendFile(indexPath);
+  }
 });
 
 app.listen(port, () => {
