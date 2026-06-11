@@ -2292,9 +2292,22 @@ app.post('/api/admin/referral-codes', authMiddleware, async (req, res) => {
 
 app.delete('/api/admin/referral-codes/:id', authMiddleware, async (req, res) => {
   try {
-    await prisma.referralCode.update({ where: { id: req.params.id }, data: { isActive: false } });
+    await prisma.referralCode.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
-  } catch { res.status(404).json({ error: 'CÃ³digo nÃ£o encontrado.' }); }
+  } catch (error) {
+    console.error('Erro ao excluir código de indicação:', error);
+    res.status(404).json({ error: 'Código não encontrado.' });
+  }
+});
+
+app.delete('/api/admin/referrals/:id', authMiddleware, async (req, res) => {
+  try {
+    await prisma.referral.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao excluir indicação:', error);
+    res.status(404).json({ error: 'Indicação não encontrada.' });
+  }
 });
 
 // â”€â”€ Turma (group formation) public routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

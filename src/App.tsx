@@ -1822,8 +1822,8 @@ function JsonListEditor({ label, name, defaultValue, fields, itemLabel }: { labe
 // ── Admin app (self-contained) ────────────────────────────────────────────────
 
 function AdminApp() {
-  const [logged, setLogged] = useState(false);
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(() => localStorage.getItem('isentidos_admin_token') || '');
+  const [logged, setLogged] = useState(() => !!localStorage.getItem('isentidos_admin_token'));
   const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('isentidos_admin_tab') || 'dashboard';
@@ -4498,6 +4498,7 @@ function AdminApp() {
                             <th className="p-3">Link de indicação</th>
                             <th className="p-3">Conversões</th>
                             <th className="p-3">Status</th>
+                            <th className="p-3 text-right">Ação</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -4522,6 +4523,30 @@ function AdminApp() {
                                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${rc.isActive ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                                   {rc.isActive ? 'Ativo' : 'Inativo'}
                                 </span>
+                              </td>
+                              <td className="p-3 text-right">
+                                <button
+                                  onClick={async () => {
+                                    if (!window.confirm(`Tem certeza que deseja excluir o código ${rc.code}?`)) return;
+                                    if (!token) { showNotice('Apenas modo local ativo.'); return; }
+                                    try {
+                                      const res = await fetch(`/api/admin/referral-codes/${rc.id}`, {
+                                        method: 'DELETE',
+                                        headers: { Authorization: `Bearer ${token}` }
+                                      });
+                                      if (res.ok) {
+                                        setReferralCodes(prev => prev.filter(x => x.id !== rc.id));
+                                        showNotice('Código de indicação excluído com sucesso!');
+                                      } else {
+                                        showNotice('Erro ao excluir código.');
+                                      }
+                                    } catch { showNotice('Erro ao excluir código.'); }
+                                  }}
+                                  className="text-red-500 hover:text-red-700 transition"
+                                  title="Excluir código"
+                                >
+                                  <Trash2 className="h-5 w-5 inline" />
+                                </button>
                               </td>
                             </tr>
                           ))}
@@ -4561,7 +4586,7 @@ function AdminApp() {
                                   {r.status === 'converted' ? 'Matriculado' : 'Pendente'}
                                 </span>
                               </td>
-                              <td className="p-3">
+                              <td className="p-3 flex items-center gap-2">
                                 {r.status === 'pending' && (
                                   <button
                                     onClick={async () => {
@@ -4574,11 +4599,33 @@ function AdminApp() {
                                         showNotice('Indicação aprovada e desconto concedido!');
                                       } catch { showNotice('Erro ao aprovar indicação.'); }
                                     }}
-                                    className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700"
+                                    className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 whitespace-nowrap"
                                   >
                                     Aprovar Matrícula
                                   </button>
                                 )}
+                                <button
+                                  onClick={async () => {
+                                    if (!window.confirm('Tem certeza que deseja excluir esta indicação?')) return;
+                                    if(!token) { showNotice('Apenas modo local ativo.'); return; }
+                                    try {
+                                      const res = await fetch(`/api/admin/referrals/${r.id}`, {
+                                        method: 'DELETE',
+                                        headers: { Authorization: `Bearer ${token}` }
+                                      });
+                                      if (res.ok) {
+                                        setAllReferrals(prev => prev.filter(x => x.id !== r.id));
+                                        showNotice('Indicação excluída com sucesso!');
+                                      } else {
+                                        showNotice('Erro ao excluir indicação.');
+                                      }
+                                    } catch { showNotice('Erro ao excluir indicação.'); }
+                                  }}
+                                  className="rounded-lg border border-red-200 p-1.5 text-red-500 transition hover:border-red-500 hover:bg-red-50 animate-fade-in"
+                                  title="Excluir indicação"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
                               </td>
                             </tr>
                           ))}
