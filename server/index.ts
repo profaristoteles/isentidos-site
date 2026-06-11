@@ -2213,6 +2213,9 @@ app.put('/api/admin/referral-settings', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/admin/referrals', authMiddleware, async (_req, res) => {
+  // Clean up any orphaned referrals (where the lead was deleted)
+  await withDatabase(() => prisma.referral.deleteMany({ where: { leadId: null } }), null);
+
   const referrals = await withDatabase(
     () => prisma.referral.findMany({
       orderBy: { createdAt: 'desc' },
