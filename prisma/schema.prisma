@@ -50,6 +50,7 @@ model Course {
   testimonials       Json?
   minStudents        Int                  @default(15) @map("min_students")
   leadConnectorFormId String?              @map("lead_connector_form_id")
+  mauticFormId       Int?                 @map("mautic_form_id")
   createdAt          DateTime             @default(now()) @map("created_at")
   certificates       Certificate[]
   classes            CourseClass[]
@@ -268,6 +269,8 @@ model SystemSetting {
   smtpPass           String   @default("") @map("smtp_pass")
   smtpFromEmail      String   @default("") @map("smtp_from_email")
   outboundWebhookUrl String   @default("") @map("outbound_webhook_url")
+  mauticBaseUrl      String   @default("https://mautic.isentidos.com.br") @map("mautic_base_url")
+  mauticTrackingEnabled Boolean @default(true) @map("mautic_tracking_enabled")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")

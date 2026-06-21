@@ -59,6 +59,7 @@ export interface Course {
   leadConnectorFormId?: string;
   syllabus?: string;
   coverImageUrl?: string;
+  mauticFormId?: number | null;
 }
 
 export interface Banner {

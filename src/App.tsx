@@ -1865,6 +1865,8 @@ function AdminApp() {
     smtpPass: '',
     smtpFromEmail: '',
     outboundWebhookUrl: '',
+    mauticBaseUrl: 'https://mautic.isentidos.com.br',
+    mauticTrackingEnabled: true,
   });
 
   interface AdminMenuItem {
@@ -2427,6 +2429,8 @@ function AdminApp() {
     const about              = String(form.get('about')              || '');
     const syllabus           = String(form.get('syllabus')           || '');
     const leadConnectorFormId = String(form.get('leadConnectorFormId') || '');
+    const mauticFormIdRaw = form.get('mauticFormId');
+    const mauticFormId = mauticFormIdRaw ? parseInt(String(mauticFormIdRaw), 10) || null : null;
     const active             = form.get('active') === 'Ativo';
     const featured           = form.get('featured') === 'on';
 
@@ -2455,6 +2459,7 @@ function AdminApp() {
       teachers:            parseJson(String(form.get('teachers')     || '')),
       testimonials:        parseJson(String(form.get('testimonials') || '')),
       leadConnectorFormId: leadConnectorFormId || null,
+      mauticFormId,
       coverImageUrl:       courseCoverUrl || null,
     };
 
@@ -3439,6 +3444,13 @@ function AdminApp() {
                           />
                           <p className="mt-1.5 text-xs text-slate-500">Se vazio, usa automaticamente Pós-ao vivo para cursos Online/EAD e Pós-presencial para cursos presenciais. Preencha um ID ou URL completa para sobrescrever por curso.</p>
                         </div>
+                        <Field
+                          label="ID do Formulário Mautic (Opcional)"
+                          name="mauticFormId"
+                          type="number"
+                          defaultValue={editingCourse?.mauticFormId ? String(editingCourse.mauticFormId) : ''}
+                          placeholder="Ex: 7"
+                        />
                       </div>
                     </section>
 
@@ -5255,6 +5267,8 @@ function AdminApp() {
                         const updated = {
                           ...adminSettings,
                           outboundWebhookUrl: String(form.get('outboundWebhookUrl')),
+                          mauticBaseUrl: String(form.get('mauticBaseUrl') || 'https://mautic.isentidos.com.br'),
+                          mauticTrackingEnabled: form.get('mauticTrackingEnabled') === 'on',
                         };
                         try {
                           const res = await fetch('/api/admin/settings', {
@@ -5277,6 +5291,46 @@ function AdminApp() {
                             Salvar URL
                           </button>
                         </div>
+                      </form>
+                    </div>
+
+                    <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
+                      <h3 className="font-bold text-navy text-base mb-2">Integração Mautic (E-mail Marketing)</h3>
+                      <p className="text-sm text-slate-600 mb-4">
+                        Configure a URL base da sua instalação do Mautic. O sistema enviará os leads de e-books e cursos para os formulários correspondentes.
+                      </p>
+                      <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!token) { alert('Sessão expirada. Por favor, faça login novamente.'); return; }
+                        const form = new FormData(e.currentTarget);
+                        const updated = {
+                          ...adminSettings,
+                          mauticBaseUrl: String(form.get('mauticBaseUrl') || 'https://mautic.isentidos.com.br'),
+                          mauticTrackingEnabled: form.get('mauticTrackingEnabled') === 'on',
+                        };
+                        try {
+                          const res = await fetch('/api/admin/settings', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify(updated),
+                          });
+                          if (!res.ok) throw new Error();
+                          setAdminSettings(updated);
+                          showNotice('Configurações do Mautic salvas com sucesso!');
+                        } catch {
+                          showNotice('Erro ao salvar as configurações.');
+                        }
+                      }}>
+                        <div className="grid gap-4 sm:grid-cols-2 items-end mb-4">
+                          <Field label="URL Base do Mautic" name="mauticBaseUrl" placeholder="https://mautic.isentidos.com.br" defaultValue={adminSettings.mauticBaseUrl} />
+                          <label className="flex items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 cursor-pointer h-[46px]">
+                            <input type="checkbox" name="mauticTrackingEnabled" defaultChecked={adminSettings.mauticTrackingEnabled} className="h-5 w-5 accent-orange-primary rounded" />
+                            <span className="text-sm font-bold text-navy">Habilitar Tracking (mtc.js)</span>
+                          </label>
+                        </div>
+                        <button className="rounded-lg bg-orange-primary px-5 py-3 font-bold text-white transition hover:bg-orange-600 shadow-md">
+                          Salvar Configurações Mautic
+                        </button>
                       </form>
                     </div>
 
@@ -5686,6 +5740,7 @@ function mapApiCourse(c: any): Course {
     syllabus: c.syllabus || '',
     createdAt: c.createdAt || c.created_at || '',
     leadConnectorFormId: c.leadConnectorFormId || '',
+    mauticFormId: c.mauticFormId || null,
     coverImageUrl: c.coverImageUrl || c.cover_image_url || '',
   };
 }
@@ -7833,6 +7888,18 @@ export default function App() {
             noscript.id = 'gtm-noscript';
             noscript.innerHTML = '<iframe src="https://www.googletagmanager.com/ns.html?id=' + settings.googleTagManagerId + '" height="0" width="0" style="display:none;visibility:hidden"></iframe>';
             document.body.appendChild(noscript);
+          }
+          if (settings.mauticBaseUrl && settings.mauticTrackingEnabled && !document.getElementById('mautic-script')) {
+            const script = document.createElement('script');
+            script.id = 'mautic-script';
+            script.innerHTML = `
+              (function(w,d,t,u,n,a,m){w['MauticTrackingObject']=n;
+                  w[n]=w[n]||function(){(w[n].q=w[n].q||[]).push(arguments)},a=d.createElement(t),
+                  m=d.getElementsByTagName(t)[0];a.async=1;a.src=u;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','${settings.mauticBaseUrl}/mtc.js','mt');
+              mt('send', 'pageview');
+            `;
+            document.head.appendChild(script);
           }
           if (settings.googleAdsId && !document.getElementById('google-ads-script')) {
             const script1 = document.createElement('script');

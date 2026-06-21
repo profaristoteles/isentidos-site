@@ -36,7 +36,6 @@ const app = express();
 app.set('trust proxy', 1);
 const port = Number(process.env.PORT ?? 4000);
 const jwtSecret = process.env.JWT_SECRET ?? 'dev-only-change-me';
-const MAUTIC_BASE_URL = 'https://mautic.isentidos.com.br';
 const uploadDir = path.resolve(process.cwd(), 'public', 'uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
 const upload = multer({
@@ -151,6 +150,7 @@ const courseSchema = z.object({
   teachers: z.any().optional(),
   testimonials: z.any().optional(),
   leadConnectorFormId: z.string().optional().nullable(),
+  mauticFormId: z.number().int().optional().nullable(),
   coverImageUrl: z.string().optional().nullable(),
 });
 
@@ -226,6 +226,8 @@ const systemSettingSchema = z.object({
   smtpPass: z.string().nullable().optional().transform(v => v ?? ''),
   smtpFromEmail: z.string().nullable().optional().transform(v => v ?? ''),
   outboundWebhookUrl: z.string().nullable().optional().transform(v => v ?? ''),
+  mauticBaseUrl: z.string().nullable().optional().transform(v => v ?? 'https://mautic.isentidos.com.br'),
+  mauticTrackingEnabled: z.boolean().default(true),
 });
 
 const menuItemSchema = z.object({
@@ -305,11 +307,11 @@ async function withDatabase<T>(operation: () => Promise<T>, fallback: T): Promis
   }
 }
 
-function rewriteMauticUrls(value: string) {
+function rewriteMauticUrls(value: string, baseUrl: string) {
   return value
-    .replace(/https?:\/\/mautic\.isentidos\.net\.br/gi, MAUTIC_BASE_URL)
-    .replace(/http:\/\/mautic\.isentidos\.com\.br/gi, MAUTIC_BASE_URL)
-    .replace(/(^|[^:])\/\/mautic\.isentidos\.com\.br/gi, `$1${MAUTIC_BASE_URL}`);
+    .replace(/https?:\/\/mautic\.isentidos\.net\.br/gi, baseUrl)
+    .replace(/http:\/\/mautic\.isentidos\.com\.br/gi, baseUrl)
+    .replace(/(^|[^:])\/\/mautic\.isentidos\.com\.br/gi, `$1${baseUrl}`);
 }
 
 function extractJsStringValue(source: string, marker: string) {
@@ -348,8 +350,8 @@ function getMauticFormMeta(html: string) {
   return { formName, fields };
 }
 
-async function fetchMauticForm(formId: number | string) {
-  const formUrl = `${MAUTIC_BASE_URL}/form/generate.js?id=${encodeURIComponent(String(formId))}`;
+async function fetchMauticForm(formId: number | string, baseUrl: string) {
+  const formUrl = `${baseUrl}/form/generate.js?id=${encodeURIComponent(String(formId))}`;
   console.log('[mautic:form] fetch:start', { formId, url: formUrl });
   const response = await fetch(formUrl, { headers: { Accept: 'application/javascript,text/javascript,*/*' } });
   const script = await response.text();
@@ -362,7 +364,7 @@ async function fetchMauticForm(formId: number | string) {
     throw new Error('Mautic form HTML not found in generated script');
   }
 
-  const html = rewriteMauticUrls(rawHtml);
+  const html = rewriteMauticUrls(rawHtml, baseUrl);
   const meta = getMauticFormMeta(html);
   console.log('[mautic:form] fetch:done', {
     formId,
@@ -375,7 +377,7 @@ async function fetchMauticForm(formId: number | string) {
     html,
     formName: meta.formName,
     fields: meta.fields,
-    sdkUrl: `${MAUTIC_BASE_URL}/media/js/mautic-form.js`,
+    sdkUrl: `${baseUrl}/media/js/mautic-form.js`,
   };
 }
 
@@ -384,9 +386,12 @@ async function submitEbookLeadToMautic(data: z.infer<typeof ebookLeadSchema>) {
     return { attempted: false, ok: false, reason: 'missing_form_id' };
   }
 
+  const settings = await getSystemSettings();
+  const baseUrl = settings.mauticBaseUrl || 'https://mautic.isentidos.com.br';
+
   let formMeta: Awaited<ReturnType<typeof fetchMauticForm>> | null = null;
   try {
-    formMeta = await fetchMauticForm(data.mauticFormId);
+    formMeta = await fetchMauticForm(data.mauticFormId, baseUrl);
   } catch (error) {
     console.warn('[ebook:mautic] form-meta:error', {
       formId: data.mauticFormId,
@@ -394,7 +399,7 @@ async function submitEbookLeadToMautic(data: z.infer<typeof ebookLeadSchema>) {
     });
   }
 
-  const submitUrl = `${MAUTIC_BASE_URL}/form/submit?formId=${data.mauticFormId}`;
+  const submitUrl = `${baseUrl}/form/submit?formId=${data.mauticFormId}`;
   const payload = new URLSearchParams();
   const candidates = {
     nome: data.name,
@@ -466,6 +471,78 @@ async function submitEbookLeadToMautic(data: z.infer<typeof ebookLeadSchema>) {
   }
 }
 
+async function submitCourseLeadToMautic(leadData: any, formId: number, courseTitle: string) {
+  const settings = await getSystemSettings();
+  const baseUrl = settings.mauticBaseUrl || 'https://mautic.isentidos.com.br';
+
+  let formMeta: Awaited<ReturnType<typeof fetchMauticForm>> | null = null;
+  try {
+    formMeta = await fetchMauticForm(formId, baseUrl);
+  } catch (error) {
+    console.warn('[course:mautic] form-meta:error', {
+      formId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  const submitUrl = `${baseUrl}/form/submit?formId=${formId}`;
+  const payload = new URLSearchParams();
+  const candidates = {
+    nome: leadData.name,
+    name: leadData.name,
+    firstname: leadData.name,
+    email: leadData.email,
+    telefone: leadData.phone,
+    phone: leadData.phone,
+    whatsapp: leadData.phone,
+    course: courseTitle,
+    curso: courseTitle,
+    source: leadData.source || 'site',
+    tags: `curso,${courseTitle}`,
+  };
+
+  const knownFields = new Set(formMeta?.fields ?? []);
+  const fieldsToSend = knownFields.size
+    ? Object.entries(candidates).filter(([key]) => knownFields.has(key))
+    : Object.entries(candidates);
+
+  fieldsToSend.forEach(([key, value]) => payload.append(`mauticform[${key}]`, value));
+  payload.append('mauticform[formId]', String(formId));
+  payload.append('mauticform[return]', '');
+  payload.append('mauticform[formName]', formMeta?.formName || `form${formId}`);
+  payload.append('mauticform[submit]', '1');
+
+  console.log('[course:mautic] submit:start', {
+    url: submitUrl,
+    formId,
+    courseTitle,
+    formName: formMeta?.formName,
+  });
+
+  try {
+    const response = await fetch(submitUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json,text/html,*/*',
+        'Origin': 'https://isentidos.com.br',
+        'Referer': 'https://isentidos.com.br',
+      },
+      body: payload,
+      redirect: 'manual',
+    });
+
+    console.log('[course:mautic] submit:done', {
+      formId,
+      status: response.status,
+    });
+    return { ok: response.ok || response.status === 302 || response.status === 303 };
+  } catch (error) {
+    console.error('[course:mautic] submit:error', error);
+    return { ok: false, error };
+  }
+}
+
 async function getSystemSettings() {
   return await withDatabase(async () => {
     let settings = await prisma.systemSetting.findUnique({ where: { id: 'default' } });
@@ -507,6 +584,8 @@ async function getSystemSettings() {
     smtpPass: '',
     smtpFromEmail: '',
     outboundWebhookUrl: '',
+    mauticBaseUrl: 'https://mautic.isentidos.com.br',
+    mauticTrackingEnabled: true,
     updatedAt: new Date()
   });
 }
@@ -830,6 +909,8 @@ app.get('/api/site-content', async (_req, res) => {
         linkedin: rawSettings.linkedin,
         youtube: rawSettings.youtube,
         twitter: rawSettings.twitter,
+        mauticBaseUrl: rawSettings.mauticBaseUrl,
+        mauticTrackingEnabled: rawSettings.mauticTrackingEnabled,
       };
 
       return {
@@ -857,6 +938,8 @@ app.get('/api/site-content', async (_req, res) => {
         googleTagManagerId: '',
         googleAdsId: '',
         customScripts: '',
+        mauticBaseUrl: 'https://mautic.isentidos.com.br',
+        mauticTrackingEnabled: true,
       },
       menuItems: [],
     },
@@ -923,6 +1006,16 @@ app.post('/api/leads', async (req, res) => {
 
   if (lead) {
     sendToCrmWebhook('lead_created', lead);
+    
+    // Also send to Mautic if the course has a configured Mautic Form
+    if (parsed.data.courseSlug) {
+      withDatabase(async () => {
+        const course = await prisma.course.findUnique({ where: { slug: parsed.data.courseSlug } });
+        if (course?.mauticFormId) {
+          await submitCourseLeadToMautic(lead, course.mauticFormId, course.title);
+        }
+      }, null).catch(console.error);
+    }
   }
 
   res.status(201).json({ data: lead });
@@ -1487,7 +1580,9 @@ app.get('/api/ebooks', async (_req, res) => {
 
 app.get('/api/mautic/forms/:id', async (req, res) => {
   try {
-    const form = await fetchMauticForm(req.params.id);
+    const settings = await getSystemSettings();
+    const baseUrl = settings.mauticBaseUrl || 'https://mautic.isentidos.com.br';
+    const form = await fetchMauticForm(req.params.id, baseUrl);
     res.json({ data: form });
   } catch (error) {
     console.error('[mautic:form] fetch:error', {
