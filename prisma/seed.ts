@@ -78,7 +78,7 @@ async function main() {
     return;
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@isentidos.com.br';
+  const adminEmail = process.env.ADMIN_EMAIL ?? 'isentidosedu@gmail.com';
   const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin123';
 
   const adminExists = await prisma.user.findUnique({ where: { email: adminEmail } });

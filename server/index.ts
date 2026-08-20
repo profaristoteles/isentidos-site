@@ -1106,7 +1106,7 @@ app.post('/api/admin/login', async (req, res) => {
   const devPassword = process.env.ADMIN_PASSWORD ?? 'admin123';
   const passwordMatches = admin?.passwordHash
     ? await bcrypt.compare(parsed.data.password, admin.passwordHash)
-    : parsed.data.email === (process.env.ADMIN_EMAIL ?? 'admin@isentidos.com.br') &&
+    : parsed.data.email === (process.env.ADMIN_EMAIL ?? 'isentidosedu@gmail.com') &&
       parsed.data.password === devPassword;
 
   if (!passwordMatches) {

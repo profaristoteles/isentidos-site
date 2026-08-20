@@ -18,6 +18,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:prod": "node server-dist/prisma/seed.js",
     "clean": "rm -rf dist server.js",
+    "reset-admin": "tsx scripts/reset-admin.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

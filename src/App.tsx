@@ -1825,6 +1825,12 @@ function AdminApp() {
   const [token, setToken] = useState(() => localStorage.getItem('isentidos_admin_token') || '');
   const [logged, setLogged] = useState(() => !!localStorage.getItem('isentidos_admin_token'));
   const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
+  const [resetToken, setResetToken] = useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get('token') || '';
+  });
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState('');
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('isentidos_admin_tab') || 'dashboard';
   });
@@ -2037,6 +2043,40 @@ function AdminApp() {
       setForgotPasswordMode(false);
     } catch {
       showNotice('❌ Erro ao solicitar recuperação de senha.');
+    }
+  }
+
+  async function handleResetPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setResetError('');
+    const form = new FormData(event.currentTarget);
+    const newPassword = String(form.get('newPassword') || '');
+    const confirmPassword = String(form.get('confirmPassword') || '');
+
+    if (!newPassword || newPassword.length < 6) {
+      setResetError('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setResetError('As senhas digitadas não coincidem.');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken, newPassword })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setResetSuccess(true);
+      } else {
+        setResetError(data.error || 'Falha ao redefinir a senha. O link pode ter expirado.');
+      }
+    } catch {
+      setResetError('Erro de conexão ao redefinir a senha.');
     }
   }
 
@@ -2951,7 +2991,63 @@ function AdminApp() {
   if (!logged) {
     return (
       <div className="grid min-h-screen place-items-center bg-navy px-4">
-        {forgotPasswordMode ? (
+        {resetToken ? (
+          resetSuccess ? (
+            <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-2xl text-center">
+              <div className="flex justify-center mb-6">
+                <img src={SITE_LOGO} alt="Instituto Sentidos" className="h-16 w-auto object-contain" />
+              </div>
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-600">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <h1 className="font-display text-2xl font-bold text-navy">Senha Redefinida!</h1>
+              <p className="mt-2 text-sm text-slate-600">Sua nova senha foi salva com sucesso. Você já pode fazer login no painel administrativo.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setResetToken('');
+                  setResetSuccess(false);
+                  window.history.replaceState({}, '', '/admin');
+                }}
+                className="mt-6 w-full rounded-lg bg-navy px-5 py-4 font-bold text-white transition hover:bg-blue-action"
+              >
+                Ir para o Login
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleResetPassword} className="w-full max-w-md rounded-lg bg-white p-8 shadow-2xl">
+              <div className="flex justify-center mb-6">
+                <img src={SITE_LOGO} alt="Instituto Sentidos" className="h-16 w-auto object-contain" />
+              </div>
+              <h1 className="text-center font-display text-2xl font-bold text-navy">Redefinir Senha</h1>
+              <p className="mt-2 text-center text-sm text-slate-500">Digite sua nova senha de acesso.</p>
+              {resetError && (
+                <div className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700 font-medium">
+                  {resetError}
+                </div>
+              )}
+              <div className="mt-6 grid gap-4">
+                <Field label="Nova Senha" name="newPassword" placeholder="******" type="password" required />
+                <Field label="Confirmar Nova Senha" name="confirmPassword" placeholder="******" type="password" required />
+              </div>
+              <button className="mt-6 w-full rounded-lg bg-navy px-5 py-4 font-bold text-white transition hover:bg-blue-action">
+                Salvar Nova Senha
+              </button>
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetToken('');
+                    window.history.replaceState({}, '', '/admin');
+                  }}
+                  className="text-sm font-semibold text-orange-primary hover:underline"
+                >
+                  Cancelar e ir para login
+                </button>
+              </div>
+            </form>
+          )
+        ) : forgotPasswordMode ? (
           <form onSubmit={handleForgotPassword} className="w-full max-w-md rounded-lg bg-white p-8 shadow-2xl">
             <div className="flex justify-center mb-6">
               <img src={SITE_LOGO} alt="Instituto Sentidos" className="h-16 w-auto object-contain" />
