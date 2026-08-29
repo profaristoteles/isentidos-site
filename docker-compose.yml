@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-isentidos_secure_pass}
       POSTGRES_DB: ${DB_NAME:-isentidos}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-isentidos} -d ${DB_NAME:-isentidos}"]
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -34,8 +34,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin_secure_pass_123}
       FRONTEND_URL: ${FRONTEND_URL:-https://isentidos.com.br}
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     volumes:
       - uploads-data:/app/public/uploads
     networks:
