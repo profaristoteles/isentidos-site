@@ -42,6 +42,6 @@ RUN mkdir -p public/uploads
 # Expõe a porta interna da aplicação
 EXPOSE 4000
 
-# Executa a sincronização do banco via migração versionada e inicia a API Express
-CMD npx prisma migrate deploy && npm run start
+# Executa a sincronização do banco e aguarda o PostgreSQL subir antes de iniciar
+CMD ["sh", "-c", "until npx prisma db push --skip-generate; do echo 'Aguardando banco de dados (db:5432) inicializar...'; sleep 3; done && npm run start"]
 
