@@ -980,9 +980,15 @@ app.post('/api/leads', async (req, res) => {
 
   const result = await withDatabase<{ lead: any; isUpdated: boolean } | null>(
     async () => prisma.$transaction(async (tx) => {
-      const course = parsed.data.courseSlug
-        ? await tx.course.findUnique({ where: { slug: parsed.data.courseSlug } })
+      let course = parsed.data.courseSlug
+        ? await tx.course.findFirst({ where: { slug: parsed.data.courseSlug } })
         : null;
+
+      if (!course && parsed.data.notes) {
+        const allActiveCourses = await tx.course.findMany({ where: { isSystemRecord: false } });
+        const notesLower = parsed.data.notes.toLowerCase();
+        course = allActiveCourses.find((c) => notesLower.includes(c.title.toLowerCase())) || null;
+      }
 
       const normalizedEmail = parsed.data.email.toLowerCase().trim();
       const targetCourseId = course?.id || '__no_course__';
@@ -1755,31 +1761,80 @@ app.get('/api/admin/leads/stats-by-course', authMiddleware, async (_req, res) =>
       orderBy: [{ isSystemRecord: 'asc' }, { title: 'asc' }],
     });
 
-    const counts = await prisma.lead.groupBy({
-      by: ['courseId'],
-      _count: { id: true },
-      _max: { createdAt: true },
+    const allLeads = await prisma.lead.findMany({
+      select: { id: true, courseId: true, notes: true, createdAt: true },
     });
 
-    const countsMap = new Map<string, { count: number; lastAt: Date | null }>();
-    for (const item of counts) {
-      if (item.courseId) {
-        countsMap.set(item.courseId, { count: item._count.id, lastAt: item._max.createdAt });
+    const courseStatsMap = new Map<string, { count: number; lastAt: Date | null }>();
+
+    for (const course of courses) {
+      if (course.isSystemRecord || course.id === '__no_course__') continue;
+
+      const titleLower = course.title.trim().toLowerCase();
+      let count = 0;
+      let lastAt: Date | null = null;
+
+      for (const lead of allLeads) {
+        let isMatch = false;
+        if (lead.courseId === course.id) {
+          isMatch = true;
+        } else if (lead.notes && lead.notes.toLowerCase().includes(titleLower)) {
+          isMatch = true;
+        }
+
+        if (isMatch) {
+          count++;
+          if (!lastAt || (lead.createdAt && lead.createdAt > lastAt)) {
+            lastAt = lead.createdAt;
+          }
+        }
+      }
+
+      courseStatsMap.set(course.id, { count, lastAt });
+    }
+
+    const systemLeads = allLeads.filter((lead) => {
+      if (lead.courseId === '__no_course__' || !lead.courseId) {
+        const matchesRealCourse = courses.some(
+          (c) => !c.isSystemRecord && c.id !== '__no_course__' && lead.notes && lead.notes.toLowerCase().includes(c.title.toLowerCase())
+        );
+        return !matchesRealCourse;
+      }
+      return false;
+    });
+
+    let systemLastAt: Date | null = null;
+    for (const l of systemLeads) {
+      if (!systemLastAt || (l.createdAt && l.createdAt > systemLastAt)) {
+        systemLastAt = l.createdAt;
       }
     }
 
     return courses.map((course) => {
       const isSentinel = course.isSystemRecord || course.id === '__no_course__';
-      const stat = countsMap.get(course.id);
+      if (isSentinel) {
+        return {
+          courseId: course.id,
+          title: 'Contatos Gerais / Newsletter / E-books',
+          category: 'Sistema',
+          kind: mapDatabaseCourseType(course.type, course.modality),
+          modality: mapDatabaseModality(course.modality),
+          totalLeads: systemLeads.length,
+          lastInterestAt: systemLastAt ? systemLastAt.toISOString() : null,
+          isSystemRecord: true,
+        };
+      }
+
+      const stat = courseStatsMap.get(course.id);
       return {
         courseId: course.id,
-        title: isSentinel ? 'Contatos Gerais / Newsletter' : course.title,
-        category: isSentinel ? 'Sistema' : course.area,
+        title: course.title,
+        category: course.area,
         kind: mapDatabaseCourseType(course.type, course.modality),
         modality: mapDatabaseModality(course.modality),
         totalLeads: stat?.count ?? 0,
         lastInterestAt: stat?.lastAt ? stat.lastAt.toISOString() : null,
-        isSystemRecord: isSentinel,
+        isSystemRecord: false,
       };
     });
   }, []);

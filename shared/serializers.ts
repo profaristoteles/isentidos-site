@@ -213,12 +213,17 @@ export function serializeEvent(ev: any): Event {
 
 // Single Lead Serializer
 export function serializeLead(lead: any): Lead {
+  let displayInterest = lead.course?.title;
+  if (!displayInterest || displayInterest === 'Contato Geral / Sem Curso') {
+    displayInterest = lead.notes || 'Contato Geral / Sem Curso';
+  }
+
   return {
     id: String(lead.id),
     name: lead.name || '',
     email: lead.email || '',
     phone: lead.phone || '',
-    interest: lead.course?.title ?? lead.notes ?? '',
+    interest: displayInterest,
     modality: mapDatabaseModality(lead.preferredFormat || lead.modality || ''),
     referralCode: lead.referralCode || null,
     status: mapDatabaseLeadStatus(lead.status || ''),
