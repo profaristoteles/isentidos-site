@@ -3551,7 +3551,7 @@ async function ensureSentinelCourseExists() {
   }
 }
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   ensureSentinelCourseExists();
   console.log(`Instituto Sentidos API rodando na porta ${port}`);
 });
