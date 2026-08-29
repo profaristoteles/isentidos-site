@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "dev:api": "tsx server/index.ts",
-    "build": "vite build",
+    "build": "npx prisma generate && vite build && tsc -p tsconfig.server.json",
+    "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
-    "build:all": "npm run build && npm run build:server",
+    "build:all": "npm run build",
     "preview": "vite preview",
     "start": "node server-dist/server/index.js",
     "prisma:generate": "prisma generate",

@@ -3340,7 +3340,18 @@ app.post('/api/admin/menu/reorder', authMiddleware, async (req, res) => {
 });
 
 
-const clientDist = path.resolve(process.cwd(), 'dist');
+let clientDist = path.resolve(process.cwd(), 'dist');
+if (!fs.existsSync(path.join(clientDist, 'index.html'))) {
+  const altDist = path.resolve(__dirname, '../../dist');
+  if (fs.existsSync(path.join(altDist, 'index.html'))) {
+    clientDist = altDist;
+  } else {
+    const altDist2 = path.resolve(__dirname, '../dist');
+    if (fs.existsSync(path.join(altDist2, 'index.html'))) {
+      clientDist = altDist2;
+    }
+  }
+}
 app.use(express.static(clientDist, {
   setHeaders: (res, filePath) => {
     if (filePath.includes('/assets/') || filePath.includes('\\assets\\')) {
