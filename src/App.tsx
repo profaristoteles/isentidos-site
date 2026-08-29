@@ -31,6 +31,7 @@ import {
   Settings,
   Share2,
   ShieldCheck,
+  Send,
   Sparkles,
   Star,
   Trash2,
@@ -2067,10 +2068,53 @@ function AdminApp() {
     smtpUser: '',
     smtpPass: '',
     smtpFromEmail: '',
+    evolutionApiUrl: '',
+    evolutionApiKey: '',
+    evolutionInstance: '',
+    evolutionNotifyReferrer: true,
+    evolutionNotifyReferred: true,
     outboundWebhookUrl: '',
     mauticBaseUrl: 'https://mautic.isentidos.com.br',
     mauticTrackingEnabled: true,
   });
+
+  interface ReferrerData {
+    id: string;
+    code: string;
+    studentId: string;
+    studentName: string;
+    studentEmail: string;
+    studentPhone: string;
+    studentCpf: string;
+    pixKey: string;
+    pixKeyType: string;
+    createdAt: string;
+    totalReferrals: number;
+    totalConverted: number;
+    totalEarnedPix: number;
+    referrals: {
+      id: string;
+      leadName: string;
+      leadEmail: string;
+      leadPhone: string;
+      courseTitle: string;
+      status: string;
+      pixStatus: string;
+      pixRewardValue: number;
+      createdAt: string;
+    }[];
+  }
+
+  const [referrers, setReferrers] = useState<ReferrerData[]>([]);
+  const [referrersLoading, setReferrersLoading] = useState(false);
+  const [referrerSearch, setReferrerSearch] = useState('');
+  const [selectedReferrerModal, setSelectedReferrerModal] = useState<ReferrerData | null>(null);
+  const [referralActiveSubtab, setReferralActiveSubtab] = useState<'indicadores' | 'gestao' | 'config'>('indicadores');
+  const [testEvolutionPhone, setTestEvolutionPhone] = useState('');
+  const [testEvolutionMsg, setTestEvolutionMsg] = useState('🚀 Teste de envio de WhatsApp via Evolution API — Instituto Sentidos!');
+  const [testEvolutionLoading, setTestEvolutionLoading] = useState(false);
+  const [testSmtpEmail, setTestSmtpEmail] = useState('');
+  const [testSmtpLoading, setTestSmtpLoading] = useState(false);
 
   interface AdminMenuItem {
     id?: string;
@@ -2223,9 +2267,26 @@ function AdminApp() {
       .finally(() => setInterestedStatsLoading(false));
   };
 
+  const fetchReferrers = () => {
+    if (!token) return;
+    setReferrersLoading(true);
+    fetch('/api/admin/referrers', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.data) setReferrers(data.data);
+      })
+      .catch(console.error)
+      .finally(() => setReferrersLoading(false));
+  };
+
   useEffect(() => {
     if (token && activeTab === 'interested_stats') {
       fetchInterestedStats();
+    }
+    if (token && activeTab === 'referrals') {
+      fetchReferrers();
     }
   }, [token, activeTab]);
 
@@ -4902,7 +4963,8 @@ function AdminApp() {
                       <th className="p-3">Modalidade</th>
                       <th className="p-3">Indicação</th>
                       <th className="p-3">Status</th>
-                      <th className="p-3">Origem</th>\n                      <th className="p-3 text-right">Ações</th>
+                      <th className="p-3">Origem</th>
+                      <th className="p-3 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4932,272 +4994,277 @@ function AdminApp() {
           )}
 
           {activeTab === 'referrals' && (
-            <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-              <Panel title="Configurações do Programa Indique e Ganhe no PIX">
-                <div className="grid gap-5">
-                  <div className="flex items-center justify-between rounded-lg bg-bg-light p-4">
-                    <div>
-                      <p className="font-bold text-navy">Sistema de indicação PIX</p>
-                      <p className="mt-1 text-sm text-slate-500">Permite que indicadores gerem links e recebam valores via PIX por matrículas</p>
-                    </div>
-                    <button onClick={() => setReferralActive((v) => !v)} className={`relative h-6 w-12 rounded-full transition-colors ${referralActive ? 'bg-orange-primary' : 'bg-slate-300'}`}>
-                      <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${referralActive ? 'left-7' : 'left-1'}`} />
-                    </button>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="block">
-                      <span className="text-sm font-bold text-navy">Tipo de Recompensa</span>
-                      <select value={referralRewardType} onChange={(e) => setReferralRewardType(e.target.value as any)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4 text-navy">
-                        <option value="pix">Pagamento em Dinheiro via PIX</option>
-                        <option value="desconto">Desconto em Mensalidade (Legado)</option>
-                      </select>
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-bold text-navy">Teto Mensal por Indicador (R$)</span>
-                      <input type="number" min={0} value={monthlyPixCap} onChange={(e) => setMonthlyPixCap(Number(e.target.value))} className="mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4 font-bold text-navy" />
-                      <span className="mt-1 block text-xs text-slate-500">Valor máximo aprovado por mês para um mesmo indicador (padrão R$ 1.000,00). Excedente fica em status capped.</span>
-                    </label>
-                  </div>
-
-                  <div className="border-t border-slate-100 pt-4">
-                    <h4 className="font-bold text-navy text-sm mb-3">Valor da Comissão PIX por Categoria de Curso (R$)</h4>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="block">
-                        <span className="text-xs font-semibold text-slate-600">Cursos Livres / Extensão</span>
-                        <input type="number" min={0} value={pixRewardByCategory.livre ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, livre: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
-                      </label>
-                      <label className="block">
-                        <span className="text-xs font-semibold text-slate-600">ISP Preparatórios (ENEM & Concursos)</span>
-                        <input type="number" min={0} value={pixRewardByCategory.preparatorio ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, preparatorio: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
-                      </label>
-                      <label className="block">
-                        <span className="text-xs font-semibold text-slate-600">Pós-Graduação Lato Sensu (Presencial)</span>
-                        <input type="number" min={0} value={pixRewardByCategory.pos_presencial ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, pos_presencial: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
-                      </label>
-                      <label className="block">
-                        <span className="text-xs font-semibold text-slate-600">Pós-Graduação Lato Sensu (Online)</span>
-                        <input type="number" min={0} value={pixRewardByCategory.pos_online ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, pos_online: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
-                      </label>
-                      <label className="block">
-                        <span className="text-xs font-semibold text-slate-600">Mestrado EAD (Stricto Sensu)</span>
-                        <input type="number" min={0} value={pixRewardByCategory.mestrado_ead ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, mestrado_ead: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
-                      </label>
-                      <label className="block">
-                        <span className="text-xs font-semibold text-slate-600">Doutorado EAD (Stricto Sensu)</span>
-                        <input type="number" min={0} value={pixRewardByCategory.doutorado_ead ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, doutorado_ead: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
-                      </label>
-                      <label className="block sm:col-span-2">
-                        <span className="text-xs font-semibold text-slate-600">Supletivo EJA (Ensino Fundamental e Médio)</span>
-                        <input type="number" min={0} value={pixRewardByCategory.supletivo_eja ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, supletivo_eja: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
-                      </label>
-                    </div>
-                  </div>
-
-                  <button onClick={saveReferralSettings} className="rounded-lg bg-orange-primary px-5 py-3 font-bold text-white shadow-md shadow-orange-primary/20">Salvar Configurações de Indicação PIX</button>
-                </div>
-              </Panel>
-
-              <Panel title="Gerar código de indicação">
-                <form onSubmit={generateReferralCode} className="grid gap-4">
-                  <Field label="Nome do aluno/indicador" name="studentName" placeholder="Maria da Silva" required />
-                  <Field label="E-mail do aluno/indicador" name="studentEmail" placeholder="aluno@email.com" type="email" required />
-                  <button className="rounded-lg bg-orange-primary px-5 py-3 font-bold text-white">
-                    <span className="flex items-center justify-center gap-2"><Share2 className="h-4 w-4" /> Gerar link de indicação</span>
+            <div className="grid gap-6">
+              {/* Sub-navegação por abas em Indicações */}
+              <div className="flex border-b border-slate-200 bg-white p-3 rounded-xl shadow-sm gap-2 overflow-x-auto">
+                {[
+                  ['indicadores', '👥 Lista de Indicadores (Embaixadores)'],
+                  ['gestao', '💰 Gestão de Indicações & PIX'],
+                  ['config', '⚙️ Configurações do Programa'],
+                ].map(([sub, label]) => (
+                  <button
+                    key={sub}
+                    type="button"
+                    onClick={() => setReferralActiveSubtab(sub as any)}
+                    className={`rounded-lg px-4 py-2 text-sm font-bold transition whitespace-nowrap ${
+                      referralActiveSubtab === sub ? 'bg-navy text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {label}
                   </button>
-                </form>
-              </Panel>
+                ))}
+              </div>
 
-              <div className="xl:col-span-2">
-                <Panel title="Gestão de Indicações & Pagamentos PIX">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                    <p className="text-xs text-slate-500 font-medium">Aprovação de matrículas, cálculo de comissões e confirmação manual de pagamentos PIX.</p>
-                    <button
-                      onClick={async () => {
-                        if (!token) { showNotice('Modo local ativo.'); return; }
-                        try {
-                          const res = await fetch('/api/admin/referrals/reevaluate-capped', {
-                            method: 'POST',
-                            headers: { Authorization: `Bearer ${token}` }
-                          });
-                          const data = await res.json();
-                          if (data.success) {
-                            showNotice(`Reavaliação concluída! ${data.promotedCount} indicação(ões) promovidas a Aprovadas.`);
-                            // Refresh referrals
-                            const refRes = await fetch('/api/admin/referrals', { headers: { Authorization: `Bearer ${token}` } });
-                            if (refRes.ok) {
-                              const refData = await refRes.json();
-                              if (refData.data) {
-                                setAllReferrals(refData.data.map((r: any) => ({
-                                  id: r.id, leadName: r.lead?.name || 'Anônimo', leadEmail: r.lead?.email || '', leadPhone: r.lead?.phone || '',
-                                  courseTitle: r.lead?.course?.title || 'Curso Instituto Sentidos', courseType: r.lead?.course?.type || 'Geral',
-                                  studentName: r.referralCode?.student?.name || 'Desconhecido', studentEmail: r.referralCode?.student?.email || '',
-                                  code: r.referralCode?.code || '-', pixKey: r.referralCode?.pixKey || null, pixKeyType: r.referralCode?.pixKeyType || 'cpf',
-                                  status: r.status, pixRewardValue: Number(r.pixRewardValue) || 50, pixStatus: r.pixStatus || 'pending',
-                                  pixPaidAt: r.pixPaidAt, pixPaymentProof: r.pixPaymentProof, createdAt: r.createdAt
-                                })));
-                              }
-                            }
-                          }
-                        } catch { showNotice('Erro ao reavaliar indicações.'); }
-                      }}
-                      className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-700 transition"
-                    >
-                      <Sparkles className="h-4 w-4" /> Reavaliar Teto de Início de Mês (Capped)
-                    </button>
+              {referralActiveSubtab === 'indicadores' && (
+                <div className="grid gap-6">
+                  {/* Resumo de Indicadores */}
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <span className="text-xs font-bold uppercase text-slate-400">Total de Embaixadores</span>
+                      <div className="mt-2 flex items-baseline gap-2">
+                        <span className="text-3xl font-extrabold text-navy">{referrers.length}</span>
+                        <span className="text-xs font-semibold text-slate-500">indicadores cadastrados</span>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <span className="text-xs font-bold uppercase text-slate-400">Total de Indicados</span>
+                      <div className="mt-2 flex items-baseline gap-2">
+                        <span className="text-3xl font-extrabold text-orange-primary">
+                          {referrers.reduce((acc, r) => acc + r.totalReferrals, 0)}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-500">amigos indicados</span>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <span className="text-xs font-bold uppercase text-slate-400">Matrículas Convertidas</span>
+                      <div className="mt-2 flex items-baseline gap-2">
+                        <span className="text-3xl font-extrabold text-green-600">
+                          {referrers.reduce((acc, r) => acc + r.totalConverted, 0)}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-500">convertidos</span>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <span className="text-xs font-bold uppercase text-slate-400">Comissões PIX Geradas</span>
+                      <div className="mt-2 flex items-baseline gap-2">
+                        <span className="text-3xl font-extrabold text-purple-600">
+                          R$ {referrers.reduce((acc, r) => acc + r.totalEarnedPix, 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  {allReferrals.length === 0 ? (
-                    <p className="rounded-lg bg-bg-light p-6 text-center text-sm text-slate-500">Nenhuma indicação registrada.</p>
-                  ) : (
-                    <div className="overflow-x-auto mt-4">
-                      <table className="w-full min-w-[850px] text-left text-sm">
-                        <thead className="bg-bg-light text-xs uppercase text-slate-500">
-                          <tr>
-                            <th className="p-3">Indicado (Lead) & Curso</th>
-                            <th className="p-3">Embaixador & Chave PIX</th>
-                            <th className="p-3">Valor PIX</th>
-                            <th className="p-3">Status do PIX</th>
-                            <th className="p-3 text-right">Ação</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {allReferrals.map((r) => {
-                            let badge = (
-                              <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 border border-amber-200">
-                                Pendente (Aguardando Matrícula)
-                              </span>
-                            );
-                            if (r.pixStatus === 'paid') {
-                              badge = (
-                                <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700 border border-green-200">
-                                  PIX Pago
-                                </span>
-                              );
-                            } else if (r.pixStatus === 'approved') {
-                              badge = (
-                                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
-                                  Matrícula Confirmada (PIX Liberado)
-                                </span>
-                              );
-                            } else if (r.pixStatus === 'capped') {
-                              badge = (
-                                <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700 border border-purple-200">
-                                  Aguardando Próximo Mês (Acima do Teto)
-                                </span>
-                              );
-                            }
+                  <Panel title="Lista de Indicadores (Embaixadores)">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+                      <input
+                        type="text"
+                        placeholder="Buscar por nome, email, código ou CPF..."
+                        value={referrerSearch}
+                        onChange={(e) => setReferrerSearch(e.target.value)}
+                        className="w-full sm:w-80 rounded-lg border border-slate-200 px-4 py-2 text-sm outline-none ring-orange-primary/20 focus:ring-4"
+                      />
+                      <button
+                        onClick={fetchReferrers}
+                        className="inline-flex items-center gap-2 rounded-xl bg-navy px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${referrersLoading ? 'animate-spin' : ''}`} /> Atualizar Lista
+                      </button>
+                    </div>
 
-                            return (
+                    {referrers.length === 0 ? (
+                      <p className="rounded-lg bg-bg-light p-6 text-center text-sm text-slate-500">Nenhum indicador/embaixador cadastrado até o momento.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[850px] text-left text-sm">
+                          <thead className="bg-bg-light text-xs uppercase text-slate-500">
+                            <tr>
+                              <th className="p-3">Indicador / Embaixador</th>
+                              <th className="p-3">Código de Indicação</th>
+                              <th className="p-3">Dados PIX</th>
+                              <th className="p-3 text-center">Indicações / Conversões</th>
+                              <th className="p-3 text-center">Comissão PIX</th>
+                              <th className="p-3 text-right">Ação</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {referrers
+                              .filter((ref) => {
+                                if (!referrerSearch) return true;
+                                const q = referrerSearch.toLowerCase();
+                                return (
+                                  ref.studentName.toLowerCase().includes(q) ||
+                                  ref.studentEmail.toLowerCase().includes(q) ||
+                                  ref.code.toLowerCase().includes(q) ||
+                                  ref.studentCpf.toLowerCase().includes(q)
+                                );
+                              })
+                              .map((ref) => (
+                                <tr key={ref.id} className="border-b border-slate-100">
+                                  <td className="p-3">
+                                    <strong className="block text-navy">{ref.studentName}</strong>
+                                    <span className="block text-xs text-slate-500">{ref.studentEmail}</span>
+                                    {ref.studentPhone && <span className="block text-xs text-slate-400">Tel: {ref.studentPhone}</span>}
+                                    {ref.studentCpf && <span className="block text-xs text-slate-400">CPF: {ref.studentCpf}</span>}
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="inline-flex flex-col items-start gap-1">
+                                      <span className="rounded-md bg-orange-50 border border-orange-200 px-2.5 py-1 text-xs font-mono font-bold text-orange-primary">
+                                        {ref.code}
+                                      </span>
+                                      <button
+                                        onClick={() => {
+                                          const link = `https://${adminSettings.domain || 'isentidos.com.br'}/indicacao/${ref.code}`;
+                                          navigator.clipboard.writeText(link);
+                                          showNotice('Link do indicador copiado!');
+                                        }}
+                                        className="text-[11px] font-bold text-blue-600 hover:underline"
+                                      >
+                                        Copiar Link
+                                      </button>
+                                    </div>
+                                  </td>
+                                  <td className="p-3">
+                                    {ref.pixKey ? (
+                                      <div>
+                                        <span className="block text-xs font-semibold text-slate-600 uppercase">
+                                          {ref.pixKeyType}
+                                        </span>
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                          <span className="font-mono text-xs font-bold text-navy bg-slate-100 px-2 py-0.5 rounded">
+                                            {ref.pixKey}
+                                          </span>
+                                          <button
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(ref.pixKey);
+                                              showNotice('Chave PIX copiada!');
+                                            }}
+                                            className="text-xs text-orange-primary font-bold hover:underline"
+                                          >
+                                            Copiar
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs font-semibold text-amber-600">Pendente de cadastro</span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <div className="flex flex-col items-center">
+                                      <span className="text-xs font-bold text-navy">
+                                        {ref.totalReferrals} {ref.totalReferrals === 1 ? 'indicado' : 'indicados'}
+                                      </span>
+                                      <span className="text-[11px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-100 mt-0.5">
+                                        {ref.totalConverted} {ref.totalConverted === 1 ? 'convertido' : 'convertidos'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-center font-extrabold text-navy">
+                                    R$ {ref.totalEarnedPix.toFixed(2)}
+                                  </td>
+                                  <td className="p-3 text-right">
+                                    <button
+                                      onClick={() => setSelectedReferrerModal(ref)}
+                                      className="rounded-lg bg-orange-primary px-3 py-1.5 text-xs font-bold text-white transition hover:bg-orange-600 shadow-sm"
+                                    >
+                                      Ver Indicados ({ref.totalReferrals})
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Panel>
+                </div>
+              )}
+
+              {/* Modal de Detalhes dos Indicados do Indicador */}
+              {selectedReferrerModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 backdrop-blur-sm p-4">
+                  <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-navy flex items-center gap-2">
+                          <span>👤 Indicados por:</span>
+                          <strong className="text-orange-primary">{selectedReferrerModal.studentName}</strong>
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Código: <strong className="text-navy">{selectedReferrerModal.code}</strong> | E-mail: {selectedReferrerModal.studentEmail} | Chave PIX: {selectedReferrerModal.pixKey || 'Não cadastrada'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setSelectedReferrerModal(null)}
+                        className="rounded-lg bg-slate-100 p-2 text-slate-400 hover:bg-slate-200 hover:text-navy transition"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <h4 className="font-bold text-navy text-sm mb-3">Lista de Amigos Indicados ({selectedReferrerModal.referrals.length})</h4>
+
+                    {selectedReferrerModal.referrals.length === 0 ? (
+                      <p className="rounded-lg bg-slate-50 p-6 text-center text-sm text-slate-500">Este indicador ainda não possui amigos cadastrados via seu link.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-bg-light text-xs uppercase text-slate-500">
+                            <tr>
+                              <th className="p-3">Indicado (Lead)</th>
+                              <th className="p-3">Curso de Interesse</th>
+                              <th className="p-3">Data</th>
+                              <th className="p-3">Status Matrícula / PIX</th>
+                              <th className="p-3 text-right">Comissão</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedReferrerModal.referrals.map((r) => (
                               <tr key={r.id} className="border-b border-slate-100">
                                 <td className="p-3">
                                   <strong className="block text-navy">{r.leadName}</strong>
-                                  <span className="text-slate-500 text-xs">{r.leadEmail}</span>
-                                  <span className="block text-xs font-semibold text-orange-primary mt-0.5">{r.courseTitle}</span>
+                                  <span className="block text-xs text-slate-500">{r.leadEmail}</span>
+                                  {r.leadPhone && <span className="block text-xs text-slate-400">{r.leadPhone}</span>}
+                                </td>
+                                <td className="p-3 font-semibold text-orange-primary">{r.courseTitle}</td>
+                                <td className="p-3 text-xs text-slate-500">
+                                  {new Date(r.createdAt).toLocaleDateString('pt-BR')}
                                 </td>
                                 <td className="p-3">
-                                  <strong className="block text-navy">{r.studentName}</strong>
-                                  <span className="text-slate-500 text-xs">Código: {r.code}</span>
-                                  {r.pixKey ? (
-                                    <div className="mt-1 flex items-center gap-1">
-                                      <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-navy">
-                                        PIX [{r.pixKeyType?.toUpperCase()}]: {r.pixKey}
-                                      </span>
-                                      <button
-                                        onClick={() => { navigator.clipboard.writeText(r.pixKey); showNotice('Chave PIX copiada!'); }}
-                                        className="text-xs text-orange-primary hover:underline font-bold"
-                                      >
-                                        Copiar
-                                      </button>
-                                    </div>
+                                  {r.pixStatus === 'paid' ? (
+                                    <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-bold text-green-700 border border-green-200">
+                                      PIX Pago
+                                    </span>
+                                  ) : r.pixStatus === 'approved' ? (
+                                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
+                                      Matrícula Confirmada (PIX Aprovado)
+                                    </span>
                                   ) : (
-                                    <span className="block text-xs text-amber-600 font-semibold mt-0.5">Sem chave PIX cadastrada</span>
+                                    <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200">
+                                      Aguardando Matrícula
+                                    </span>
                                   )}
                                 </td>
-                                <td className="p-3 font-bold text-navy">
-                                  R$ {Number(r.pixRewardValue || 50).toFixed(2)}
-                                </td>
-                                <td className="p-3">{badge}</td>
-                                <td className="p-3 text-right">
-                                  <div className="flex items-center justify-end gap-2">
-                                    {r.status === 'pending' && (
-                                      <button
-                                        onClick={async () => {
-                                          if (!token) { showNotice('Apenas modo local ativo.'); return; }
-                                          try {
-                                            const res = await fetch(`/api/admin/referrals/${r.id}/approve`, {
-                                              method: 'PUT', headers: { Authorization: `Bearer ${token}` }
-                                            });
-                                            if (res.ok) {
-                                              const body = await res.json();
-                                              setAllReferrals(prev => prev.map(x => x.id === r.id ? { ...x, status: 'converted', pixStatus: body.data?.pixStatus || 'approved', pixRewardValue: body.data?.pixRewardValue || 50 } : x));
-                                              showNotice('Matrícula aprovada! Recompensa em PIX calculada.');
-                                            }
-                                          } catch { showNotice('Erro ao aprovar indicação.'); }
-                                        }}
-                                        className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 whitespace-nowrap shadow-sm"
-                                      >
-                                        Aprovar Matrícula
-                                      </button>
-                                    )}
-
-                                    {(r.pixStatus === 'approved' || r.pixStatus === 'capped' || (r.status === 'converted' && r.pixStatus !== 'paid')) && (
-                                      <button
-                                        onClick={async () => {
-                                          const proof = window.prompt('Informe o comprovante ou código de transação do PIX (opcional):', 'Pagamento PIX realizado');
-                                          if (proof === null) return;
-                                          if (!token) { showNotice('Apenas modo local ativo.'); return; }
-                                          try {
-                                            const res = await fetch(`/api/admin/referrals/${r.id}/pay-pix`, {
-                                              method: 'PUT',
-                                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                                              body: JSON.stringify({ paymentProof: proof })
-                                            });
-                                            if (res.ok) {
-                                              setAllReferrals(prev => prev.map(x => x.id === r.id ? { ...x, pixStatus: 'paid', pixPaymentProof: proof } : x));
-                                              showNotice('Pagamento PIX confirmado com sucesso!');
-                                            }
-                                          } catch { showNotice('Erro ao confirmar pagamento PIX.'); }
-                                        }}
-                                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-700 whitespace-nowrap shadow-sm"
-                                      >
-                                        Confirmar Pagamento PIX
-                                      </button>
-                                    )}
-
-                                    <button
-                                      onClick={async () => {
-                                        if (!window.confirm('Tem certeza que deseja excluir esta indicação?')) return;
-                                        if (!token) { showNotice('Apenas modo local ativo.'); return; }
-                                        try {
-                                          const res = await fetch(`/api/admin/referrals/${r.id}`, {
-                                            method: 'DELETE',
-                                            headers: { Authorization: `Bearer ${token}` }
-                                          });
-                                          if (res.ok) {
-                                            setAllReferrals(prev => prev.filter(x => x.id !== r.id));
-                                            showNotice('Indicação excluída com sucesso!');
-                                          } else {
-                                            showNotice('Erro ao excluir indicação.');
-                                          }
-                                        } catch { showNotice('Erro ao excluir indicação.'); }
-                                      }}
-                                      className="rounded-lg border border-red-200 p-1.5 text-red-500 transition hover:border-red-500 hover:bg-red-50"
-                                      title="Excluir indicação"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
-                                  </div>
+                                <td className="p-3 text-right font-extrabold text-navy">
+                                  R$ {r.pixRewardValue.toFixed(2)}
                                 </td>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    <div className="mt-6 flex justify-end">
+                      <button
+                        onClick={() => setSelectedReferrerModal(null)}
+                        className="rounded-lg bg-navy px-5 py-2 text-sm font-bold text-white hover:bg-slate-800 transition"
+                      >
+                        Fechar Detalhes
+                      </button>
                     </div>
-                  )}
-                </Panel>
-              </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -5367,6 +5434,7 @@ function AdminApp() {
                   ['geral', 'Geral'],
                   ['pixels', 'Pixels & Tráfego Pago'],
                   ['api', 'Chaves de API'],
+                  ['evolution', 'Evolution API (WhatsApp)'],
                   ['smtp', 'E-mail (SMTP)'],
                   ['menu', 'Menu do Site'],
                   ['webhooks', 'Webhooks / CRM'],
@@ -5383,6 +5451,159 @@ function AdminApp() {
                   </button>
                 ))}
               </div>
+
+              {settingsSubtab === 'evolution' && (
+                <div className="grid gap-6 max-w-3xl">
+                  <Panel title="Configurações da Evolution API (Integração WhatsApp)">
+                    <p className="text-xs text-slate-500 mb-4">
+                      Configure a sua instância da Evolution API para disparo automático de mensagens via WhatsApp para indicadores (embaixadores) e indicados durante os eventos do programa.
+                    </p>
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!token) { alert('Sessão expirada. Por favor, faça login novamente.'); return; }
+                      const form = new FormData(e.currentTarget);
+                      const updated = {
+                        ...adminSettings,
+                        evolutionApiUrl: String(form.get('evolutionApiUrl') || ''),
+                        evolutionApiKey: String(form.get('evolutionApiKey') || ''),
+                        evolutionInstance: String(form.get('evolutionInstance') || ''),
+                        evolutionNotifyReferrer: form.get('evolutionNotifyReferrer') === 'on',
+                        evolutionNotifyReferred: form.get('evolutionNotifyReferred') === 'on',
+                      };
+                      try {
+                        const res = await fetch('/api/admin/settings', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                          body: JSON.stringify(updated),
+                        });
+                        if (res.ok) {
+                          setAdminSettings(updated);
+                          showNotice('Configurações da Evolution API salvas com sucesso!');
+                        } else {
+                          alert('Erro ao salvar: ' + await handleAdminResponseError(res));
+                        }
+                      } catch {
+                        alert('Erro de conexão ao servidor.');
+                      }
+                    }} className="grid gap-4">
+                      <Field
+                        label="Evolution API URL (Base URL)"
+                        name="evolutionApiUrl"
+                        placeholder="https://api.evolution.suaempresa.com"
+                        defaultValue={adminSettings.evolutionApiUrl}
+                      />
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field
+                          label="Nome da Instância (Instance Name)"
+                          name="evolutionInstance"
+                          placeholder="isentidos"
+                          defaultValue={adminSettings.evolutionInstance}
+                        />
+                        <Field
+                          label="Chave de API / Token (API Key)"
+                          name="evolutionApiKey"
+                          placeholder="Global API Key ou Instance Key"
+                          type="password"
+                          defaultValue={adminSettings.evolutionApiKey}
+                        />
+                      </div>
+
+                      <div className="border-t border-slate-100 pt-4 mt-2">
+                        <h4 className="text-sm font-bold text-navy mb-3">Notificações Automáticas no WhatsApp</h4>
+                        <div className="grid gap-3">
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              name="evolutionNotifyReferrer"
+                              defaultChecked={adminSettings.evolutionNotifyReferrer}
+                              className="h-5 w-5 accent-orange-primary rounded"
+                            />
+                            <span className="text-sm font-medium text-slate-700">
+                              Notificar <strong>Indicador (Embaixador)</strong> via WhatsApp quando um novo amigo se cadastrar via seu link ou tiver matrícula aprovada.
+                            </span>
+                          </label>
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              name="evolutionNotifyReferred"
+                              defaultChecked={adminSettings.evolutionNotifyReferred}
+                              className="h-5 w-5 accent-orange-primary rounded"
+                            />
+                            <span className="text-sm font-medium text-slate-700">
+                              Notificar <strong>Amigo Indicado</strong> via WhatsApp com mensagem de boas-vindas ao se cadastrar.
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <button className="rounded-lg bg-orange-primary px-5 py-3 font-bold text-white max-w-xs transition hover:bg-orange-600 shadow-md mt-2">
+                        Salvar Evolution API
+                      </button>
+                    </form>
+                  </Panel>
+
+                  <Panel title="🧪 Testar Conexão WhatsApp via Evolution API">
+                    <p className="text-xs text-slate-500 mb-4">
+                      Insira um número de WhatsApp de destino (com DDD) para disparar uma mensagem de teste real utilizando as credenciais salvas acima.
+                    </p>
+                    <div className="grid gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone WhatsApp de Destino (com DDD)</label>
+                        <input
+                          type="text"
+                          name="testPhone"
+                          placeholder="Ex: 99999999999"
+                          value={testEvolutionPhone}
+                          onChange={(e) => setTestEvolutionPhone(e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none ring-orange-primary/20 transition focus:ring-4 font-semibold text-navy"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Mensagem de Teste</label>
+                        <textarea
+                          name="testMsg"
+                          rows={3}
+                          value={testEvolutionMsg}
+                          onChange={(e) => setTestEvolutionMsg(e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 p-3 text-sm outline-none ring-orange-primary/20 transition focus:ring-4 font-normal text-slate-700"
+                        />
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!testEvolutionPhone) {
+                            alert('Informe um número de telefone com DDD para testar.');
+                            return;
+                          }
+                          if (!token) { alert('Sessão expirada. Faça login novamente.'); return; }
+                          setTestEvolutionLoading(true);
+                          try {
+                            const res = await fetch('/api/admin/settings/test-evolution', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({ phone: testEvolutionPhone, message: testEvolutionMsg }),
+                            });
+                            const body = await res.json();
+                            if (res.ok) {
+                              showNotice(body.message || 'Mensagem enviada no WhatsApp!');
+                            } else {
+                              alert('Erro ao testar WhatsApp: ' + (body.error || 'Falha no envio.'));
+                            }
+                          } catch {
+                            alert('Erro de conexão ao testar a Evolution API.');
+                          } finally {
+                            setTestEvolutionLoading(false);
+                          }
+                        }}
+                        disabled={testEvolutionLoading}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-navy px-5 py-3 font-bold text-white max-w-xs transition hover:bg-slate-800 shadow-md disabled:opacity-50"
+                      >
+                        <Send className={`h-4 w-4 ${testEvolutionLoading ? 'animate-spin' : ''}`} />
+                        {testEvolutionLoading ? 'Enviando no WhatsApp...' : 'Enviar Mensagem de Teste'}
+                      </button>
+                    </div>
+                  </Panel>
+                </div>
+              )}
 
               {settingsSubtab === 'geral' && (
                 <Panel title="Configurações Gerais">
@@ -5523,6 +5744,53 @@ function AdminApp() {
                       Salvar E-mail (SMTP)
                     </button>
                   </form>
+
+                  <div className="border-t border-slate-100 pt-6 mt-6">
+                    <h4 className="font-bold text-navy text-sm mb-2">🧪 Testar Disparo de E-mail (SMTP)</h4>
+                    <p className="text-xs text-slate-500 mb-3">Envie um e-mail de teste para verificar se as credenciais SMTP salvas estão ativas e entregando mensagens.</p>
+                    <div className="flex flex-col sm:flex-row items-end gap-3 max-w-xl">
+                      <div className="flex-1 w-full">
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail de Destino para Teste</label>
+                        <input
+                          type="email"
+                          name="testSmtpEmail"
+                          placeholder="seuemail@exemplo.com"
+                          value={testSmtpEmail}
+                          onChange={(e) => setTestSmtpEmail(e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none ring-orange-primary/20 transition focus:ring-4 font-semibold text-navy"
+                        />
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!testSmtpEmail) { alert('Informe um e-mail para testar.'); return; }
+                          if (!token) { alert('Sessão expirada. Faça login novamente.'); return; }
+                          setTestSmtpLoading(true);
+                          try {
+                            const res = await fetch('/api/admin/settings/test-smtp', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({ email: testSmtpEmail }),
+                            });
+                            const body = await res.json();
+                            if (res.ok) {
+                              showNotice(body.message || 'E-mail de teste enviado!');
+                            } else {
+                              alert('Erro ao disparar e-mail: ' + (body.error || 'Falha SMTP.'));
+                            }
+                          } catch {
+                            alert('Erro de conexão ao testar servidor SMTP.');
+                          } finally {
+                            setTestSmtpLoading(false);
+                          }
+                        }}
+                        disabled={testSmtpLoading}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-navy px-4 py-3 font-bold text-white transition hover:bg-slate-800 shadow-md whitespace-nowrap disabled:opacity-50"
+                      >
+                        <Send className={`h-4 w-4 ${testSmtpLoading ? 'animate-spin' : ''}`} />
+                        {testSmtpLoading ? 'Enviando...' : 'Enviar E-mail de Teste'}
+                      </button>
+                    </div>
+                  </div>
                 </Panel>
               )}
 

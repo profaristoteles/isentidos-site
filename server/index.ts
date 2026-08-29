@@ -11,7 +11,7 @@ import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import { z } from 'zod';
 import { prisma } from './db.js';
-import { sendPasswordResetEmail, sendWelcomeEmail } from './mailer.js';
+import { sendPasswordResetEmail, sendWelcomeEmail, sendTestEmail } from './mailer.js';
 import { seedCourses, seedLeads, seedPosts } from './seed-data.js';
 import {
   serializeCourse,
@@ -231,6 +231,11 @@ const systemSettingSchema = z.object({
   smtpUser: z.string().nullable().optional().transform(v => v ?? ''),
   smtpPass: z.string().nullable().optional().transform(v => v ?? ''),
   smtpFromEmail: z.string().nullable().optional().transform(v => v ?? ''),
+  evolutionApiUrl: z.string().nullable().optional().transform(v => v ?? ''),
+  evolutionApiKey: z.string().nullable().optional().transform(v => v ?? ''),
+  evolutionInstance: z.string().nullable().optional().transform(v => v ?? ''),
+  evolutionNotifyReferrer: z.boolean().default(true),
+  evolutionNotifyReferred: z.boolean().default(true),
   outboundWebhookUrl: z.string().nullable().optional().transform(v => v ?? ''),
   mauticBaseUrl: z.string().nullable().optional().transform(v => v ?? 'https://mautic.isentidos.com.br'),
   mauticTrackingEnabled: z.boolean().default(true),
@@ -589,6 +594,11 @@ async function getSystemSettings() {
     smtpUser: '',
     smtpPass: '',
     smtpFromEmail: '',
+    evolutionApiUrl: '',
+    evolutionApiKey: '',
+    evolutionInstance: '',
+    evolutionNotifyReferrer: true,
+    evolutionNotifyReferred: true,
     outboundWebhookUrl: '',
     mauticBaseUrl: 'https://mautic.isentidos.com.br',
     mauticTrackingEnabled: true,
@@ -639,6 +649,50 @@ async function sendToCrmWebhook(event: string, data: any) {
     }
   } catch (err) {
     console.error(`[Webhook CRM] Erro na requisição do webhook:`, err);
+  }
+}
+
+async function sendEvolutionWhatsApp(phoneNumber: string, message: string) {
+  try {
+    const settings = await getSystemSettings();
+    if (!settings.evolutionApiUrl || !settings.evolutionApiKey || !settings.evolutionInstance) {
+      console.log('[Evolution API] Configuração não salva ou incompleta. Ignorando envio.');
+      return false;
+    }
+
+    let cleanNumber = phoneNumber.replace(/\D/g, '');
+    if (cleanNumber.length >= 10 && !cleanNumber.startsWith('55')) {
+      cleanNumber = '55' + cleanNumber;
+    }
+
+    const baseUrl = settings.evolutionApiUrl.replace(/\/+$/, '');
+    const url = `${baseUrl}/message/sendText/${encodeURIComponent(settings.evolutionInstance)}`;
+
+    console.log(`[Evolution API] Enviando mensagem de WhatsApp para ${cleanNumber}...`);
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': settings.evolutionApiKey
+      },
+      body: JSON.stringify({
+        number: cleanNumber,
+        text: message
+      })
+    });
+
+    if (res.ok) {
+      console.log(`[Evolution API] Mensagem enviada com sucesso para ${cleanNumber}!`);
+      return true;
+    } else {
+      const errText = await res.text();
+      console.error(`[Evolution API] Erro ao enviar mensagem (${res.status}):`, errText);
+      return false;
+    }
+  } catch (err: any) {
+    console.error('[Evolution API] Erro na requisição WhatsApp:', err.message);
+    return false;
   }
 }
 
@@ -3121,11 +3175,100 @@ app.put('/api/admin/settings', authMiddleware, async (req, res) => {
       data: parsed.data
     });
   }, null);
-  if (!settings) return res.status(503).json({ error: 'Banco de dados indisponÃ­vel.' });
+  if (!settings) return res.status(503).json({ error: 'Banco de dados indisponível.' });
   res.json({ data: settings });
 });
 
-// â”€â”€ Admin Menu Items endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+app.post('/api/admin/settings/test-evolution', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  const { phone, message } = req.body;
+  const targetPhone = String(phone || '').trim();
+  const testMessage = String(message || '🚀 Teste de envio de WhatsApp via Evolution API — Instituto Sentidos!').trim();
+
+  if (!targetPhone) {
+    return res.status(400).json({ error: 'Informe um número de telefone com DDD para testar o envio.' });
+  }
+
+  const success = await sendEvolutionWhatsApp(targetPhone, testMessage);
+  if (success) {
+    return res.json({ ok: true, message: `Mensagem de teste enviada com sucesso para ${targetPhone} via Evolution API!` });
+  } else {
+    return res.status(500).json({ error: 'Falha ao enviar mensagem via Evolution API. Verifique a URL, Instância e API Key nas configurações.' });
+  }
+});
+
+app.post('/api/admin/settings/test-smtp', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  const { email } = req.body;
+  const targetEmail = String(email || '').trim();
+
+  if (!targetEmail) {
+    return res.status(400).json({ error: 'Informe um endereço de e-mail de destino para testar o envio.' });
+  }
+
+  const success = await sendTestEmail(targetEmail);
+  if (success) {
+    return res.json({ ok: true, message: `E-mail de teste enviado com sucesso para ${targetEmail}!` });
+  } else {
+    return res.status(500).json({ error: 'Falha ao enviar e-mail via SMTP. Verifique as credenciais no painel.' });
+  }
+});
+
+app.get('/api/admin/referrers', authMiddleware, async (_req, res) => {
+  const referrers = await withDatabase(async () => {
+    const codes = await prisma.referralCode.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        student: true,
+        referrals: {
+          include: {
+            lead: { include: { course: true } }
+          },
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    });
+
+    return codes.map((c) => {
+      const convertedCount = c.referrals.filter(r => r.status === 'converted' || r.pixStatus === 'paid' || r.pixStatus === 'approved').length;
+      const totalEarnedPix = c.referrals.reduce((sum, r) => {
+        if (r.pixStatus === 'paid' || r.pixStatus === 'approved') {
+          return sum + Number(r.pixRewardValue || 50);
+        }
+        return sum;
+      }, 0);
+
+      return {
+        id: c.id,
+        code: c.code,
+        studentId: c.studentId,
+        studentName: c.student.name,
+        studentEmail: c.student.email,
+        studentPhone: c.student.phone || '',
+        studentCpf: c.student.cpf || '',
+        pixKey: c.pixKey || '',
+        pixKeyType: c.pixKeyType || 'cpf',
+        createdAt: c.createdAt,
+        totalReferrals: c.referrals.length,
+        totalConverted: convertedCount,
+        totalEarnedPix,
+        referrals: c.referrals.map((r) => ({
+          id: r.id,
+          leadName: r.lead?.name || 'Não informado',
+          leadEmail: r.lead?.email || '',
+          leadPhone: r.lead?.phone || '',
+          courseTitle: r.lead?.course?.title || r.lead?.notes || 'Curso não especificado',
+          status: r.status,
+          pixStatus: r.pixStatus,
+          pixRewardValue: Number(r.pixRewardValue || 50),
+          createdAt: r.createdAt
+        }))
+      };
+    });
+  }, []);
+
+  res.json({ data: referrers });
+});
+
+// ── Admin Menu Items endpoints ────────────────────────────────────────────────
 
 app.get('/api/admin/menu', authMiddleware, async (_req, res) => {
   const menus = await withDatabase(async () => {

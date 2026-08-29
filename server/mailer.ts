@@ -72,3 +72,18 @@ export async function sendWelcomeEmail(email: string, name: string) {
   `;
   return sendEmail({ to: email, subject: 'Confirmação de Cadastro - Instituto Sentidos', html });
 }
+
+export async function sendTestEmail(email: string) {
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+      <h2 style="color: #0f172a; margin-top: 0;">🧪 Teste de Disparo SMTP — Instituto Sentidos</h2>
+      <p style="color: #475569; font-size: 15px; line-height: 1.5;">Suas configurações de e-mail SMTP foram testadas com sucesso!</p>
+      <div style="background-color: #f8fafc; padding: 12px 16px; border-radius: 8px; font-size: 13px; color: #334155; margin: 16px 0;">
+        <strong>Destinatário:</strong> ${email}<br/>
+        <strong>Status:</strong> Conexão estabelecida e e-mail entregue com sucesso.
+      </div>
+      <p style="color: #94a3b8; font-size: 12px; margin-bottom: 0;">Este é um e-mail automático enviado pelo Painel Administrativo do Instituto Sentidos.</p>
+    </div>
+  `;
+  return sendEmail({ to: email, subject: '🧪 Teste de Disparo SMTP — Instituto Sentidos', html });
+}
