@@ -974,11 +974,15 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
   const [selectedInterest, setSelectedInterest] = useState<string>('');
 
   useEffect(() => {
-    fetch('/api/courses')
+    fetch('/api/referral-courses')
       .then((r) => r.json())
       .then((body) => {
         if (body.data?.length) {
           setCourses(body.data.map(mapApiCourse));
+        } else {
+          fetch('/api/courses')
+            .then((r) => r.json())
+            .then((b) => { if (b.data?.length) setCourses(b.data.map(mapApiCourse)); });
         }
       })
       .catch(() => {});
@@ -3606,6 +3610,10 @@ function AdminApp() {
                           <Field label="Área de Conhecimento" name="area" placeholder="Ex: Educação Inclusiva" defaultValue={editingCourse?.area} />
                           <Field label="Carga Horária Total" name="workload" placeholder="Ex: 360h" defaultValue={editingCourse?.workload} />
                         </div>
+                        <p className="mt-3 text-xs text-slate-600 bg-amber-50 border border-amber-200/60 rounded-lg p-3 flex items-start gap-2">
+                          <span className="text-base">💡</span>
+                          <span><strong>Nota de visibilidade:</strong> Cursos do <strong>ISP Preparatórios</strong> ou <strong>Supletivo EJA</strong> ficam salvos apenas para o <em>Sistema de Indicações</em> (links de embaixadores) e <strong>NÃO aparecem no catálogo público</strong> do site Instituto Sentidos (isentidos.com.br).</span>
+                        </p>
                       </div>
                     </section>
 

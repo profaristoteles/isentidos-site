@@ -91,6 +91,10 @@ function isPublicCourseVisible(course: any): boolean {
   if (!course || course.isSystemRecord || course.is_system_record || course.id === '__no_course__') return false;
   const title = String(course?.title || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const type = normalizeCourseTypeToDatabase(course?.type, mapDatabaseModality(course?.modality));
+  
+  // Cursos do ISP Preparatórios e Supletivo EJA não são exibidos no catálogo público do isentidos.com.br
+  if (type === 'preparatorio' || type === 'supletivo_eja') return false;
+
   const looksLikeAdvancedAcademic = title.includes('mestrado') || title.includes('doutorado');
   if (!looksLikeAdvancedAcademic) return true;
   return type === 'mestrado_ead' || type === 'doutorado_ead';
@@ -820,6 +824,22 @@ app.get('/api/courses', async (_req, res) => {
         orderBy: [{ isFeatured: 'desc' }, { title: 'asc' }],
       });
       return rows.filter(isPublicCourseVisible).map(serializeCourse);
+    },
+    [],
+  );
+
+  res.json({ data: courses });
+});
+
+app.get('/api/referral-courses', async (_req, res) => {
+  const courses = await withDatabase(
+    async () => {
+      const rows = await prisma.course.findMany({
+        where: { isActive: true, isSystemRecord: false },
+        include: { leads: { select: { id: true } } },
+        orderBy: [{ isFeatured: 'desc' }, { title: 'asc' }],
+      });
+      return rows.map(serializeCourse);
     },
     [],
   );
