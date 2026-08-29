@@ -74,7 +74,9 @@ function normalizeCourseTypeValue(value: string): string {
 
 export function normalizeCourseTypeToDatabase(type: string | CourseKindType | undefined, modality: ModalityType = ModalityType.PRESENTIAL): string {
   const norm = normalizeCourseTypeValue(String(type || ''));
-  if (['livre', 'curso_livre', 'free_course'].includes(norm)) return 'livre';
+  if (['livre', 'curso_livre', 'free_course', 'extensao', 'profissionalizante'].includes(norm)) return 'livre';
+  if (['preparatorio', 'preparatorio_isp', 'enem', 'concurso', 'concursos'].includes(norm) || norm.includes('preparatorio') || norm.includes('enem') || norm.includes('concurso')) return 'preparatorio';
+  if (['supletivo_eja', 'supletivo', 'eja', 'fundamental', 'medio'].includes(norm) || norm.includes('supletivo') || norm.includes('eja')) return 'supletivo_eja';
   if (['mestrado_ead', 'master_ead'].includes(norm) || norm.includes('mestrado')) return 'mestrado_ead';
   if (['doutorado_ead', 'doctorate_ead'].includes(norm) || norm.includes('doutorado')) return 'doutorado_ead';
   if (['pos_online', 'postgraduate_online', 'postgraduate_ead'].includes(norm)) return 'pos_online';
@@ -86,7 +88,9 @@ export function normalizeCourseTypeToDatabase(type: string | CourseKindType | un
 
 export function normalizeCourseTypeFromDatabase(type: string, modality: string = ''): CourseKindType {
   const norm = normalizeCourseTypeValue(type);
-  if (['livre', 'curso_livre', 'free_course'].includes(norm)) return CourseKindType.LIBRE;
+  if (['livre', 'curso_livre', 'free_course', 'extensao', 'profissionalizante'].includes(norm)) return CourseKindType.LIBRE;
+  if (['preparatorio', 'preparatorio_isp', 'enem', 'concurso', 'concursos'].includes(norm) || norm.includes('preparatorio') || norm.includes('enem') || norm.includes('concurso')) return CourseKindType.PREPARATORIO;
+  if (['supletivo_eja', 'supletivo', 'eja'].includes(norm) || norm.includes('supletivo') || norm.includes('eja')) return CourseKindType.SUPLETIVO_EJA;
   if (['mestrado_ead', 'master_ead'].includes(norm) || norm.includes('mestrado')) return CourseKindType.MESTRADO;
   if (['doutorado_ead', 'doctorate_ead'].includes(norm) || norm.includes('doutorado')) return CourseKindType.DOUTORADO;
   return CourseKindType.POS;

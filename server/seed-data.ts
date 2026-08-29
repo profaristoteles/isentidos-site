@@ -1221,16 +1221,93 @@ export const seedCourses = [
       {
         "title": "Metodologia da Pesquisa Científica",
         "description": "60h"
-      },
-      {
-        "title": "Epistemologia da Educação",
-        "description": "60h"
-      },
-      {
-        "title": "Seminários de Orientação de Dissertação",
-        "description": "120h"
       }
     ]
+  },
+  {
+    "title": "Preparatório Intensivo ENEM 2026 (ISP Preparatórios)",
+    "slug": "preparatorio-intensivo-enem-isp",
+    "description": "Preparatório completo para o ENEM ministrado pelo ISP Preparatórios com simulados semanais, redação nota 1000 e foco nos conteúdos mais cobrados.",
+    "syllabus": "Aulas presenciais e transmissões ao vivo. Cobertura de Linguagens, Matemática, Ciências da Natureza, Ciências Humanas e Oficina de Redação.",
+    "about": "O ISP Preparatórios é o braço preparatório do Instituto Sentidos, dedicado a aprovar estudantes nas melhores universidades e concursos públicos.",
+    "type": "preparatorio",
+    "modality": "presencial",
+    "workload": "360h",
+    "price": 1200,
+    "maxInstallments": 10,
+    "enrollmentFee": 50,
+    "installmentValue": 120,
+    "area": "Preparatório / ISP",
+    "partnerInstitution": "ISP Preparatórios",
+    "isFeatured": true
+  },
+  {
+    "title": "Preparatório para Concursos Públicos (ISP Preparatórios)",
+    "slug": "preparatorio-concursos-publicos-isp",
+    "description": "Preparatório focado em carreiras administrativas, educação e saúde pública com banco de questões e orientação pedagógica especializada.",
+    "syllabus": "Língua Portuguesa, Raciocínio Lógico, Direito Administrativo, Direito Constitucional, Informática e Conhecimentos Específicos.",
+    "about": "Cursos com foco total no edital do seu concurso com material didático atualizado.",
+    "type": "preparatorio",
+    "modality": "online_ao_vivo",
+    "workload": "300h",
+    "price": 1500,
+    "maxInstallments": 12,
+    "enrollmentFee": 50,
+    "installmentValue": 125,
+    "area": "Preparatório / ISP",
+    "partnerInstitution": "ISP Preparatórios",
+    "isFeatured": true
+  },
+  {
+    "title": "Supletivo EJA — Ensino Fundamental e Médio",
+    "slug": "supletivo-eja-fundamental-e-medio",
+    "description": "Conclua seus estudos do Ensino Fundamental e Médio de forma rápida, flexível e reconhecida. Certificação rápida para acelerar sua carreira.",
+    "syllabus": "Módulos de Português, Matemática, História, Geografia, Ciências, Biologia, Física, Química e Filosofia com suporte de tutores.",
+    "about": "Programa de Educação de Jovens e Adultos (EJA) que permite concluir a educação básica com suporte integral do Instituto Sentidos.",
+    "type": "supletivo_eja",
+    "modality": "ead",
+    "workload": "1200h",
+    "price": 990,
+    "maxInstallments": 10,
+    "enrollmentFee": 50,
+    "installmentValue": 99,
+    "area": "Educação Básica / EJA",
+    "partnerInstitution": "Instituto Sentidos",
+    "isFeatured": true
+  },
+  {
+    "title": "Mestrado em Ciências da Educação (Stricto Sensu)",
+    "slug": "mestrado-em-ciencias-da-educacao-stricto-sensu",
+    "description": "Programa de Mestrado Stricto Sensu EAD voltado para formação avançada de pesquisadores e docentes do ensino superior.",
+    "syllabus": "Metodologia Científica Avançada, Epistemologia da Educação, Seminários de Pesquisa e Orientação de Dissertação.",
+    "about": "Mestrado Stricto Sensu EAD com validação internacional e foco em inovação pedagógica e pesquisa educacional.",
+    "type": "mestrado_ead",
+    "modality": "ead",
+    "workload": "1800h",
+    "price": 12000,
+    "maxInstallments": 24,
+    "enrollmentFee": 100,
+    "installmentValue": 500,
+    "area": "Pós-Graduação Stricto Sensu",
+    "partnerInstitution": "Instituto Sentidos & Parceiros Internacionais",
+    "isFeatured": true
+  },
+  {
+    "title": "Doutorado em Psicologia e Desenvolvimento Humano (Stricto Sensu)",
+    "slug": "doutorado-em-psicologia-e-desenvolvimento-humano",
+    "description": "Programa de Doutorado Stricto Sensu EAD para formação de doutores e pesquisadores sêniores em desenvolvimento humano.",
+    "syllabus": "Epistemologia da Psicologia, Métodos Avançados de Pesquisa Qualitativa e Quantitativa, Exame de Qualificação e Defesa de Tese.",
+    "about": "Doutorado Stricto Sensu EAD oferecendo alta qualificação acadêmica e produção de tese original.",
+    "type": "doutorado_ead",
+    "modality": "ead",
+    "workload": "3600h",
+    "price": 24000,
+    "maxInstallments": 36,
+    "enrollmentFee": 150,
+    "installmentValue": 666,
+    "area": "Pós-Graduação Stricto Sensu",
+    "partnerInstitution": "Instituto Sentidos & Parceiros Internacionais",
+    "isFeatured": true
   }
 ];
 

@@ -1940,6 +1940,217 @@ function generateReferralCode(): string {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
+const DEFAULT_PIX_BY_CATEGORY: Record<string, number> = {
+  livre: 50,
+  preparatorio: 50,
+  pos_presencial: 50,
+  pos_online: 50,
+  mestrado_ead: 50,
+  doutorado_ead: 50,
+  supletivo_eja: 50,
+};
+
+const ALL_ECOSYSTEM_TYPES = [
+  'livre',
+  'preparatorio',
+  'pos_presencial',
+  'pos_online',
+  'mestrado_ead',
+  'doutorado_ead',
+  'supletivo_eja',
+];
+
+// Helper Utilitário: Envio de Notificações WhatsApp via Evolution API (Não-Bloqueante)
+export async function sendReferralWhatsAppNotification(phone: string, message: string): Promise<boolean> {
+  if (!phone) {
+    console.log('[WhatsApp Notification] Telefone do indicador não informado. Notificação ignorada.');
+    return false;
+  }
+
+  const apiUrl = (process.env.EVOLUTION_API_URL || process.env.WHATSAPP_API_URL || '').replace(/\/$/, '');
+  const apiKey = process.env.EVOLUTION_API_KEY || process.env.WHATSAPP_API_TOKEN || '';
+  const instance = process.env.EVOLUTION_INSTANCE || 'isentidos';
+
+  if (!apiUrl || !apiKey) {
+    console.log('[WhatsApp Notification Log] Evolution API / WhatsApp API não configurada no ambiente (EVOLUTION_API_URL/KEY não fornecidos). Log da notificação:', {
+      to: phone,
+      message,
+    });
+    return false;
+  }
+
+  let cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+    cleanPhone = `55${cleanPhone}`;
+  }
+
+  const endpoint = `${apiUrl}/message/sendText/${instance}`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': apiKey,
+      },
+      body: JSON.stringify({
+        number: cleanPhone,
+        text: message,
+      }),
+    });
+
+    if (response.ok) {
+      console.log(`[WhatsApp Notification Success] Mensagem enviada via Evolution API para ${cleanPhone}`);
+      return true;
+    } else {
+      const errBody = await response.text().catch(() => '');
+      console.error(`[WhatsApp Notification Error] Status ${response.status} ao enviar via Evolution API para ${cleanPhone}:`, errBody);
+      return false;
+    }
+  } catch (error: any) {
+    console.error(`[WhatsApp Notification Fail-Safe] Falha de conexão com a Evolution API para ${cleanPhone}:`, error?.message || error);
+    return false;
+  }
+}
+
+async function notifyReferralStatusApproved(referralId: string) {
+  try {
+    const ref = await prisma.referral.findUnique({
+      where: { id: referralId },
+      include: {
+        referralCode: { include: { student: true } },
+        lead: { include: { course: true } },
+      },
+    });
+    if (!ref || !ref.referralCode?.student) return;
+
+    const phone = ref.referralCode.student.phone || (ref.referralCode.student as any).whatsapp;
+    const indicatorName = ref.referralCode.student.name.split(' ')[0];
+    const leadName = ref.lead?.name || 'Seu amigo';
+    const amount = Number(ref.pixRewardValue || 50).toFixed(2);
+
+    const message = `Olá, ${indicatorName}! 🚀 Boas notícias do Instituto Sentidos!\n\nA matrícula do seu indicado(a) ${leadName} foi confirmada. A sua recompensa em PIX no valor de R$ ${amount} foi APROVADA e será liberada para pagamento em breve!\n\nAcompanhe tudo no seu Painel do Indicador.`;
+
+    await sendReferralWhatsAppNotification(phone, message);
+  } catch (err: any) {
+    console.error('[WhatsApp Trigger Approved Fail-Safe]', err?.message || err);
+  }
+}
+
+async function notifyReferralStatusCapped(referralId: string) {
+  try {
+    const ref = await prisma.referral.findUnique({
+      where: { id: referralId },
+      include: {
+        referralCode: { include: { student: true } },
+        lead: { include: { course: true } },
+      },
+    });
+    if (!ref || !ref.referralCode?.student) return;
+
+    const phone = ref.referralCode.student.phone || (ref.referralCode.student as any).whatsapp;
+    const indicatorName = ref.referralCode.student.name.split(' ')[0];
+    const leadName = ref.lead?.name || 'Seu amigo';
+    const amount = Number(ref.pixRewardValue || 50).toFixed(2);
+
+    const message = `Olá, ${indicatorName}! 🎓 A matrícula do seu indicado(a) ${leadName} foi confirmada no Instituto Sentidos!\n\nComo você atingiu o teto mensal de R$ 1.000,00 neste mês, o seu PIX de R$ ${amount} está garantido e o pagamento sairá no início do próximo mês.\n\nMuito obrigado por ser nosso embaixador!`;
+
+    await sendReferralWhatsAppNotification(phone, message);
+  } catch (err: any) {
+    console.error('[WhatsApp Trigger Capped Fail-Safe]', err?.message || err);
+  }
+}
+
+async function notifyReferralStatusPaid(referralId: string) {
+  try {
+    const ref = await prisma.referral.findUnique({
+      where: { id: referralId },
+      include: {
+        referralCode: { include: { student: true } },
+        lead: { include: { course: true } },
+      },
+    });
+    if (!ref || !ref.referralCode?.student) return;
+
+    const phone = ref.referralCode.student.phone || (ref.referralCode.student as any).whatsapp;
+    const indicatorName = ref.referralCode.student.name.split(' ')[0];
+    const leadName = ref.lead?.name || 'Seu amigo';
+    const amount = Number(ref.pixRewardValue || 50).toFixed(2);
+
+    const message = `Olá, ${indicatorName}! 💰 Seu PIX no valor de R$ ${amount} referente à indicação de ${leadName} foi ENVIADO com sucesso pelo Instituto Sentidos!\n\nConfira sua conta bancária referente à chave PIX cadastrada. Muito obrigado por continuar indicando!`;
+
+    await sendReferralWhatsAppNotification(phone, message);
+  } catch (err: any) {
+    console.error('[WhatsApp Trigger Paid Fail-Safe]', err?.message || err);
+  }
+}
+
+async function processReferralConversion(referralId: string) {
+  const result = await prisma.$transaction(async (tx) => {
+    const referral = await tx.referral.findUnique({
+      where: { id: referralId },
+      include: {
+        referralCode: true,
+        lead: { include: { course: true } },
+      },
+    });
+    if (!referral) return null;
+
+    let settings = await tx.referralSettings.findFirst();
+    if (!settings) {
+      settings = await tx.referralSettings.create({
+        data: {
+          rewardType: 'pix',
+          pixRewardByCategory: DEFAULT_PIX_BY_CATEGORY,
+          monthlyPixCap: 1000,
+          eligibleCourseTypes: ALL_ECOSYSTEM_TYPES,
+        },
+      });
+    }
+
+    const categoryMap = (settings.pixRewardByCategory as Record<string, number>) || DEFAULT_PIX_BY_CATEGORY;
+    const courseType = referral.lead?.course?.type || 'pos_online';
+    const rewardVal = Number(categoryMap[courseType] ?? 50);
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const monthReferrals = await tx.referral.findMany({
+      where: {
+        referralCodeId: referral.referralCodeId,
+        pixStatus: { in: ['approved', 'paid'] },
+        convertedAt: { gte: startOfMonth },
+      },
+    });
+
+    const currentMonthApprovedSum = monthReferrals.reduce((acc, r) => acc + Number(r.pixRewardValue), 0);
+    const monthlyCap = Number(settings.monthlyPixCap ?? 1000);
+
+    const isWithinCap = (currentMonthApprovedSum + rewardVal) <= monthlyCap;
+    const newPixStatus = isWithinCap ? 'approved' : 'capped';
+
+    return tx.referral.update({
+      where: { id: referralId },
+      data: {
+        status: 'converted',
+        convertedAt: referral.convertedAt || now,
+        pixRewardValue: rewardVal,
+        pixStatus: newPixStatus,
+      },
+    });
+  });
+
+  if (result) {
+    if (result.pixStatus === 'approved') {
+      notifyReferralStatusApproved(referralId).catch(() => {});
+    } else if (result.pixStatus === 'capped') {
+      notifyReferralStatusCapped(referralId).catch(() => {});
+    }
+  }
+
+  return result;
+}
+
 app.get('/api/referral/:code', async (req, res) => {
   const refCode = await withDatabase(
     () => prisma.referralCode.findUnique({
@@ -1948,9 +2159,20 @@ app.get('/api/referral/:code', async (req, res) => {
     }),
     null,
   );
-  if (!refCode || !refCode.isActive) return res.status(404).json({ error: 'CÃ³digo de indicaÃ§Ã£o invÃ¡lido.' });
-  if (refCode.expiresAt && refCode.expiresAt < new Date()) return res.status(410).json({ error: 'CÃ³digo expirado.' });
-  res.json({ data: { code: refCode.code, studentName: (refCode as any).student?.name ?? 'um aluno' } });
+  if (!refCode || !refCode.isActive) return res.status(404).json({ error: 'Código de indicação inválido.' });
+  if (refCode.expiresAt && refCode.expiresAt < new Date()) return res.status(410).json({ error: 'Código expirado.' });
+
+  const settings = await withDatabase(() => prisma.referralSettings.findFirst(), null);
+  const categoryMap = (settings?.pixRewardByCategory as Record<string, number>) || DEFAULT_PIX_BY_CATEGORY;
+  const rewardValue = Number(categoryMap['pos_online'] ?? 50);
+
+  res.json({
+    data: {
+      code: refCode.code,
+      studentName: (refCode as any).student?.name ?? 'um amigo',
+      rewardValue,
+    },
+  });
 });
 
 // Self-service student registration for referral program
@@ -1960,11 +2182,13 @@ app.post('/api/referrals/register', async (req, res) => {
     email: z.string().email(),
     phone: z.string().min(8),
     cpf: z.string().optional(),
+    pixKey: z.string().optional(),
+    pixKeyType: z.string().optional(),
     consentLgpd: z.boolean(),
   });
 
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Dados invÃ¡lidos.', details: parsed.error.flatten() });
+  if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
 
   const result = await withDatabase(async () => {
     let student = await prisma.user.findUnique({ where: { email: parsed.data.email } });
@@ -1987,7 +2211,20 @@ app.post('/api/referrals/register', async (req, res) => {
     if (!referralCode) {
       const code = generateReferralCode();
       referralCode = await prisma.referralCode.create({
-        data: { studentId: student.id, code },
+        data: {
+          studentId: student.id,
+          code,
+          pixKey: parsed.data.pixKey || null,
+          pixKeyType: parsed.data.pixKeyType || 'cpf',
+        },
+      });
+    } else if (parsed.data.pixKey) {
+      referralCode = await prisma.referralCode.update({
+        where: { id: referralCode.id },
+        data: {
+          pixKey: parsed.data.pixKey,
+          pixKeyType: parsed.data.pixKeyType || referralCode.pixKeyType || 'cpf',
+        },
       });
     }
 
@@ -1995,26 +2232,73 @@ app.post('/api/referrals/register', async (req, res) => {
   }, null);
 
   if (!result) return res.status(503).json({ error: 'Falha ao registrar.' });
-  
-  sendToCrmWebhook('referral_code_created', { 
-    ...result, 
-    student: { name: parsed.data.name, email: parsed.data.email, phone: parsed.data.phone } 
+
+  sendToCrmWebhook('referral_code_created', {
+    ...result,
+    student: { name: parsed.data.name, email: parsed.data.email, phone: parsed.data.phone },
   });
-  
+
   res.status(201).json({ data: result });
+});
+
+// Update Pix Key endpoint for existing indicators
+app.post('/api/referrals/update-pix', async (req, res) => {
+  const schema = z.object({
+    code: z.string().optional(),
+    email: z.string().email().optional(),
+    pixKey: z.string().min(3),
+    pixKeyType: z.string().optional(),
+  }).refine((data) => data.code || data.email, {
+    message: 'É necessário informar o código ou e-mail.',
+    path: ['code'],
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos.' });
+
+  const result = await withDatabase(async () => {
+    let refCode = null;
+    if (parsed.data.code) {
+      refCode = await prisma.referralCode.findUnique({
+        where: { code: parsed.data.code.trim().toUpperCase() },
+      });
+    } else if (parsed.data.email) {
+      const student = await prisma.user.findUnique({
+        where: { email: parsed.data.email.trim().toLowerCase() },
+      });
+      if (student) {
+        refCode = await prisma.referralCode.findFirst({
+          where: { studentId: student.id, isActive: true },
+        });
+      }
+    }
+
+    if (!refCode) return null;
+
+    return prisma.referralCode.update({
+      where: { id: refCode.id },
+      data: {
+        pixKey: parsed.data.pixKey.trim(),
+        pixKeyType: parsed.data.pixKeyType || 'cpf',
+      },
+    });
+  }, null);
+
+  if (!result) return res.status(404).json({ error: 'Indicador não encontrado.' });
+  res.json({ data: result });
 });
 
 app.post('/api/referrals/me', async (req, res) => {
   const schema = z.object({
     code: z.string().optional(),
     email: z.string().email().optional(),
-  }).refine(data => data.code || data.email, {
-    message: "Ã‰ necessÃ¡rio informar o cÃ³digo ou e-mail.",
-    path: ["code"]
+  }).refine((data) => data.code || data.email, {
+    message: 'É necessário informar o código ou e-mail.',
+    path: ['code'],
   });
 
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'CÃ³digo ou e-mail invÃ¡lido.' });
+  if (!parsed.success) return res.status(400).json({ error: 'Código ou e-mail inválido.' });
 
   const result = await withDatabase(async () => {
     let refCode = null;
@@ -2024,14 +2308,14 @@ app.post('/api/referrals/me', async (req, res) => {
         include: {
           student: { select: { name: true, email: true } },
           referrals: {
-            include: { lead: { select: { name: true, status: true, courseId: true } } },
-            orderBy: { createdAt: 'desc' }
-          }
-        }
+            include: { lead: { select: { name: true, status: true, courseId: true, course: { select: { title: true, type: true } } } } },
+            orderBy: { createdAt: 'desc' },
+          },
+        },
       });
     } else if (parsed.data.email) {
       const student = await prisma.user.findUnique({
-        where: { email: parsed.data.email.trim().toLowerCase() }
+        where: { email: parsed.data.email.trim().toLowerCase() },
       });
       if (student) {
         refCode = await prisma.referralCode.findFirst({
@@ -2039,37 +2323,78 @@ app.post('/api/referrals/me', async (req, res) => {
           include: {
             student: { select: { name: true, email: true } },
             referrals: {
-              include: { lead: { select: { name: true, status: true, courseId: true } } },
-              orderBy: { createdAt: 'desc' }
-            }
-          }
+              include: { lead: { select: { name: true, status: true, courseId: true, course: { select: { title: true, type: true } } } } },
+              orderBy: { createdAt: 'desc' },
+            },
+          },
         });
       }
     }
 
     if (!refCode) return null;
 
+    const settings = await prisma.referralSettings.findFirst();
+    const monthlyCap = Number(settings?.monthlyPixCap ?? 1000);
+    const categoryMap = (settings?.pixRewardByCategory as Record<string, number>) || DEFAULT_PIX_BY_CATEGORY;
+
+    let totalEarned = 0;
+    let pendingPix = 0;
+    let cappedPix = 0;
+    let totalConversions = 0;
+
+    const mappedReferrals = refCode.referrals.map((r: any) => {
+      const val = Number(r.pixRewardValue) > 0 ? Number(r.pixRewardValue) : (categoryMap[r.lead?.course?.type || 'pos_online'] ?? 50);
+      if (r.pixStatus === 'paid') totalEarned += val;
+      if (r.pixStatus === 'approved') pendingPix += val;
+      if (r.pixStatus === 'capped') cappedPix += val;
+      if (r.status === 'converted' || r.pixStatus === 'approved' || r.pixStatus === 'paid' || r.pixStatus === 'capped') totalConversions++;
+
+      return {
+        id: r.id,
+        leadName: r.lead?.name || 'Indicação Anônima',
+        courseTitle: r.lead?.course?.title || 'Curso Instituto Sentidos',
+        courseType: r.lead?.course?.type || 'Geral',
+        status: r.status,
+        pixRewardValue: val,
+        pixStatus: r.pixStatus || 'pending',
+        pixPaidAt: r.pixPaidAt,
+        pixPaymentProof: r.pixPaymentProof,
+        createdAt: r.createdAt,
+      };
+    });
+
     return {
       code: refCode.code,
       studentName: refCode.student?.name,
-      referrals: refCode.referrals.map((r: any) => ({
-        id: r.id,
-        leadName: r.lead?.name || 'IndicaÃ§Ã£o AnÃ´nima',
-        status: r.status,
-        discountApplied: Number(r.discountApplied),
-        createdAt: r.createdAt,
-      })),
+      studentEmail: refCode.student?.email,
+      pixKey: refCode.pixKey,
+      pixKeyType: refCode.pixKeyType || 'cpf',
+      monthlyPixCap: monthlyCap,
+      metrics: {
+        totalEarned,
+        pendingPix,
+        cappedPix,
+        totalConversions,
+      },
+      referrals: mappedReferrals,
     };
   }, null);
 
-  if (!result) return res.status(404).json({ error: 'Indicador nÃ£o encontrado ou sem cÃ³digo ativo.' });
+  if (!result) return res.status(404).json({ error: 'Indicador não encontrado ou sem código ativo.' });
   res.json({ data: result });
 });
 
-// LeadConnector Webhook for zero-cost referral syncing
+// LeadConnector Webhook with authenticity verification
 app.post('/api/webhooks/leadconnector', async (req, res) => {
   console.log('[Webhook:LeadConnector] Payload recebido:', req.body);
-  
+
+  // Verification of webhook secret header if configured
+  const expectedSecret = process.env.WEBHOOK_SECRET;
+  const providedSecret = req.headers['x-webhook-secret'] || req.query.secret;
+  if (expectedSecret && providedSecret !== expectedSecret) {
+    return res.status(401).json({ error: 'Webhook não autorizado: Segredo inválido.' });
+  }
+
   const name = req.body.name || req.body.first_name || req.body.fullName || `${req.body.firstName || ''} ${req.body.lastName || ''}`.trim() || 'Lead CRM';
   const email = req.body.email;
   const phone = req.body.phone || '';
@@ -2078,91 +2403,83 @@ app.post('/api/webhooks/leadconnector', async (req, res) => {
   const eventType = req.body.type || req.body.event || req.body.status || 'created';
 
   if (!email) {
-    return res.status(400).json({ error: 'O campo "email" Ã© obrigatÃ³rio no webhook.' });
+    return res.status(400).json({ error: 'O campo "email" é obrigatório no webhook.' });
   }
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Check if the event is a conversion/matriculado
-      if (eventType === 'converted' || eventType === 'matriculado' || (eventType === 'opportunity_status_changed' && req.body.opportunityStatus === 'won')) {
-        const existingReferrals = await tx.referral.findMany({
+    // 1. Check if event is conversion/matriculado
+    if (eventType === 'converted' || eventType === 'matriculado' || (eventType === 'opportunity_status_changed' && req.body.opportunityStatus === 'won')) {
+      const existingReferrals = await prisma.referral.findMany({
+        where: {
+          lead: { email: email.trim().toLowerCase() },
+          status: 'pending',
+        },
+      });
+
+      if (existingReferrals.length > 0) {
+        const updated = await Promise.all(
+          existingReferrals.map((r) => processReferralConversion(r.id))
+        );
+        return res.json({ success: true, message: 'Referral(s) convertido(s) com recompensa PIX calculada.', updatedCount: updated.length });
+      }
+      return res.json({ success: true, message: 'Nenhuma indicação pendente encontrada para este e-mail.' });
+    }
+
+    // 2. Check if referralCode is present
+    if (referralCodeStr) {
+      const refCode = await prisma.referralCode.findUnique({
+        where: { code: referralCodeStr.trim().toUpperCase() },
+      });
+
+      if (refCode) {
+        let course = null;
+        if (courseSlug) {
+          course = await prisma.course.findUnique({ where: { slug: courseSlug } });
+        }
+
+        let lead = await prisma.lead.findFirst({
+          where: { email: email.trim().toLowerCase() },
+        });
+
+        if (!lead) {
+          lead = await prisma.lead.create({
+            data: {
+              name,
+              email: email.trim().toLowerCase(),
+              phone,
+              courseId: course?.id,
+              referralCode: refCode.code,
+              source: 'leadconnector_webhook',
+              status: 'novo',
+            },
+          });
+        }
+
+        const existingReferral = await prisma.referral.findFirst({
           where: {
-            lead: { email: email.trim().toLowerCase() },
-            status: 'pending'
-          }
+            referralCodeId: refCode.id,
+            leadId: lead.id,
+          },
         });
 
-        if (existingReferrals.length > 0) {
-          const updated = await Promise.all(
-            existingReferrals.map(r => 
-              tx.referral.update({
-                where: { id: r.id },
-                data: { status: 'converted', convertedAt: new Date() }
-              })
-            )
-          );
-          return { message: 'Referral(s) atualizado(s) para convertido.', updatedCount: updated.length };
-        }
-        return { message: 'Nenhuma indicaÃ§Ã£o pendente encontrada para este e-mail.' };
-      }
-
-      // 2. Check if a referralCode is present (to create a pending referral)
-      if (referralCodeStr) {
-        const refCode = await tx.referralCode.findUnique({
-          where: { code: referralCodeStr.trim().toUpperCase() }
-        });
-
-        if (refCode) {
-          let course = null;
-          if (courseSlug) {
-            course = await tx.course.findUnique({ where: { slug: courseSlug } });
-          }
-
-          let lead = await tx.lead.findFirst({
-            where: { email: email.trim().toLowerCase() }
-          });
-
-          if (!lead) {
-            lead = await tx.lead.create({
-              data: {
-                name,
-                email: email.trim().toLowerCase(),
-                phone,
-                courseId: course?.id,
-                referralCode: refCode.code,
-                source: 'leadconnector_webhook',
-                status: 'novo'
-              }
-            });
-          }
-
-          const existingReferral = await tx.referral.findFirst({
-            where: {
+        if (!existingReferral) {
+          await prisma.referral.create({
+            data: {
               referralCodeId: refCode.id,
-              leadId: lead.id
-            }
+              leadId: lead.id,
+              status: 'pending',
+              pixStatus: 'pending',
+              discountApplied: 0,
+            },
           });
-
-          if (!existingReferral) {
-            await tx.referral.create({
-              data: {
-                referralCodeId: refCode.id,
-                leadId: lead.id,
-                status: 'pending',
-                discountApplied: 0
-              }
-            });
-            return { message: 'IndicaÃ§Ã£o criada com sucesso (pendente).', leadId: lead.id };
-          }
-          return { message: 'IndicaÃ§Ã£o jÃ¡ existia para este lead e cÃ³digo.' };
+          return res.json({ success: true, message: 'Indicação registrada (pendente).', leadId: lead.id });
         }
-        return { message: 'CÃ³digo de indicaÃ§Ã£o fornecido nÃ£o Ã© vÃ¡lido.' };
+        return res.json({ success: true, message: 'Indicação já existia para este lead e código.' });
       }
+      return res.status(400).json({ error: 'Código de indicação fornecido é inválido.' });
+    }
 
-      return { message: 'Webhook recebido, mas nenhuma aÃ§Ã£o realizada (sem cÃ³digo de indicaÃ§Ã£o ou status de conversÃ£o).' };
-    });
-
-    res.json({ success: true, ...result });
+    res.json({ success: true, message: 'Webhook recebido sem ação necessária.' });
   } catch (error) {
     console.error('[Webhook:LeadConnector] Erro ao processar:', error);
     res.status(500).json({ error: 'Erro interno ao processar o webhook.' });
@@ -2170,121 +2487,36 @@ app.post('/api/webhooks/leadconnector', async (req, res) => {
 });
 
 app.get('/api/admin/referral-settings', authMiddleware, async (_req, res) => {
-  const settings = await withDatabase(() => prisma.referralSettings.findFirst(), {
-    id: 'local', isActive: true, discountType: 'percent', discountValue: 10,
-    maxDiscountPercent: 50, isCumulative: true, autoApprove: false,
-    eligibleCourseTypes: ['pos_presencial', 'pos_online'], linkExpiryDays: null, updatedAt: new Date(),
+  const settings = await withDatabase(async () => {
+    let s = await prisma.referralSettings.findFirst();
+    if (!s) {
+      s = await prisma.referralSettings.create({
+        data: {
+          rewardType: 'pix',
+          pixRewardByCategory: DEFAULT_PIX_BY_CATEGORY,
+          monthlyPixCap: 1000,
+          eligibleCourseTypes: ALL_ECOSYSTEM_TYPES,
+        },
+      });
+    }
+    return s;
+  }, {
+    id: 'local',
+    isActive: true,
+    rewardType: 'pix',
+    pixRewardByCategory: DEFAULT_PIX_BY_CATEGORY,
+    monthlyPixCap: 1000,
+    eligibleCourseTypes: ALL_ECOSYSTEM_TYPES,
   } as any);
+
   res.json({ data: settings });
-
-// -----------------------------------------------------------------------------
-// -- Admin Users CRUD (Admins only) -------------------------------------------
-// -----------------------------------------------------------------------------
-
-app.get('/api/admin/users', authMiddleware, adminOnlyMiddleware, async (req, res) => {
-  const users = await withDatabase(async () => {
-    return prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        cpf: true,
-        role: true,
-        createdAt: true,
-      },
-      orderBy: { name: 'asc' },
-    });
-  }, []);
-  res.json({ data: users });
-});
-
-app.post('/api/admin/users', authMiddleware, adminOnlyMiddleware, async (req, res) => {
-  const { name, email, phone, cpf, role, password } = req.body;
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
-  }
-  const emailExists = await prisma.user.findUnique({ where: { email } });
-  if (emailExists) {
-    return res.status(400).json({ error: 'Este e-mail já está cadastrado.' });
-  }
-  if (cpf) {
-    const cpfExists = await prisma.user.findUnique({ where: { cpf } });
-    if (cpfExists) {
-      return res.status(400).json({ error: 'Este CPF já está cadastrado.' });
-    }
-  }
-  const passwordHash = await bcrypt.hash(password, 10);
-  const user = await withDatabase(async () => {
-    return prisma.user.create({
-      data: {
-        name,
-        email,
-        phone,
-        cpf: cpf || null,
-        role: role || 'editor',
-        passwordHash,
-      }
-    });
-  }, null);
-  if (!user) return res.status(503).json({ error: 'Erro ao criar usuário.' });
-  res.status(201).json({ data: { id: user.id, name: user.name, email: user.email, role: user.role } });
-});
-
-app.put('/api/admin/users/:id', authMiddleware, adminOnlyMiddleware, async (req, res) => {
-  const { name, email, phone, cpf, role, password } = req.body;
-  const userId = req.params.id;
-
-  const existingUser = await prisma.user.findUnique({ where: { id: userId } });
-  if (!existingUser) {
-    return res.status(404).json({ error: 'Usuário não encontrado.' });
-  }
-
-  if (email && email !== existingUser.email) {
-    const emailExists = await prisma.user.findUnique({ where: { email } });
-    if (emailExists) {
-      return res.status(400).json({ error: 'Este e-mail já está em uso.' });
-    }
-  }
-
-  const updateData: any = {
-    name,
-    email,
-    phone,
-    cpf: cpf || null,
-    role,
-  };
-
-  if (password) {
-    updateData.passwordHash = await bcrypt.hash(password, 10);
-  }
-
-  const user = await withDatabase(async () => {
-    return prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-    });
-  }, null);
-
-  if (!user) return res.status(503).json({ error: 'Erro ao atualizar usuário.' });
-  res.json({ data: { id: user.id, name: user.name, email: user.email, role: user.role } });
-});
-
-app.delete('/api/admin/users/:id', authMiddleware, adminOnlyMiddleware, async (req, res) => {
-  const userId = req.params.id;
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) {
-    return res.status(404).json({ error: 'Usuário não encontrado.' });
-  }
-  await withDatabase(async () => {
-    return prisma.user.delete({ where: { id: userId } });
-  }, null);
-  res.json({ message: 'Usuário excluído com sucesso.' });
-});
 });
 
 const referralSettingsSchema = z.object({
   isActive: z.boolean().optional(),
+  rewardType: z.enum(['pix', 'desconto']).optional(),
+  pixRewardByCategory: z.record(z.string(), z.number().min(0)).optional(),
+  monthlyPixCap: z.number().min(0).optional(),
   discountType: z.enum(['percent', 'fixed']).optional(),
   discountValue: z.number().min(0).optional(),
   maxDiscountPercent: z.number().min(0).max(100).optional(),
@@ -2296,50 +2528,123 @@ const referralSettingsSchema = z.object({
 
 app.put('/api/admin/referral-settings', authMiddleware, async (req, res) => {
   const parsed = referralSettingsSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Dados invÃ¡lidos.' });
+  if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos.' });
+
   const settings = await withDatabase(async () => {
     const existing = await prisma.referralSettings.findFirst();
-    if (existing) return prisma.referralSettings.update({ where: { id: existing.id }, data: parsed.data });
+    if (existing) {
+      return prisma.referralSettings.update({
+        where: { id: existing.id },
+        data: parsed.data,
+      });
+    }
     return prisma.referralSettings.create({
-      data: { eligibleCourseTypes: ['pos_presencial', 'pos_online'], ...parsed.data },
+      data: {
+        rewardType: 'pix',
+        pixRewardByCategory: DEFAULT_PIX_BY_CATEGORY,
+        monthlyPixCap: 1000,
+        eligibleCourseTypes: ALL_ECOSYSTEM_TYPES,
+        ...parsed.data,
+      },
     });
   }, null);
+
   res.json({ data: settings });
 });
 
 app.get('/api/admin/referrals', authMiddleware, async (_req, res) => {
-  // Clean up any orphaned referrals (where the lead was deleted)
   await withDatabase(() => prisma.referral.deleteMany({ where: { leadId: null } }), null);
 
   const referrals = await withDatabase(
     () => prisma.referral.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        referralCode: { include: { student: { select: { name: true, email: true } } } },
-        lead: { select: { name: true, email: true, phone: true } },
+        referralCode: {
+          include: { student: { select: { name: true, email: true, phone: true } } },
+        },
+        lead: {
+          include: { course: { select: { title: true, type: true } } },
+        },
       },
     }),
     [],
   );
+
   res.json({ data: referrals });
 });
 
+// Admin approves conversion & calculates Pix status
 app.put('/api/admin/referrals/:id/approve', authMiddleware, async (req, res) => {
+  const result = await processReferralConversion(req.params.id).catch(() => null);
+  if (!result) return res.status(404).json({ error: 'Indicação não encontrada.' });
+  res.json({ data: result });
+});
+
+// Admin confirms manual PIX payment
+app.put('/api/admin/referrals/:id/pay-pix', authMiddleware, async (req, res) => {
+  const { paymentProof } = req.body;
+
   const result = await withDatabase(async () => {
     const referral = await prisma.referral.findUnique({ where: { id: req.params.id } });
     if (!referral) return null;
 
-    // Apenas marca como convertido e aplica algum desconto padrÃ£o (se configurado de forma fixa, ou por tier)
-    // Para simplificar, o sistema de turmas calcula dinamicamente baseado no total,
-    // mas guardamos o registro da conversÃ£o.
     return prisma.referral.update({
       where: { id: req.params.id },
-      data: { status: 'converted', convertedAt: new Date() },
+      data: {
+        pixStatus: 'paid',
+        pixPaidAt: new Date(),
+        pixPaymentProof: paymentProof || 'Pagamento confirmado manualmente pelo admin',
+      },
     });
   }, null);
 
-  if (!result) return res.status(404).json({ error: 'IndicaÃ§Ã£o nÃ£o encontrada.' });
+  if (!result) return res.status(404).json({ error: 'Indicação não encontrada.' });
+
+  notifyReferralStatusPaid(req.params.id).catch(() => {});
+
   res.json({ data: result });
+});
+
+// Routine to re-evaluate capped referrals at month start
+app.post('/api/admin/referrals/reevaluate-capped', authMiddleware, async (_req, res) => {
+  const result = await withDatabase(async () => {
+    let settings = await prisma.referralSettings.findFirst();
+    const monthlyCap = Number(settings?.monthlyPixCap ?? 1000);
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const cappedReferrals = await prisma.referral.findMany({
+      where: { pixStatus: 'capped' },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    let promotedCount = 0;
+    for (const ref of cappedReferrals) {
+      const currentMonthRefs = await prisma.referral.findMany({
+        where: {
+          referralCodeId: ref.referralCodeId,
+          pixStatus: { in: ['approved', 'paid'] },
+          convertedAt: { gte: startOfMonth },
+        },
+      });
+
+      const currentSum = currentMonthRefs.reduce((acc, r) => acc + Number(r.pixRewardValue), 0);
+      const val = Number(ref.pixRewardValue);
+
+      if (currentSum + val <= monthlyCap) {
+        await prisma.referral.update({
+          where: { id: ref.id },
+          data: { pixStatus: 'approved', convertedAt: now },
+        });
+        promotedCount++;
+        notifyReferralStatusApproved(ref.id).catch(() => {});
+      }
+    }
+
+    return promotedCount;
+  }, 0);
+
+  res.json({ success: true, promotedCount: result });
 });
 
 app.get('/api/admin/referral-codes', authMiddleware, async (_req, res) => {

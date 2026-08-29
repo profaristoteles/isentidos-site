@@ -1430,7 +1430,13 @@ function IndiqueEGanhePage() {
   const [logged, setLogged] = useState(false);
   const [myCode, setMyCode] = useState('');
   const [studentName, setStudentName] = useState('');
+  const [studentEmail, setStudentEmail] = useState('');
+  const [pixKey, setPixKey] = useState('');
+  const [pixKeyType, setPixKeyType] = useState('cpf');
+  const [pixSaved, setPixSaved] = useState(false);
   const [referrals, setReferrals] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState({ totalEarned: 0, pendingPix: 0, cappedPix: 0, totalConversions: 0 });
+  const [monthlyCap, setMonthlyCap] = useState(1000);
   const [sending, setSending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'register' | 'login'>('register');
@@ -1450,8 +1456,13 @@ function IndiqueEGanhePage() {
       .then(res => {
         if (res.data) {
           setMyCode(res.data.code);
-          setStudentName(res.data.studentName);
-          setReferrals(res.data.referrals);
+          setStudentName(res.data.studentName || '');
+          setStudentEmail(res.data.studentEmail || '');
+          setPixKey(res.data.pixKey || '');
+          setPixKeyType(res.data.pixKeyType || 'cpf');
+          setMonthlyCap(res.data.monthlyPixCap || 1000);
+          setMetrics(res.data.metrics || { totalEarned: 0, pendingPix: 0, cappedPix: 0, totalConversions: 0 });
+          setReferrals(res.data.referrals || []);
           setLogged(true);
         }
       })
@@ -1473,6 +1484,8 @@ function IndiqueEGanhePage() {
           email: String(form.get('email')),
           phone: String(form.get('phone')),
           cpf: String(form.get('cpf')),
+          pixKey: String(form.get('pixKey') || ''),
+          pixKeyType: String(form.get('pixKeyType') || 'cpf'),
           consentLgpd: true
         })
       });
@@ -1481,7 +1494,6 @@ function IndiqueEGanhePage() {
         setMyCode(data.code);
         localStorage.setItem('isentidos_referral_code', data.code);
         
-        // fetch me
         const meRes = await fetch('/api/referrals/me', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1490,7 +1502,12 @@ function IndiqueEGanhePage() {
         if (meRes.ok) {
           const meData = await meRes.json();
           setStudentName(meData.data.studentName);
-          setReferrals(meData.data.referrals);
+          setStudentEmail(meData.data.studentEmail || '');
+          setPixKey(meData.data.pixKey || '');
+          setPixKeyType(meData.data.pixKeyType || 'cpf');
+          setMonthlyCap(meData.data.monthlyPixCap || 1000);
+          setMetrics(meData.data.metrics || { totalEarned: 0, pendingPix: 0, cappedPix: 0, totalConversions: 0 });
+          setReferrals(meData.data.referrals || []);
         } else {
           setStudentName(String(form.get('name')));
         }
@@ -1526,7 +1543,12 @@ function IndiqueEGanhePage() {
         const { data } = await res.json();
         setMyCode(data.code);
         setStudentName(data.studentName);
-        setReferrals(data.referrals);
+        setStudentEmail(data.studentEmail || '');
+        setPixKey(data.pixKey || '');
+        setPixKeyType(data.pixKeyType || 'cpf');
+        setMonthlyCap(data.monthlyPixCap || 1000);
+        setMetrics(data.metrics || { totalEarned: 0, pendingPix: 0, cappedPix: 0, totalConversions: 0 });
+        setReferrals(data.referrals || []);
         localStorage.setItem('isentidos_referral_code', data.code);
         setLogged(true);
       } else {
@@ -1536,6 +1558,23 @@ function IndiqueEGanhePage() {
     } catch {
       setLoginError('Erro de conexão ao tentar acessar.');
     }
+    setSending(false);
+  }
+
+  async function handleSavePixKey(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSending(true);
+    try {
+      const res = await fetch('/api/referrals/update-pix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: myCode, pixKey, pixKeyType })
+      });
+      if (res.ok) {
+        setPixSaved(true);
+        setTimeout(() => setPixSaved(false), 3000);
+      }
+    } catch { /* silently ignore */ }
     setSending(false);
   }
 
@@ -1556,80 +1595,130 @@ function IndiqueEGanhePage() {
   }
 
   if (logged) {
-    const converted = referrals.filter(r => r.status === 'converted').length;
-    const totalDiscount = referrals.reduce((sum, r) => sum + r.discountApplied, 0);
-
     return (
       <div className="min-h-screen bg-slate-50">
         <header className="bg-navy px-4 py-5 text-white shadow-md">
-          <div className="mx-auto flex max-w-4xl items-center justify-between">
+          <div className="mx-auto flex max-w-5xl items-center justify-between">
             <a href="/">
               <img src={SITE_LOGO} alt="Instituto Sentidos" className="h-10 w-auto object-contain" />
             </a>
             <div className="flex items-center gap-4">
-              <span className="hidden sm:inline-block text-sm font-semibold text-white/80">Painel do Indicador</span>
+              <span className="hidden sm:inline-block text-sm font-semibold text-white/80">Painel do Indicador — PIX</span>
               <button onClick={handleLogout} className="rounded-xl bg-white/10 px-4 py-2 text-xs font-bold hover:bg-white/20 transition duration-200 border border-white/10">Sair do Painel</button>
             </div>
           </div>
         </header>
         
-        <main className="mx-auto max-w-4xl px-4 py-10">
+        <main className="mx-auto max-w-5xl px-4 py-10">
           <div className="rounded-3xl bg-navy text-white p-8 md:p-10 shadow-2xl relative overflow-hidden mb-10">
             <div className="absolute -right-10 -top-10 w-40 h-40 bg-orange-primary/10 rounded-full blur-2xl pointer-events-none"></div>
             <div className="relative z-10">
-              <span className="inline-block rounded-full bg-orange-primary/20 text-orange-primary text-xs font-bold px-3 py-1 mb-4 uppercase tracking-wider">Programa Embaixador</span>
+              <span className="inline-block rounded-full bg-orange-primary/20 text-orange-primary text-xs font-bold px-3 py-1 mb-4 uppercase tracking-wider">Programa Indique e Ganhe no PIX</span>
               <h1 className="font-display text-3xl md:text-4xl font-bold">Olá, {studentName.split(' ')[0]}!</h1>
-              <p className="mt-2 text-slate-300 max-w-xl">Acompanhe em tempo real suas indicações, os alunos matriculados e o desconto acumulado nas suas próximas mensalidades.</p>
+              <p className="mt-2 text-slate-300 max-w-2xl">Ganhe dinheirinho no seu PIX a cada amigo que se matricular em qualquer curso do nosso ecossistema (Cursos Livres, Preparatórios ISP, Pós-Graduação ou Supletivo EJA).</p>
             </div>
           </div>
           
-          <div className="grid gap-8 md:grid-cols-2">
-            <div className="rounded-3xl border border-slate-200/60 bg-white p-6 md:p-8 shadow-soft flex flex-col justify-between">
-              <div>
-                <h3 className="font-display text-lg font-bold text-navy mb-1">Seu Link de Indicação</h3>
-                <p className="text-sm text-slate-500 mb-4">Compartilhe este link com amigos. Quando eles se matricularem, seu desconto será computado automaticamente!</p>
-                <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-4 font-mono text-sm text-navy shadow-inner border border-slate-200 select-all overflow-x-auto whitespace-nowrap">
+          <div className="grid gap-8 md:grid-cols-12 mb-10">
+            {/* Link & PIX Key Column */}
+            <div className="md:col-span-6 space-y-6">
+              <div className="rounded-3xl border border-slate-200/60 bg-white p-6 md:p-8 shadow-soft">
+                <h3 className="font-display text-lg font-bold text-navy mb-1">Seu Link Exclusivo de Indicação</h3>
+                <p className="text-sm text-slate-500 mb-4">Compartilhe este link. Quando um amigo se matricular, a recompensa em PIX é computada para você!</p>
+                <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-4 font-mono text-sm text-navy shadow-inner border border-slate-200 select-all overflow-x-auto whitespace-nowrap mb-6">
                   {`${window.location.origin}/indicacao/${myCode}`}
                 </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button onClick={copyLink} className={`flex flex-1 items-center justify-center gap-2 rounded-2xl px-5 py-4 font-bold transition duration-200 shadow-md ${copied ? 'bg-green-600 text-white shadow-green-500/20' : 'bg-orange-primary text-white hover:bg-orange-600 hover:-translate-y-0.5 shadow-orange-primary/20'}`}>
+                    <Copy className="h-5 w-5" /> {copied ? 'Link Copiado!' : 'Copiar Link'}
+                  </button>
+                  <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Estude no Instituto Sentidos! Faça sua matrícula através da minha indicação: ${window.location.origin}/indicacao/${myCode}`)}`)} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-4 font-bold text-white transition duration-200 hover:bg-green-700 hover:-translate-y-0.5 shadow-md shadow-green-500/20">
+                    <MessageCircle className="h-5 w-5" /> WhatsApp
+                  </button>
+                </div>
               </div>
-              <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                <button onClick={copyLink} className={`flex flex-1 items-center justify-center gap-2 rounded-2xl px-5 py-4 font-bold transition duration-200 shadow-md ${copied ? 'bg-green-600 text-white shadow-green-500/20' : 'bg-orange-primary text-white hover:bg-orange-600 hover:-translate-y-0.5 shadow-orange-primary/20'}`}>
-                  <Copy className="h-5 w-5" /> {copied ? 'Link Copiado!' : 'Copiar Link'}
-                </button>
-                <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Acelere sua carreira! Faça sua pós-graduação no Instituto Sentidos. Inscreva-se usando minha indicação: ${window.location.origin}/indicacao/${myCode}`)}`)} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-4 font-bold text-white transition duration-200 hover:bg-green-700 hover:-translate-y-0.5 shadow-md shadow-green-500/20">
-                  <MessageCircle className="h-5 w-5" /> WhatsApp
-                </button>
+
+              {/* Chave PIX Card */}
+              <div className="rounded-3xl border border-slate-200/60 bg-white p-6 md:p-8 shadow-soft">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-display text-lg font-bold text-navy">Sua Chave PIX para Recebimento</h3>
+                  <Sparkles className="h-5 w-5 text-orange-primary" />
+                </div>
+                <p className="text-sm text-slate-500 mb-4">Informe sua chave PIX para que o Instituto Sentidos possa realizar o pagamento das suas comissões.</p>
+
+                {pixSaved && <p className="mb-4 rounded-xl bg-green-50 p-3 text-xs font-bold text-green-700 border border-green-200">Chave PIX atualizada com sucesso!</p>}
+
+                <form onSubmit={handleSavePixKey} className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <label className="col-span-1 block">
+                      <span className="text-xs font-bold text-navy">Tipo</span>
+                      <select value={pixKeyType} onChange={(e) => setPixKeyType(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-navy outline-none focus:ring-2 focus:ring-orange-primary/20">
+                        <option value="cpf">CPF</option>
+                        <option value="email">E-mail</option>
+                        <option value="phone">Telefone</option>
+                        <option value="random">Chave Aleatória</option>
+                      </select>
+                    </label>
+                    <label className="col-span-2 block">
+                      <span className="text-xs font-bold text-navy">Chave PIX</span>
+                      <input type="text" value={pixKey} onChange={(e) => setPixKey(e.target.value)} placeholder="Digite sua chave PIX" required className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium text-navy outline-none focus:ring-2 focus:ring-orange-primary/20" />
+                    </label>
+                  </div>
+                  <button disabled={sending} className="w-full rounded-xl bg-navy px-4 py-3 text-xs font-bold text-white transition hover:bg-slate-800">
+                    {sending ? 'Salvando...' : 'Salvar Chave PIX'}
+                  </button>
+                </form>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-3xl border border-slate-200/60 bg-white p-6 shadow-soft flex flex-col justify-center">
-                <p className="font-display text-4xl font-extrabold text-navy">{referrals.length}</p>
-                <p className="mt-1.5 text-sm font-semibold text-slate-500">Amigos indicados</p>
-              </div>
-              <div className="rounded-3xl border border-green-100 bg-green-50/50 p-6 shadow-soft flex flex-col justify-center">
-                <p className="font-display text-4xl font-extrabold text-green-700">{converted}</p>
-                <p className="mt-1.5 text-sm font-semibold text-green-800">Matrículas realizadas</p>
-              </div>
-              <div className="col-span-2 flex items-center justify-between rounded-3xl bg-navy p-6 text-white shadow-xl relative overflow-hidden">
-                <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 w-28 h-28 bg-orange-primary/10 rounded-full blur-xl pointer-events-none"></div>
-                <div className="relative z-10">
-                  <p className="text-sm font-bold text-white/70 uppercase tracking-wider">Desconto Acumulado</p>
-                  <p className="mt-2 font-display text-4xl font-black text-orange-primary">{totalDiscount}% <span className="text-xs text-white/60 font-semibold uppercase block mt-1">aplicado nas parcelas</span></p>
+            {/* Financial Metrics Column */}
+            <div className="md:col-span-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-3xl border border-green-100 bg-green-50/60 p-6 shadow-soft">
+                  <p className="text-xs font-bold uppercase tracking-wider text-green-800 mb-1">PIX Pago</p>
+                  <p className="font-display text-3xl font-extrabold text-green-700">R$ {metrics.totalEarned.toFixed(2)}</p>
+                  <p className="mt-2 text-xs text-green-800">Valor já transferido</p>
                 </div>
-                <Gift className="h-12 w-12 text-white/20 shrink-0 relative z-10" />
+                <div className="rounded-3xl border border-orange-100 bg-orange-50/60 p-6 shadow-soft">
+                  <p className="text-xs font-bold uppercase tracking-wider text-orange-800 mb-1">PIX Liberado</p>
+                  <p className="font-display text-3xl font-extrabold text-orange-600">R$ {metrics.pendingPix.toFixed(2)}</p>
+                  <p className="mt-2 text-xs text-orange-800">Aguardando pagamento admin</p>
+                </div>
+              </div>
+
+              {metrics.cappedPix > 0 && (
+                <div className="rounded-3xl border border-purple-100 bg-purple-50/70 p-6 shadow-soft">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-purple-800 mb-1">Aguardando Próximo Mês (Teto R$ {monthlyCap})</p>
+                      <p className="font-display text-2xl font-extrabold text-purple-900">R$ {metrics.cappedPix.toFixed(2)}</p>
+                    </div>
+                    <span className="rounded-full bg-purple-200 px-3 py-1 text-xs font-bold text-purple-900">Teto Atingido</span>
+                  </div>
+                  <p className="mt-2 text-xs text-purple-700">Indicações convertidas que superaram o teto mensal de R$ {monthlyCap},00 e serão liberadas para pagamento no início do próximo mês.</p>
+                </div>
+              )}
+
+              <div className="rounded-3xl bg-navy p-6 text-white shadow-xl relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-white/70 uppercase tracking-wider">Matrículas Confirmadas</p>
+                    <p className="mt-1 font-display text-4xl font-black text-orange-primary">{metrics.totalConversions} <span className="text-xs text-white/60 font-medium uppercase">amigos matriculados</span></p>
+                  </div>
+                  <Gift className="h-10 w-10 text-white/20 shrink-0" />
+                </div>
               </div>
             </div>
           </div>
 
           <div className="mt-12">
-            <h2 className="font-display text-2xl font-bold text-navy mb-6">Status das Indicações</h2>
+            <h2 className="font-display text-2xl font-bold text-navy mb-6">Histórico de Indicações</h2>
             <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-soft">
               {referrals.length === 0 ? (
                 <div className="p-12 text-center text-slate-500">
                   <Gift className="mx-auto h-12 w-12 text-slate-300 mb-4" />
                   <p className="font-bold text-lg text-navy mb-1">Nenhum amigo indicado ainda</p>
-                  <p className="text-sm text-slate-500">Compartilhe o seu link acima para começar a acumular descontos.</p>
+                  <p className="text-sm text-slate-500">Compartilhe o seu link acima para começar a receber valores no seu PIX.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -1637,27 +1726,51 @@ function IndiqueEGanhePage() {
                     <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100">
                       <tr>
                         <th className="p-5 font-bold">Amigo Indicado</th>
-                        <th className="p-5 font-bold">Data da Indicação</th>
-                        <th className="p-5 font-bold">Status</th>
-                        <th className="p-5 font-bold text-right">Desconto Gerado</th>
+                        <th className="p-5 font-bold">Curso de Interesse</th>
+                        <th className="p-5 font-bold">Data</th>
+                        <th className="p-5 font-bold">Status do PIX</th>
+                        <th className="p-5 font-bold text-right">Valor PIX</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {referrals.map((r) => (
-                        <tr key={r.id} className="hover:bg-slate-50/50 transition">
-                          <td className="p-5 font-bold text-navy">{r.leadName}</td>
-                          <td className="p-5 text-slate-500 font-semibold">{new Date(r.createdAt).toLocaleDateString('pt-BR')}</td>
-                          <td className="p-5">
-                            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${r.status === 'converted' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                              <span className={`h-2 w-2 rounded-full ${r.status === 'converted' ? 'bg-green-500' : 'bg-orange-500'}`} />
-                              {r.status === 'converted' ? 'Matriculado' : 'Aguardando Matrícula'}
+                      {referrals.map((r) => {
+                        let statusBadge = (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                            Aguardando Matrícula
+                          </span>
+                        );
+                        if (r.pixStatus === 'paid') {
+                          statusBadge = (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> PIX Pago
                             </span>
-                          </td>
-                          <td className="p-5 text-right font-black text-navy text-base">
-                            {r.discountApplied > 0 ? `+${r.discountApplied}%` : '-'}
-                          </td>
-                        </tr>
-                      ))}
+                          );
+                        } else if (r.pixStatus === 'approved') {
+                          statusBadge = (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                              Matrícula Confirmada — PIX Liberado
+                            </span>
+                          );
+                        } else if (r.pixStatus === 'capped') {
+                          statusBadge = (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-800">
+                              Aguardando Próximo Mês (Teto)
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <tr key={r.id} className="hover:bg-slate-50/50 transition">
+                            <td className="p-5 font-bold text-navy">{r.leadName}</td>
+                            <td className="p-5 text-slate-600 text-xs font-medium">{r.courseTitle}</td>
+                            <td className="p-5 text-slate-500 text-xs font-semibold">{new Date(r.createdAt).toLocaleDateString('pt-BR')}</td>
+                            <td className="p-5">{statusBadge}</td>
+                            <td className="p-5 text-right font-black text-navy text-base">
+                              R$ {Number(r.pixRewardValue || 50).toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1686,23 +1799,23 @@ function IndiqueEGanhePage() {
       
       <main className="mx-auto max-w-5xl px-6 py-16 flex-1 w-full grid md:grid-cols-12 gap-12 items-center relative z-10">
         <div className="md:col-span-6 space-y-6 text-left">
-          <span className="inline-block rounded-full bg-orange-primary/20 text-orange-primary text-xs font-bold px-3 py-1 uppercase tracking-wider">Indique e Ganhe</span>
-          <h1 className="font-display text-4xl md:text-5xl font-black leading-tight text-white">Estude com desconto indicando seus amigos!</h1>
+          <span className="inline-block rounded-full bg-orange-primary/20 text-orange-primary text-xs font-bold px-3 py-1 uppercase tracking-wider">Programa Indique e Ganhe no PIX</span>
+          <h1 className="font-display text-4xl md:text-5xl font-black leading-tight text-white">Indique amigos e ganhe dinheiro no seu PIX!</h1>
           <p className="text-lg text-white/80 leading-relaxed">
-            Como embaixador do Instituto Sentidos, a cada amigo indicado que realizar a matrícula em qualquer curso, você garante descontos cumulativos nas parcelas do seu próprio curso. Indique e saia na frente!
+            Como embaixador do Instituto Sentidos, a cada amigo indicado que realizar a matrícula em qualquer curso do nosso ecossistema (Cursos Livres, ISP Preparatórios, Pós-Graduação ou Supletivo EJA), você recebe o valor direto no seu PIX.
           </p>
           <div className="space-y-4 pt-4">
             <div className="flex items-center gap-3 font-semibold text-white/90">
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-orange-primary/20 text-orange-primary font-bold text-sm">1</span>
-              Cadastre-se ou acesse seu painel
+              Cadastre-se e informe sua Chave PIX
             </div>
             <div className="flex items-center gap-3 font-semibold text-white/90">
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-orange-primary/20 text-orange-primary font-bold text-sm">2</span>
-              Compartilhe seu link exclusivo
+              Compartilhe seu link exclusivo com seus amigos
             </div>
             <div className="flex items-center gap-3 font-semibold text-white/90">
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-orange-primary/20 text-orange-primary font-bold text-sm">3</span>
-              Acumule descontos de até 100%
+              Receba o PIX assim que o amigo se matricular
             </div>
           </div>
         </div>
@@ -1730,22 +1843,36 @@ function IndiqueEGanhePage() {
 
             {activeTab === 'register' ? (
               <div>
-                <p className="text-sm text-slate-500 mb-6 font-semibold">Preencha os campos abaixo para gerar o seu link exclusivo de embaixador.</p>
+                <p className="text-sm text-slate-500 mb-6 font-semibold">Preencha os campos abaixo para gerar seu link exclusivo e cadastrar sua Chave PIX.</p>
                 {registerError && <p className="mb-4 rounded-xl bg-red-50 p-4 text-sm font-bold text-red-600 border border-red-100">{registerError}</p>}
                 
                 <form onSubmit={handleRegister} className="grid gap-4">
-                  <Field label="Nome completo do aluno" name="name" placeholder="Seu nome completo" required />
+                  <Field label="Nome completo" name="name" placeholder="Seu nome completo" required />
                   <Field label="CPF" name="cpf" placeholder="000.000.000-00" required />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="WhatsApp" name="phone" placeholder="(99) 99999-9999" required />
                     <Field label="E-mail" name="email" placeholder="voce@email.com" type="email" required />
                   </div>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <label className="block sm:col-span-1">
+                      <span className="text-sm font-bold text-navy">Tipo PIX</span>
+                      <select name="pixKeyType" defaultValue="cpf" className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-xs outline-none focus:ring-4 focus:ring-orange-primary/20">
+                        <option value="cpf">CPF</option>
+                        <option value="email">E-mail</option>
+                        <option value="phone">Telefone</option>
+                        <option value="random">Aleatória</option>
+                      </select>
+                    </label>
+                    <div className="sm:col-span-2">
+                      <Field label="Sua Chave PIX" name="pixKey" placeholder="Sua chave PIX para receber" required />
+                    </div>
+                  </div>
                   <label className="flex items-start gap-3 text-sm text-slate-600 mt-2 cursor-pointer">
                     <input required type="checkbox" className="mt-1 h-4 w-4 accent-orange-primary rounded border-slate-300" />
-                    <span>Confirmo que sou aluno(a) ou pré-matriculado(a) do Instituto Sentidos e aceito os termos do programa.</span>
+                    <span>Aceito os termos do Programa Indique e Ganhe no PIX do Instituto Sentidos.</span>
                   </label>
                   <button disabled={sending} className="mt-4 w-full rounded-2xl bg-orange-primary px-5 py-4 font-bold text-white transition hover:bg-orange-600 hover:-translate-y-0.5 shadow-lg shadow-orange-primary/30 disabled:opacity-60">
-                    {sending ? 'Gerando link...' : 'Criar meu Link de Indicação'}
+                    {sending ? 'Gerando link...' : 'Criar meu Link & Cadastrar PIX'}
                   </button>
                 </form>
               </div>
@@ -1971,7 +2098,21 @@ function AdminApp() {
   const [referralCodes, setReferralCodes] = useState<ReferralCode[]>([]);
   const [allReferrals, setAllReferrals] = useState<any[]>([]);
   const [referralActive, setReferralActive] = useState(true);
-  const [referralDiscount, setReferralDiscount] = useState({ type: 'percent' as 'percent' | 'fixed', value: 10 });
+  const [referralRewardType, setReferralRewardType] = useState<'pix' | 'desconto'>('pix');
+  const [pixRewardValue, setPixRewardValue] = useState(50);
+  const [monthlyPixCap, setMonthlyPixCap] = useState(1000);
+  const [pixRewardByCategory, setPixRewardByCategory] = useState<Record<string, number>>({
+    livre: 50,
+    preparatorio: 50,
+    pos_presencial: 50,
+    pos_online: 50,
+    mestrado_ead: 50,
+    doutorado_ead: 50,
+    supletivo_eja: 50,
+  });
+  const [eligibleCourseTypes, setEligibleCourseTypes] = useState<string[]>([
+    'livre', 'preparatorio', 'pos_presencial', 'pos_online', 'mestrado_ead', 'doutorado_ead', 'supletivo_eja'
+  ]);
 
   // Turmas state
   interface TurmaAdmin { id: string; title: string; slug: string; minStudents: number; enrollmentCount: number; tiers: TierData[]; }
@@ -2229,16 +2370,36 @@ function AdminApp() {
       })));
       if (ar?.data?.length) {
         setAllReferrals(ar.data.map((r: any) => ({
-          id: r.id, leadName: r.lead?.name || 'Anônimo', leadEmail: r.lead?.email || '',
+          id: r.id,
+          leadName: r.lead?.name || 'Anônimo',
+          leadEmail: r.lead?.email || '',
+          leadPhone: r.lead?.phone || '',
+          courseTitle: r.lead?.course?.title || 'Curso Instituto Sentidos',
+          courseType: r.lead?.course?.type || 'Geral',
           studentName: r.referralCode?.student?.name || 'Desconhecido',
           studentEmail: r.referralCode?.student?.email || '',
           code: r.referralCode?.code || '-',
-          status: r.status, createdAt: r.createdAt
+          pixKey: r.referralCode?.pixKey || null,
+          pixKeyType: r.referralCode?.pixKeyType || 'cpf',
+          status: r.status,
+          pixRewardValue: Number(r.pixRewardValue) || 50,
+          pixStatus: r.pixStatus || 'pending',
+          pixPaidAt: r.pixPaidAt,
+          pixPaymentProof: r.pixPaymentProof,
+          createdAt: r.createdAt,
         })));
       }
       if (rs.data) {
-        setReferralActive(rs.data.isActive);
-        setReferralDiscount({ type: rs.data.discountType, value: Number(rs.data.discountValue) });
+        setReferralActive(rs.data.isActive ?? true);
+        setReferralRewardType(rs.data.rewardType || 'pix');
+        setPixRewardValue(Number(rs.data.pixRewardValue) || 50);
+        setMonthlyPixCap(Number(rs.data.monthlyPixCap) || 1000);
+        if (rs.data.pixRewardByCategory) {
+          setPixRewardByCategory(rs.data.pixRewardByCategory);
+        }
+        if (rs.data.eligibleCourseTypes?.length) {
+          setEligibleCourseTypes(rs.data.eligibleCourseTypes);
+        }
       }
       if (tm.data?.length) {
         setTurmas(tm.data.map((t: any) => ({
@@ -2983,9 +3144,16 @@ function AdminApp() {
     await fetch('/api/admin/referral-settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ isActive: referralActive, discountType: referralDiscount.type, discountValue: referralDiscount.value }),
+      body: JSON.stringify({
+        isActive: referralActive,
+        rewardType: referralRewardType,
+        pixRewardValue,
+        pixRewardByCategory,
+        monthlyPixCap,
+        eligibleCourseTypes,
+      }),
     }).catch(() => {});
-    showNotice('Configurações de indicação salvas.');
+    showNotice('Configurações do Programa de Indicação PIX salvas com sucesso!');
   }
 
   if (!logged) {
@@ -4554,31 +4722,68 @@ function AdminApp() {
 
           {activeTab === 'referrals' && (
             <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-              <Panel title="Configurações do sistema de indicação">
+              <Panel title="Configurações do Programa Indique e Ganhe no PIX">
                 <div className="grid gap-5">
                   <div className="flex items-center justify-between rounded-lg bg-bg-light p-4">
                     <div>
-                      <p className="font-bold text-navy">Sistema de indicação</p>
-                      <p className="mt-1 text-sm text-slate-500">Permite que alunos gerem links de indicação</p>
+                      <p className="font-bold text-navy">Sistema de indicação PIX</p>
+                      <p className="mt-1 text-sm text-slate-500">Permite que indicadores gerem links e recebam valores via PIX por matrículas</p>
                     </div>
                     <button onClick={() => setReferralActive((v) => !v)} className={`relative h-6 w-12 rounded-full transition-colors ${referralActive ? 'bg-orange-primary' : 'bg-slate-300'}`}>
                       <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${referralActive ? 'left-7' : 'left-1'}`} />
                     </button>
                   </div>
+
                   <div className="grid gap-4 md:grid-cols-2">
                     <label className="block">
-                      <span className="text-sm font-bold text-navy">Tipo de desconto</span>
-                      <select value={referralDiscount.type} onChange={(e) => setReferralDiscount((d) => ({ ...d, type: e.target.value as 'percent' | 'fixed' }))} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4">
-                        <option value="percent">Porcentagem (%)</option>
-                        <option value="fixed">Valor fixo (R$)</option>
+                      <span className="text-sm font-bold text-navy">Tipo de Recompensa</span>
+                      <select value={referralRewardType} onChange={(e) => setReferralRewardType(e.target.value as any)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4 text-navy">
+                        <option value="pix">Pagamento em Dinheiro via PIX</option>
+                        <option value="desconto">Desconto em Mensalidade (Legado)</option>
                       </select>
                     </label>
                     <label className="block">
-                      <span className="text-sm font-bold text-navy">Valor do desconto {referralDiscount.type === 'percent' ? '(%)' : '(R$)'}</span>
-                      <input type="number" min={0} value={referralDiscount.value} onChange={(e) => setReferralDiscount((d) => ({ ...d, value: Number(e.target.value) }))} className="mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4" />
+                      <span className="text-sm font-bold text-navy">Teto Mensal por Indicador (R$)</span>
+                      <input type="number" min={0} value={monthlyPixCap} onChange={(e) => setMonthlyPixCap(Number(e.target.value))} className="mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4 font-bold text-navy" />
+                      <span className="mt-1 block text-xs text-slate-500">Valor máximo aprovado por mês para um mesmo indicador (padrão R$ 1.000,00). Excedente fica em status capped.</span>
                     </label>
                   </div>
-                  <button onClick={saveReferralSettings} className="rounded-lg bg-orange-primary px-5 py-3 font-bold text-white">Salvar configurações</button>
+
+                  <div className="border-t border-slate-100 pt-4">
+                    <h4 className="font-bold text-navy text-sm mb-3">Valor da Comissão PIX por Categoria de Curso (R$)</h4>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="text-xs font-semibold text-slate-600">Cursos Livres / Extensão</span>
+                        <input type="number" min={0} value={pixRewardByCategory.livre ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, livre: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-semibold text-slate-600">ISP Preparatórios (ENEM & Concursos)</span>
+                        <input type="number" min={0} value={pixRewardByCategory.preparatorio ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, preparatorio: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-semibold text-slate-600">Pós-Graduação Lato Sensu (Presencial)</span>
+                        <input type="number" min={0} value={pixRewardByCategory.pos_presencial ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, pos_presencial: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-semibold text-slate-600">Pós-Graduação Lato Sensu (Online)</span>
+                        <input type="number" min={0} value={pixRewardByCategory.pos_online ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, pos_online: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-semibold text-slate-600">Mestrado EAD (Stricto Sensu)</span>
+                        <input type="number" min={0} value={pixRewardByCategory.mestrado_ead ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, mestrado_ead: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-semibold text-slate-600">Doutorado EAD (Stricto Sensu)</span>
+                        <input type="number" min={0} value={pixRewardByCategory.doutorado_ead ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, doutorado_ead: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
+                      </label>
+                      <label className="block sm:col-span-2">
+                        <span className="text-xs font-semibold text-slate-600">Supletivo EJA (Ensino Fundamental e Médio)</span>
+                        <input type="number" min={0} value={pixRewardByCategory.supletivo_eja ?? 50} onChange={(e) => setPixRewardByCategory(prev => ({ ...prev, supletivo_eja: Number(e.target.value) }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none text-navy font-bold" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <button onClick={saveReferralSettings} className="rounded-lg bg-orange-primary px-5 py-3 font-bold text-white shadow-md shadow-orange-primary/20">Salvar Configurações de Indicação PIX</button>
                 </div>
               </Panel>
 
@@ -4593,150 +4798,189 @@ function AdminApp() {
               </Panel>
 
               <div className="xl:col-span-2">
-                <Panel title="Códigos de indicação gerados">
-                  {referralCodes.length === 0 ? (
-                    <p className="rounded-lg bg-bg-light p-6 text-center text-sm text-slate-500">Nenhum código gerado ainda. Use o formulário acima para criar o primeiro.</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full min-w-[640px] text-left text-sm">
-                        <thead className="bg-bg-light text-xs uppercase text-slate-500">
-                          <tr>
-                            <th className="p-3">Aluno</th>
-                            <th className="p-3">Código</th>
-                            <th className="p-3">Link de indicação</th>
-                            <th className="p-3">Conversões</th>
-                            <th className="p-3">Status</th>
-                            <th className="p-3 text-right">Ação</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {referralCodes.map((rc) => (
-                            <tr key={rc.id} className="border-b border-slate-100">
-                              <td className="p-3">
-                                <strong className="block text-navy">{rc.studentName}</strong>
-                                <span className="text-slate-500">{rc.studentEmail}</span>
-                              </td>
-                              <td className="p-3 font-mono font-bold text-orange-primary">{rc.code}</td>
-                              <td className="p-3">
-                                <button
-                                  onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/indicacao/${rc.code}`); showNotice('Link copiado!'); }}
-                                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-navy transition hover:border-orange-primary hover:text-orange-primary"
-                                >
-                                  <Copy className="h-3.5 w-3.5" />
-                                  Copiar link
-                                </button>
-                              </td>
-                              <td className="p-3 text-center font-bold text-navy">{rc.conversions}</td>
-                              <td className="p-3">
-                                <span className={`rounded-full px-3 py-1 text-xs font-bold ${rc.isActive ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                                  {rc.isActive ? 'Ativo' : 'Inativo'}
-                                </span>
-                              </td>
-                              <td className="p-3 text-right">
-                                <button
-                                  onClick={async () => {
-                                    if (!window.confirm(`Tem certeza que deseja excluir o código ${rc.code}?`)) return;
-                                    if (!token) { showNotice('Apenas modo local ativo.'); return; }
-                                    try {
-                                      const res = await fetch(`/api/admin/referral-codes/${rc.id}`, {
-                                        method: 'DELETE',
-                                        headers: { Authorization: `Bearer ${token}` }
-                                      });
-                                      if (res.ok) {
-                                        setReferralCodes(prev => prev.filter(x => x.id !== rc.id));
-                                        showNotice('Código de indicação excluído com sucesso!');
-                                      } else {
-                                        showNotice('Erro ao excluir código.');
-                                      }
-                                    } catch { showNotice('Erro ao excluir código.'); }
-                                  }}
-                                  className="text-red-500 hover:text-red-700 transition"
-                                  title="Excluir código"
-                                >
-                                  <Trash2 className="h-5 w-5 inline" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </Panel>
+                <Panel title="Gestão de Indicações & Pagamentos PIX">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                    <p className="text-xs text-slate-500 font-medium">Aprovação de matrículas, cálculo de comissões e confirmação manual de pagamentos PIX.</p>
+                    <button
+                      onClick={async () => {
+                        if (!token) { showNotice('Modo local ativo.'); return; }
+                        try {
+                          const res = await fetch('/api/admin/referrals/reevaluate-capped', {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${token}` }
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            showNotice(`Reavaliação concluída! ${data.promotedCount} indicação(ões) promovidas a Aprovadas.`);
+                            // Refresh referrals
+                            const refRes = await fetch('/api/admin/referrals', { headers: { Authorization: `Bearer ${token}` } });
+                            if (refRes.ok) {
+                              const refData = await refRes.json();
+                              if (refData.data) {
+                                setAllReferrals(refData.data.map((r: any) => ({
+                                  id: r.id, leadName: r.lead?.name || 'Anônimo', leadEmail: r.lead?.email || '', leadPhone: r.lead?.phone || '',
+                                  courseTitle: r.lead?.course?.title || 'Curso Instituto Sentidos', courseType: r.lead?.course?.type || 'Geral',
+                                  studentName: r.referralCode?.student?.name || 'Desconhecido', studentEmail: r.referralCode?.student?.email || '',
+                                  code: r.referralCode?.code || '-', pixKey: r.referralCode?.pixKey || null, pixKeyType: r.referralCode?.pixKeyType || 'cpf',
+                                  status: r.status, pixRewardValue: Number(r.pixRewardValue) || 50, pixStatus: r.pixStatus || 'pending',
+                                  pixPaidAt: r.pixPaidAt, pixPaymentProof: r.pixPaymentProof, createdAt: r.createdAt
+                                })));
+                              }
+                            }
+                          }
+                        } catch { showNotice('Erro ao reavaliar indicações.'); }
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-700 transition"
+                    >
+                      <Sparkles className="h-4 w-4" /> Reavaliar Teto de Início de Mês (Capped)
+                    </button>
+                  </div>
 
-                <Panel title="Aprovações de Indicações (Leads Convertidos)">
                   {allReferrals.length === 0 ? (
                     <p className="rounded-lg bg-bg-light p-6 text-center text-sm text-slate-500">Nenhuma indicação registrada.</p>
                   ) : (
                     <div className="overflow-x-auto mt-4">
-                      <table className="w-full min-w-[760px] text-left text-sm">
+                      <table className="w-full min-w-[850px] text-left text-sm">
                         <thead className="bg-bg-light text-xs uppercase text-slate-500">
                           <tr>
-                            <th className="p-3">Indicado (Lead)</th>
-                            <th className="p-3">Embaixador (Aluno)</th>
-                            <th className="p-3">Status</th>
-                            <th className="p-3">Ação</th>
+                            <th className="p-3">Indicado (Lead) & Curso</th>
+                            <th className="p-3">Embaixador & Chave PIX</th>
+                            <th className="p-3">Valor PIX</th>
+                            <th className="p-3">Status do PIX</th>
+                            <th className="p-3 text-right">Ação</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {allReferrals.map((r) => (
-                            <tr key={r.id} className="border-b border-slate-100">
-                              <td className="p-3">
-                                <strong className="block text-navy">{r.leadName}</strong>
-                                <span className="text-slate-500">{r.leadEmail}</span>
-                              </td>
-                              <td className="p-3">
-                                <strong className="block text-navy">{r.studentName}</strong>
-                                <span className="text-slate-500 text-xs">Código: {r.code}</span>
-                              </td>
-                              <td className="p-3">
-                                <span className={`rounded-full px-3 py-1 text-xs font-bold ${r.status === 'converted' ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>
-                                  {r.status === 'converted' ? 'Matriculado' : 'Pendente'}
+                          {allReferrals.map((r) => {
+                            let badge = (
+                              <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 border border-amber-200">
+                                Pendente (Aguardando Matrícula)
+                              </span>
+                            );
+                            if (r.pixStatus === 'paid') {
+                              badge = (
+                                <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700 border border-green-200">
+                                  PIX Pago
                                 </span>
-                              </td>
-                              <td className="p-3 flex items-center gap-2">
-                                {r.status === 'pending' && (
-                                  <button
-                                    onClick={async () => {
-                                      if(!token) { showNotice('Apenas modo local ativo.'); return; }
-                                      try {
-                                        await fetch(`/api/admin/referrals/${r.id}/approve`, {
-                                          method: 'PUT', headers: { Authorization: `Bearer ${token}` }
-                                        });
-                                        setAllReferrals(prev => prev.map(x => x.id === r.id ? { ...x, status: 'converted' } : x));
-                                        showNotice('Indicação aprovada e desconto concedido!');
-                                      } catch { showNotice('Erro ao aprovar indicação.'); }
-                                    }}
-                                    className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 whitespace-nowrap"
-                                  >
-                                    Aprovar Matrícula
-                                  </button>
-                                )}
-                                <button
-                                  onClick={async () => {
-                                    if (!window.confirm('Tem certeza que deseja excluir esta indicação?')) return;
-                                    if(!token) { showNotice('Apenas modo local ativo.'); return; }
-                                    try {
-                                      const res = await fetch(`/api/admin/referrals/${r.id}`, {
-                                        method: 'DELETE',
-                                        headers: { Authorization: `Bearer ${token}` }
-                                      });
-                                      if (res.ok) {
-                                        setAllReferrals(prev => prev.filter(x => x.id !== r.id));
-                                        showNotice('Indicação excluída com sucesso!');
-                                      } else {
-                                        showNotice('Erro ao excluir indicação.');
-                                      }
-                                    } catch { showNotice('Erro ao excluir indicação.'); }
-                                  }}
-                                  className="rounded-lg border border-red-200 p-1.5 text-red-500 transition hover:border-red-500 hover:bg-red-50 animate-fade-in"
-                                  title="Excluir indicação"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                              );
+                            } else if (r.pixStatus === 'approved') {
+                              badge = (
+                                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
+                                  Matrícula Confirmada (PIX Liberado)
+                                </span>
+                              );
+                            } else if (r.pixStatus === 'capped') {
+                              badge = (
+                                <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700 border border-purple-200">
+                                  Aguardando Próximo Mês (Acima do Teto)
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <tr key={r.id} className="border-b border-slate-100">
+                                <td className="p-3">
+                                  <strong className="block text-navy">{r.leadName}</strong>
+                                  <span className="text-slate-500 text-xs">{r.leadEmail}</span>
+                                  <span className="block text-xs font-semibold text-orange-primary mt-0.5">{r.courseTitle}</span>
+                                </td>
+                                <td className="p-3">
+                                  <strong className="block text-navy">{r.studentName}</strong>
+                                  <span className="text-slate-500 text-xs">Código: {r.code}</span>
+                                  {r.pixKey ? (
+                                    <div className="mt-1 flex items-center gap-1">
+                                      <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-navy">
+                                        PIX [{r.pixKeyType?.toUpperCase()}]: {r.pixKey}
+                                      </span>
+                                      <button
+                                        onClick={() => { navigator.clipboard.writeText(r.pixKey); showNotice('Chave PIX copiada!'); }}
+                                        className="text-xs text-orange-primary hover:underline font-bold"
+                                      >
+                                        Copiar
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="block text-xs text-amber-600 font-semibold mt-0.5">Sem chave PIX cadastrada</span>
+                                  )}
+                                </td>
+                                <td className="p-3 font-bold text-navy">
+                                  R$ {Number(r.pixRewardValue || 50).toFixed(2)}
+                                </td>
+                                <td className="p-3">{badge}</td>
+                                <td className="p-3 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    {r.status === 'pending' && (
+                                      <button
+                                        onClick={async () => {
+                                          if (!token) { showNotice('Apenas modo local ativo.'); return; }
+                                          try {
+                                            const res = await fetch(`/api/admin/referrals/${r.id}/approve`, {
+                                              method: 'PUT', headers: { Authorization: `Bearer ${token}` }
+                                            });
+                                            if (res.ok) {
+                                              const body = await res.json();
+                                              setAllReferrals(prev => prev.map(x => x.id === r.id ? { ...x, status: 'converted', pixStatus: body.data?.pixStatus || 'approved', pixRewardValue: body.data?.pixRewardValue || 50 } : x));
+                                              showNotice('Matrícula aprovada! Recompensa em PIX calculada.');
+                                            }
+                                          } catch { showNotice('Erro ao aprovar indicação.'); }
+                                        }}
+                                        className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 whitespace-nowrap shadow-sm"
+                                      >
+                                        Aprovar Matrícula
+                                      </button>
+                                    )}
+
+                                    {(r.pixStatus === 'approved' || r.pixStatus === 'capped' || (r.status === 'converted' && r.pixStatus !== 'paid')) && (
+                                      <button
+                                        onClick={async () => {
+                                          const proof = window.prompt('Informe o comprovante ou código de transação do PIX (opcional):', 'Pagamento PIX realizado');
+                                          if (proof === null) return;
+                                          if (!token) { showNotice('Apenas modo local ativo.'); return; }
+                                          try {
+                                            const res = await fetch(`/api/admin/referrals/${r.id}/pay-pix`, {
+                                              method: 'PUT',
+                                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                              body: JSON.stringify({ paymentProof: proof })
+                                            });
+                                            if (res.ok) {
+                                              setAllReferrals(prev => prev.map(x => x.id === r.id ? { ...x, pixStatus: 'paid', pixPaymentProof: proof } : x));
+                                              showNotice('Pagamento PIX confirmado com sucesso!');
+                                            }
+                                          } catch { showNotice('Erro ao confirmar pagamento PIX.'); }
+                                        }}
+                                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-700 whitespace-nowrap shadow-sm"
+                                      >
+                                        Confirmar Pagamento PIX
+                                      </button>
+                                    )}
+
+                                    <button
+                                      onClick={async () => {
+                                        if (!window.confirm('Tem certeza que deseja excluir esta indicação?')) return;
+                                        if (!token) { showNotice('Apenas modo local ativo.'); return; }
+                                        try {
+                                          const res = await fetch(`/api/admin/referrals/${r.id}`, {
+                                            method: 'DELETE',
+                                            headers: { Authorization: `Bearer ${token}` }
+                                          });
+                                          if (res.ok) {
+                                            setAllReferrals(prev => prev.filter(x => x.id !== r.id));
+                                            showNotice('Indicação excluída com sucesso!');
+                                          } else {
+                                            showNotice('Erro ao excluir indicação.');
+                                          }
+                                        } catch { showNotice('Erro ao excluir indicação.'); }
+                                      }}
+                                      className="rounded-lg border border-red-200 p-1.5 text-red-500 transition hover:border-red-500 hover:bg-red-50"
+                                      title="Excluir indicação"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

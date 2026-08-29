@@ -140,6 +140,8 @@ model ReferralCode {
   id        String     @id @default(cuid())
   studentId String     @map("student_id")
   code      String     @unique
+  pixKey    String?    @map("pix_key")
+  pixKeyType String?   @map("pix_key_type")
   createdAt DateTime   @default(now()) @map("created_at")
   expiresAt DateTime?  @map("expires_at")
   isActive  Boolean    @default(true) @map("is_active")
@@ -156,6 +158,10 @@ model Referral {
   enrollmentId    String?        @map("enrollment_id")
   status          ReferralStatus @default(pending)
   discountApplied Decimal        @default(0) @map("discount_applied") @db.Decimal(10, 2)
+  pixRewardValue  Decimal        @default(0) @map("pix_reward_value") @db.Decimal(10, 2)
+  pixStatus       String         @default("pending") @map("pix_status")
+  pixPaidAt       DateTime?      @map("pix_paid_at")
+  pixPaymentProof String?        @map("pix_payment_proof")
   createdAt       DateTime       @default(now()) @map("created_at")
   convertedAt     DateTime?      @map("converted_at")
   enrollment      Enrollment?    @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
@@ -168,6 +174,9 @@ model Referral {
 model ReferralSettings {
   id                  String   @id @default(cuid())
   isActive            Boolean  @default(true) @map("is_active")
+  rewardType          String   @default("pix") @map("reward_type")
+  pixRewardByCategory Json     @map("pix_reward_by_category")
+  monthlyPixCap       Decimal  @default(1000.00) @map("monthly_pix_cap") @db.Decimal(10, 2)
   discountType        String   @default("percent") @map("discount_type")
   discountValue       Decimal  @default(10) @map("discount_value") @db.Decimal(10, 2)
   maxDiscountPercent  Int      @default(50) @map("max_discount_percent")
@@ -307,6 +316,7 @@ enum CourseType {
   evento_presencial
   evento_online
   preparatorio
+  supletivo_eja
   internacional
 }
 

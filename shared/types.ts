@@ -8,7 +8,45 @@ export enum CourseKindType {
   LIBRE = 'Curso Livre',
   POS = 'Pós-graduação',
   MESTRADO = 'Mestrado EAD',
-  DOUTORADO = 'Doutorado EAD'
+  DOUTORADO = 'Doutorado EAD',
+  PREPARATORIO = 'Preparatório ISP',
+  SUPLETIVO_EJA = 'Supletivo EJA'
+}
+
+export interface ReferralCodeData {
+  id: string;
+  code: string;
+  studentId: string;
+  studentName?: string;
+  studentEmail?: string;
+  pixKey?: string | null;
+  pixKeyType?: string | null;
+  createdAt?: string;
+}
+
+export interface ReferralData {
+  id: string;
+  leadName: string;
+  leadEmail?: string;
+  courseTitle?: string;
+  courseType?: string;
+  status: string;
+  pixRewardValue: number;
+  pixStatus: 'pending' | 'approved' | 'capped' | 'paid' | 'rejected';
+  pixPaidAt?: string | null;
+  pixPaymentProof?: string | null;
+  createdAt: string;
+}
+
+export interface ReferralSettingsData {
+  id?: string;
+  isActive: boolean;
+  rewardType: 'pix' | 'desconto';
+  pixRewardByCategory: Record<string, number>;
+  monthlyPixCap: number;
+  discountType?: string;
+  discountValue?: number;
+  eligibleCourseTypes: string[];
 }
 
 export enum UserRoleType {
@@ -124,3 +162,27 @@ export interface Lead {
   origin: string;
   notes?: string;
 }
+
+
+
+export interface ReferralCodeData {
+  id: string;
+  studentId: string;
+  code: string;
+  pixKey?: string | null;
+  pixKeyType?: string | null;
+  isActive: boolean;
+}
+
+export interface ReferralData {
+  id: string;
+  referralCodeId: string;
+  leadId?: string | null;
+  status: string;
+  pixRewardValue: number;
+  pixStatus: 'pending' | 'approved' | 'capped' | 'paid' | 'rejected';
+  pixPaidAt?: string | null;
+  pixPaymentProof?: string | null;
+  createdAt: string;
+}
+
