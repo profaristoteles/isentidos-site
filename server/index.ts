@@ -23,6 +23,7 @@ import {
   mapDatabaseModality,
   mapModalityToDatabase,
   mapCourseKindToDatabase,
+  mapDatabaseCourseType,
   normalizeCourseTypeToDatabase,
   mapDatabaseLeadStatus,
   mapLeadStatusToDatabase,
@@ -87,6 +88,7 @@ const leadSchema = z.object({
 });
 
 function isPublicCourseVisible(course: any): boolean {
+  if (!course || course.isSystemRecord || course.is_system_record || course.id === '__no_course__') return false;
   const title = String(course?.title || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const type = normalizeCourseTypeToDatabase(course?.type, mapDatabaseModality(course?.modality));
   const looksLikeAdvancedAcademic = title.includes('mestrado') || title.includes('doutorado');
@@ -813,7 +815,8 @@ app.get('/api/courses', async (_req, res) => {
   const courses = await withDatabase(
     async () => {
       const rows = await prisma.course.findMany({
-        where: { isActive: true },
+        where: { isActive: true, isSystemRecord: false },
+        include: { leads: { select: { id: true } } },
         orderBy: [{ isFeatured: 'desc' }, { title: 'asc' }],
       });
       return rows.filter(isPublicCourseVisible).map(serializeCourse);
@@ -952,21 +955,38 @@ app.post('/api/leads', async (req, res) => {
   const parsed = leadSchema.safeParse(req.body);
 
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Dados invÃ¡lidos.', details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
   }
 
-  const lead = await withDatabase<unknown>(
+  const result = await withDatabase<{ lead: any; isUpdated: boolean } | null>(
     async () => prisma.$transaction(async (tx) => {
       const course = parsed.data.courseSlug
         ? await tx.course.findUnique({ where: { slug: parsed.data.courseSlug } })
         : null;
 
-      const lead = await tx.lead.create({
-        data: {
+      const normalizedEmail = parsed.data.email.toLowerCase().trim();
+      const targetCourseId = course?.id || '__no_course__';
+
+      const lead = await tx.lead.upsert({
+        where: {
+          courseId_email: {
+            courseId: targetCourseId,
+            email: normalizedEmail,
+          },
+        },
+        update: {
           name: parsed.data.name,
-          email: parsed.data.email,
           phone: parsed.data.phone,
-          courseId: course?.id,
+          preferredFormat: parsed.data.preferredFormat,
+          notes: parsed.data.notes,
+          consentLgpd: parsed.data.consentLgpd,
+          source: parsed.data.source,
+        },
+        create: {
+          name: parsed.data.name,
+          email: normalizedEmail,
+          phone: parsed.data.phone,
+          courseId: targetCourseId,
           preferredFormat: parsed.data.preferredFormat,
           source: parsed.data.source,
           referralCode: parsed.data.referralCode,
@@ -975,39 +995,42 @@ app.post('/api/leads', async (req, res) => {
         },
       });
 
+      const isUpdated = lead.createdAt.getTime() !== lead.updatedAt.getTime();
+
       if (parsed.data.referralCode) {
         const refCode = await tx.referralCode.findUnique({ where: { code: parsed.data.referralCode } });
         if (refCode) {
-          await tx.referral.create({
-            data: {
-              referralCodeId: refCode.id,
-              leadId: lead.id,
-              status: 'pending',
-              discountApplied: 0,
-            },
+          const existingRef = await tx.referral.findFirst({
+            where: { leadId: lead.id, referralCodeId: refCode.id },
           });
+          if (!existingRef) {
+            await tx.referral.create({
+              data: {
+                referralCodeId: refCode.id,
+                leadId: lead.id,
+                status: 'pending',
+                discountApplied: 0,
+              },
+            });
+          }
         }
       }
 
-      return lead;
+      return { lead, isUpdated };
     }),
-    {
-      id: `local-${Date.now()}`,
-      ...parsed.data,
-      status: 'novo',
-      createdAt: new Date(),
-    },
+    null,
   );
 
-  // Send welcome email using ZeptoMail
-  if (lead && (lead as any).email && (lead as any).name) {
-    sendWelcomeEmail((lead as any).email, (lead as any).name).catch(console.error);
+  const lead = result?.lead;
+  const isUpdated = result?.isUpdated ?? false;
+
+  if (lead && lead.email && lead.name && !isUpdated) {
+    sendWelcomeEmail(lead.email, lead.name).catch(console.error);
   }
 
   if (lead) {
-    sendToCrmWebhook('lead_created', lead);
+    sendToCrmWebhook(isUpdated ? 'lead_updated' : 'lead_created', lead);
     
-    // Also send to Mautic if the course has a configured Mautic Form
     if (parsed.data.courseSlug) {
       withDatabase(async () => {
         const course = await prisma.course.findUnique({ where: { slug: parsed.data.courseSlug } });
@@ -1018,7 +1041,13 @@ app.post('/api/leads', async (req, res) => {
     }
   }
 
-  res.status(201).json({ data: lead });
+  res.json({
+    data: lead,
+    isUpdated,
+    message: isUpdated
+      ? 'Sua pré-matrícula para este curso foi atualizada com sucesso!'
+      : 'Pré-matrícula realizada com sucesso!',
+  });
 });
 
 app.post('/api/ebook-leads', async (req, res) => {
@@ -1066,6 +1095,7 @@ app.post('/api/ebook-leads', async (req, res) => {
         source: 'ebook_download',
         notes: `E-book: ${parsed.data.ebookTitle}`,
         consentLgpd: parsed.data.consentLgpd,
+        updatedAt: new Date(),
       },
       ebook: null,
     },
@@ -1699,6 +1729,44 @@ app.get('/api/admin/leads', authMiddleware, async (_req, res) => {
   res.json({ data: leads });
 });
 
+app.get('/api/admin/leads/stats-by-course', authMiddleware, async (_req, res) => {
+  const stats = await withDatabase(async () => {
+    const courses = await prisma.course.findMany({
+      orderBy: [{ isSystemRecord: 'asc' }, { title: 'asc' }],
+    });
+
+    const counts = await prisma.lead.groupBy({
+      by: ['courseId'],
+      _count: { id: true },
+      _max: { createdAt: true },
+    });
+
+    const countsMap = new Map<string, { count: number; lastAt: Date | null }>();
+    for (const item of counts) {
+      if (item.courseId) {
+        countsMap.set(item.courseId, { count: item._count.id, lastAt: item._max.createdAt });
+      }
+    }
+
+    return courses.map((course) => {
+      const isSentinel = course.isSystemRecord || course.id === '__no_course__';
+      const stat = countsMap.get(course.id);
+      return {
+        courseId: course.id,
+        title: isSentinel ? 'Contatos Gerais / Newsletter' : course.title,
+        category: isSentinel ? 'Sistema' : course.area,
+        kind: mapDatabaseCourseType(course.type, course.modality),
+        modality: mapDatabaseModality(course.modality),
+        totalLeads: stat?.count ?? 0,
+        lastInterestAt: stat?.lastAt ? stat.lastAt.toISOString() : null,
+        isSystemRecord: isSentinel,
+      };
+    });
+  }, []);
+
+  res.json({ data: stats });
+});
+
 // â”€â”€ Admin update / delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
@@ -1788,17 +1856,85 @@ app.put('/api/admin/courses/:id', authMiddleware, async (req, res) => {
 });
 
 app.delete('/api/admin/courses/:id', authMiddleware, async (req, res) => {
+  const courseId = req.params.id;
+  if (courseId === '__no_course__') {
+    return res.status(400).json({ error: 'O curso de sistema "__no_course__" não pode ser excluído.' });
+  }
+
   try {
-    const { count } = await prisma.course.deleteMany({ where: { id: req.params.id } });
-    if (count === 0) {
-      logAction((req as any).user?.sub, 'Course', 'DELETE_NOT_FOUND', req.params.id, 'ERROR');
+    const courseToDelete = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!courseToDelete) {
+      logAction((req as any).user?.sub, 'Course', 'DELETE_NOT_FOUND', courseId, 'ERROR');
       return res.status(404).json({ error: 'Curso não encontrado ou já excluído.' });
     }
-    logAction((req as any).user?.sub, 'Course', 'DELETE', req.params.id, 'SUCCESS');
+
+    await prisma.$transaction(async (tx) => {
+      // Buscar todos os leads vinculados ao curso a ser excluído
+      const leadsToReassign = await tx.lead.findMany({
+        where: { courseId },
+      });
+
+      for (const lead of leadsToReassign) {
+        const normalizedEmail = lead.email.toLowerCase().trim();
+        // Verificar se já existe um lead sob o curso sentinela __no_course__ com o mesmo e-mail
+        const generalLead = await tx.lead.findUnique({
+          where: {
+            courseId_email: {
+              courseId: '__no_course__',
+              email: normalizedEmail,
+            },
+          },
+        });
+
+        if (!generalLead) {
+          // Se não existir, basta atualizar o courseId para __no_course__
+          await tx.lead.update({
+            where: { id: lead.id },
+            data: { courseId: '__no_course__' },
+          });
+        } else {
+          // Se já existir, mesclar os dados no generalLead existente
+          // Reassociar indicações (referrals)
+          await tx.referral.updateMany({
+            where: { leadId: lead.id },
+            data: { leadId: generalLead.id },
+          });
+
+          // Regra de OR Lógico para consentLgpd
+          const mergedConsent = lead.consentLgpd || generalLead.consentLgpd;
+          let combinedNotes = generalLead.notes || '';
+          if (lead.notes && !combinedNotes.includes(lead.notes)) {
+            combinedNotes = combinedNotes ? `${combinedNotes} | ${lead.notes}` : lead.notes;
+          }
+
+          await tx.lead.update({
+            where: { id: generalLead.id },
+            data: {
+              name: lead.name || generalLead.name,
+              phone: lead.phone || generalLead.phone,
+              consentLgpd: mergedConsent,
+              notes: combinedNotes || null,
+            },
+          });
+
+          // Deletar o lead duplicado do curso que será excluído
+          await tx.lead.delete({
+            where: { id: lead.id },
+          });
+        }
+      }
+
+      // Deletar o curso
+      await tx.course.delete({
+        where: { id: courseId },
+      });
+    });
+
+    logAction((req as any).user?.sub, 'Course', 'DELETE', courseId, 'SUCCESS');
     res.json({ ok: true });
   } catch (error: any) {
-    logAction((req as any).user?.sub, 'Course', 'DELETE_FAILED', req.params.id, 'ERROR', { error: error.message });
-    console.error('Erro ao excluir curso:', error);
+    logAction((req as any).user?.sub, 'Course', 'DELETE_FAILED', courseId, 'ERROR', { error: error.message });
+    console.error('Erro ao excluir curso com reatribuição:', error);
     res.status(500).json({ error: 'Erro ao processar exclusão.' });
   }
 });
@@ -3162,6 +3298,31 @@ app.get('*', async (req, res) => {
   }
 });
 
+async function ensureSentinelCourseExists() {
+  try {
+    await prisma.course.upsert({
+      where: { id: '__no_course__' },
+      update: { isSystemRecord: true, isActive: false },
+      create: {
+        id: '__no_course__',
+        title: 'Contato Geral / Sem Curso',
+        slug: 'contato-geral-sem-curso',
+        description: 'Registro de sistema para leads sem curso específico',
+        type: 'livre',
+        modality: 'ead',
+        workload: '0h',
+        price: 0,
+        area: 'Sistema',
+        isActive: false,
+        isSystemRecord: true,
+      },
+    });
+  } catch (err) {
+    console.error('Erro ao verificar/criar curso sentinela:', err);
+  }
+}
+
 app.listen(port, () => {
+  ensureSentinelCourseExists();
   console.log(`Instituto Sentidos API rodando na porta ${port}`);
 });

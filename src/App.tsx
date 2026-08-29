@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useMemo, useState } from 'react';
+import React, { Component, FormEvent, useEffect, useMemo, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import {
   Award,
@@ -26,6 +26,7 @@ import {
   Newspaper,
   Pencil,
   Phone,
+  RefreshCw,
   Search,
   Settings,
   Share2,
@@ -57,8 +58,11 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
+export class ErrorBoundary extends React.Component<any, any> {
+  state: any;
+  props: any;
+
+  constructor(props: any) {
     super(props);
     this.state = { hasError: false, error: null };
   }
@@ -72,7 +76,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   render() {
-    if (this.state.hasError) {
+    if ((this.state as any).hasError) {
       return (
         <div className="min-h-screen bg-navy text-white flex flex-col items-center justify-center p-6 text-center">
           <div className="max-w-2xl w-full rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md">
@@ -81,10 +85,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             <p className="text-white/70 text-sm mb-6">
               Ocorreu um erro inesperado nesta página. Nós já fomos notificados e estamos trabalhando para corrigir.
             </p>
-            {import.meta.env.DEV && (
+            {(import.meta as any).env?.DEV && (
               <div className="mb-6 text-left bg-black/30 p-4 rounded-lg overflow-auto text-xs text-red-300 font-mono">
-                <p className="font-bold mb-2">{this.state.error?.toString()}</p>
-                <pre>{this.state.error?.stack}</pre>
+                <p className="font-bold mb-2">{(this.state as any).error?.toString()}</p>
+                <pre>{(this.state as any).error?.stack}</pre>
               </div>
             )}
             <button
@@ -98,13 +102,13 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    return this.props.children;
+    return (this.props as any).children;
   }
 }
 
 // ── Types & Shared Imports ───────────────────────────────────────────────────
 import { ModalityType, CourseKindType, LeadStatusType } from '../shared/types';
-import type { Course, Banner, BlogPost, Ebook, Event, Lead } from '../shared/types';
+import type { Course, Banner, BlogPost, Ebook, Event, Lead, CourseInterestedStatsData } from '../shared/types';
 import {
   sanitizeHtml,
   mapDatabaseModality,
@@ -647,7 +651,14 @@ function PublicSite() {
                     <div className="p-5">
                       <div className="flex items-center justify-between gap-3">
                         <span className="rounded-md bg-orange-primary/10 px-3 py-1 text-xs font-bold uppercase text-orange-primary">{course.kind}</span>
-                        {course.featured && <Star className="h-5 w-5 fill-orange-primary text-orange-primary" aria-label="Destaque" />}
+                        <div className="flex items-center gap-2">
+                          {course.interestedCount !== undefined && course.interestedCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-600 border border-amber-500/20" title={`${course.interestedCount} alunos interessados`}>
+                              🔥 {course.interestedCount} interessados
+                            </span>
+                          )}
+                          {course.featured && <Star className="h-5 w-5 fill-orange-primary text-orange-primary" aria-label="Destaque" />}
+                        </div>
                       </div>
                       <h3 className="mt-4 font-display text-xl font-bold text-navy line-clamp-2 min-h-[3.5rem]">{course.title}</h3>
                       <p className="mt-3 text-sm leading-6 text-slate-600 line-clamp-3">{course.summary}</p>
@@ -2136,6 +2147,29 @@ function AdminApp() {
     setCourseCoverUrl(editingCourse?.coverImageUrl || '');
   }, [editingCourse]);
 
+  const [interestedStats, setInterestedStats] = useState<CourseInterestedStatsData[]>([]);
+  const [interestedStatsLoading, setInterestedStatsLoading] = useState(false);
+
+  const fetchInterestedStats = () => {
+    if (!token) return;
+    setInterestedStatsLoading(true);
+    fetch('/api/admin/leads/stats-by-course', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.data) setInterestedStats(data.data);
+      })
+      .catch(console.error)
+      .finally(() => setInterestedStatsLoading(false));
+  };
+
+  useEffect(() => {
+    if (token && activeTab === 'interested_stats') {
+      fetchInterestedStats();
+    }
+  }, [token, activeTab]);
+
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
   const [editingEbook, setEditingEbook] = useState<Ebook | null>(null);
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
@@ -2768,8 +2802,9 @@ function AdminApp() {
       showNotice('Post atualizado.');
     } else {
       const post: BlogPost = { 
-        id: Date.now(), 
-        title, 
+        id: String(Date.now()),
+        title,
+        slug: slugify(title),
         category, 
         excerpt, 
         published,
@@ -2845,8 +2880,9 @@ function AdminApp() {
       showNotice('Post atualizado com sucesso.');
     } else {
       const post: BlogPost = {
-        id: Date.now(),
+        id: String(Date.now()),
         title: blogTitle,
+        slug,
         category: blogCategory || 'Geral',
         excerpt: blogExcerpt || blogTitle,
         published: isPublished,
@@ -2942,7 +2978,7 @@ function AdminApp() {
       showNotice('E-book atualizado.');
     } else {
       const ebook: Ebook = {
-        id: Date.now(),
+        id: String(Date.now()),
         title: String(form.get('title')),
         description: String(form.get('description')),
         category,
@@ -3258,6 +3294,7 @@ function AdminApp() {
     ['dashboard', 'Dashboard', LayoutDashboard],
     ['banners', 'Banners', ImagePlus],
     ['courses', 'Cursos', GraduationCap],
+    ['interested_stats', 'Interessados por Curso', Users],
     ['blog', 'Blog', Newspaper],
     ['ebooks', 'E-books', Download],
     ['events', 'Eventos', CalendarDays],
@@ -3270,10 +3307,10 @@ function AdminApp() {
 
   const tabs = allTabs.filter(([id]) => {
     if (userRole === 'editor') {
-      return ['dashboard', 'banners', 'courses', 'blog', 'ebooks', 'events', 'leads'].includes(id);
+      return ['dashboard', 'banners', 'courses', 'interested_stats', 'blog', 'ebooks', 'events', 'leads'].includes(id);
     }
     if (userRole === 'consultant') {
-      return ['dashboard', 'leads', 'referrals', 'turmas'].includes(id);
+      return ['dashboard', 'interested_stats', 'leads', 'referrals', 'turmas'].includes(id);
     }
     return true;
   });
@@ -4668,6 +4705,113 @@ function AdminApp() {
                 />
               </Panel>
             </AdminGrid>
+          )}
+
+          {activeTab === 'interested_stats' && (
+            <div className="grid gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-navy">Interessados por Curso (Pré-Matrículas)</h2>
+                  <p className="text-slate-500 text-sm mt-1">Visualize a demanda em tempo real e o número total de alunos pré-matriculados por curso.</p>
+                </div>
+                <button
+                  onClick={fetchInterestedStats}
+                  className="inline-flex items-center gap-2 rounded-xl bg-orange-primary px-4 py-2.5 text-sm font-bold text-white transition hover:bg-orange-600 shadow-md shadow-orange-primary/20"
+                >
+                  <RefreshCw className={`h-4 w-4 ${interestedStatsLoading ? 'animate-spin' : ''}`} /> Atualizar Dados
+                </button>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <span className="text-xs font-bold uppercase text-slate-400">Total Geral de Interessados</span>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-navy">
+                      {interestedStats.reduce((acc, curr) => acc + curr.totalLeads, 0)}
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500">alunos / cadastros</span>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <span className="text-xs font-bold uppercase text-slate-400">Cursos com Pré-Matrículas</span>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-orange-primary">
+                      {interestedStats.filter(s => !s.isSystemRecord && s.totalLeads > 0).length}
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500">cursos ativos</span>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <span className="text-xs font-bold uppercase text-slate-400">Curso Mais Procurado</span>
+                  <div className="mt-1">
+                    {(() => {
+                      const topCourse = [...interestedStats].filter(s => !s.isSystemRecord).sort((a, b) => b.totalLeads - a.totalLeads)[0];
+                      return topCourse && topCourse.totalLeads > 0 ? (
+                        <>
+                          <strong className="block text-sm font-bold text-navy truncate" title={topCourse.title}>{topCourse.title}</strong>
+                          <span className="text-xs font-bold text-amber-600">🔥 {topCourse.totalLeads} interessados</span>
+                        </>
+                      ) : <span className="text-sm text-slate-400">Nenhum ainda</span>;
+                    })()}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <span className="text-xs font-bold uppercase text-slate-400">Contatos Gerais / Newsletter</span>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-blue-600">
+                      {interestedStats.find(s => s.isSystemRecord)?.totalLeads ?? 0}
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500">sem curso específico</span>
+                  </div>
+                </div>
+              </div>
+
+              <Panel title="Detalhamento por Curso">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left text-sm">
+                    <thead className="bg-bg-light text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="p-3">Curso / Origem</th>
+                        <th className="p-3">Categoria / Área</th>
+                        <th className="p-3">Modalidade</th>
+                        <th className="p-3 text-center">Interessados</th>
+                        <th className="p-3 text-right">Último Interesse</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {interestedStats.map((item) => (
+                        <tr key={item.courseId} className={`border-b border-slate-100 ${item.isSystemRecord ? 'bg-blue-50/50 font-semibold' : ''}`}>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {item.isSystemRecord ? (
+                                <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">SISTEMA</span>
+                              ) : (
+                                <GraduationCap className="h-4 w-4 text-orange-primary shrink-0" />
+                              )}
+                              <strong className="text-navy">{item.title}</strong>
+                            </div>
+                          </td>
+                          <td className="p-3">{item.category}</td>
+                          <td className="p-3">{item.modality}</td>
+                          <td className="p-3 text-center">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
+                              item.totalLeads > 0 
+                                ? (item.isSystemRecord ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800') 
+                                : 'bg-slate-100 text-slate-400'
+                            }`}>
+                              {item.totalLeads > 0 && !item.isSystemRecord ? '🔥 ' : ''}{item.totalLeads} {item.totalLeads === 1 ? 'interessado' : 'interessados'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right text-slate-500 text-xs">
+                            {item.lastInterestAt ? new Date(item.lastInterestAt).toLocaleString('pt-BR') : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Panel>
+            </div>
           )}
 
           {activeTab === 'leads' && (
@@ -6400,7 +6544,12 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
         }),
       });
       if (!response.ok) throw new Error('lead_submit_failed');
-      setLeadMessage(redirectToWhatsapp ? 'Cadastro recebido. Vamos te direcionar para o WhatsApp.' : 'Recebemos sua solicitação! Nossa equipe entrará em contato em breve.');
+      const resData = await response.json().catch(() => ({}));
+      if (resData.isUpdated) {
+        setLeadMessage(resData.message || 'Sua pré-matrícula para este curso foi atualizada com sucesso!');
+      } else {
+        setLeadMessage(redirectToWhatsapp ? 'Cadastro recebido. Vamos te direcionar para o WhatsApp.' : 'Recebemos sua solicitação! Nossa equipe entrará em contato em breve.');
+      }
       formElement.reset();
       if (redirectToWhatsapp) {
         window.location.href = whatsappLink;

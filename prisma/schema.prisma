@@ -51,6 +51,7 @@ model Course {
   minStudents        Int                  @default(15) @map("min_students")
   leadConnectorFormId String?              @map("lead_connector_form_id")
   mauticFormId       Int?                 @map("mautic_form_id")
+  isSystemRecord     Boolean              @default(false) @map("is_system_record")
   createdAt          DateTime             @default(now()) @map("created_at")
   certificates       Certificate[]
   classes            CourseClass[]
@@ -113,9 +114,11 @@ model Lead {
   notes           String?
   consentLgpd     Boolean         @default(false) @map("consent_lgpd")
   createdAt       DateTime        @default(now()) @map("created_at")
-  course          Course?         @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at")
+  course          Course?         @relation(fields: [courseId], references: [id], onDelete: Restrict)
   referrals       Referral[]
 
+  @@unique([courseId, email], name: "courseId_email")
   @@map("leads")
 }
 

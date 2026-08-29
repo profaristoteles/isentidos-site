@@ -142,9 +142,10 @@ export function serializeCourse(c: any): Course {
     installmentValue: c.installmentValue ? Number(c.installmentValue) : 0,
     maxInstallments: c.maxInstallments ? Number(c.maxInstallments) : 1,
     createdAt: c.createdAt || c.created_at || '',
-    leadConnectorFormId: c.leadConnectorFormId || '',
     syllabus: sanitizeHtml(c.syllabus || ''),
     coverImageUrl: c.coverImageUrl || c.cover_image_url || '',
+    isSystemRecord: c.isSystemRecord ?? c.is_system_record ?? false,
+    interestedCount: c.interestedCount ?? (Array.isArray(c.leads) ? c.leads.length : 0),
   };
 }
 

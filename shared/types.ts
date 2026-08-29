@@ -98,6 +98,19 @@ export interface Course {
   syllabus?: string;
   coverImageUrl?: string;
   mauticFormId?: number | null;
+  isSystemRecord?: boolean;
+  interestedCount?: number;
+}
+
+export interface CourseInterestedStatsData {
+  courseId: string;
+  title: string;
+  category: string;
+  kind: string;
+  modality: string;
+  totalLeads: number;
+  lastInterestAt?: string | null;
+  isSystemRecord?: boolean;
 }
 
 export interface Banner {
