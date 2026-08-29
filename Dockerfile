@@ -43,5 +43,5 @@ RUN mkdir -p public/uploads
 EXPOSE 4000
 
 # Executa a sincronização do banco (cria tabelas) e inicia a API Express
-CMD npx prisma db push && npm run start
+CMD npx prisma db push --accept-data-loss && npm run start
 
