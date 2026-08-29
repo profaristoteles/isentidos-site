@@ -9,7 +9,7 @@ export enum CourseKindType {
   POS = 'Pós-graduação',
   MESTRADO = 'Mestrado EAD',
   DOUTORADO = 'Doutorado EAD',
-  PREPARATORIO = 'Preparatório ISP',
+  PREPARATORIO = 'ISP Preparatórios',
   SUPLETIVO_EJA = 'Supletivo EJA'
 }
 

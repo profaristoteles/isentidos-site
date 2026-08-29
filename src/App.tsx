@@ -126,7 +126,7 @@ import {
   serializeLead
 } from '../shared/serializers';
 
-export type CourseKind = 'Curso Livre' | 'Pós-graduação' | 'Mestrado EAD' | 'Doutorado EAD';
+export type CourseKind = 'Pós-graduação' | 'Curso Livre' | 'ISP Preparatórios' | 'Supletivo EJA' | 'Mestrado EAD' | 'Doutorado EAD';
 export type Modality = 'Presencial' | 'Online ao vivo' | 'EAD';
 export type LeadStatus = 'Novo' | 'Em atendimento' | 'Matriculado' | 'Perdido';
 
@@ -179,7 +179,7 @@ const initialPosts: BlogPost[] = [];
 const initialEbooks: Ebook[] = [];
 const initialEvents: EventItem[] = [];
 
-const courseKinds: Array<'Todos' | CourseKind> = ['Todos', 'Curso Livre', 'Pós-graduação', 'Mestrado EAD', 'Doutorado EAD'];
+const courseKinds: Array<'Todos' | CourseKind> = ['Todos', 'Pós-graduação', 'Curso Livre', 'ISP Preparatórios', 'Supletivo EJA', 'Mestrado EAD', 'Doutorado EAD'];
 const modalities: Array<'Todos' | Modality> = ['Todos', 'Presencial', 'Online ao vivo', 'EAD'];
 
 const navItems = [
@@ -969,8 +969,9 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [courses, setCourses] = useState<Course[]>(initialCourses);
-  const [selectedInterest, setSelectedInterest] = useState('');
-  const [selectedModality, setSelectedModality] = useState('Presencial');
+  const [selectedKind, setSelectedKind] = useState<string>('Pós-graduação');
+  const [selectedModality, setSelectedModality] = useState<string>('Presencial');
+  const [selectedInterest, setSelectedInterest] = useState<string>('');
 
   useEffect(() => {
     fetch('/api/courses')
@@ -983,16 +984,37 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
       .catch(() => {});
   }, []);
 
-  const activeCourses = courses.filter((c) => c.active);
+  const activeCourses = useMemo(() => courses.filter((c) => c.active), [courses]);
 
+  // Available course kinds present in active courses
+  const availableKinds = useMemo(() => {
+    const kindsOrder: string[] = ['Pós-graduação', 'Curso Livre', 'ISP Preparatórios', 'Supletivo EJA', 'Mestrado EAD', 'Doutorado EAD'];
+    const presentKinds = new Set(activeCourses.map((c) => c.kind));
+    const sorted = kindsOrder.filter((k) => presentKinds.has(k as any));
+    activeCourses.forEach((c) => {
+      if (c.kind && !sorted.includes(c.kind)) {
+        sorted.push(c.kind);
+      }
+    });
+    return sorted;
+  }, [activeCourses]);
+
+  useEffect(() => {
+    if (availableKinds.length > 0 && !availableKinds.includes(selectedKind)) {
+      setSelectedKind(availableKinds[0]);
+    }
+  }, [availableKinds, selectedKind]);
+
+  // Available modalities for selectedKind
   const availableModalities = useMemo(() => {
     const mods = new Set<string>();
-    activeCourses.forEach((c) => {
+    const coursesOfKind = activeCourses.filter((c) => c.kind === selectedKind);
+    coursesOfKind.forEach((c) => {
       const label = getModalityLabel(c.modality, c.kind);
       if (label) mods.add(label);
     });
     return Array.from(mods);
-  }, [activeCourses]);
+  }, [activeCourses, selectedKind]);
 
   useEffect(() => {
     if (availableModalities.length > 0 && !availableModalities.includes(selectedModality)) {
@@ -1000,9 +1022,18 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
     }
   }, [availableModalities, selectedModality]);
 
-  const filteredCourses = activeCourses.filter((c) => getModalityLabel(c.modality, c.kind) === selectedModality);
-  const currentInterest = selectedInterest || (filteredCourses[0]?.title ?? '');
-  const selectedCourse = filteredCourses.find(c => c.title === currentInterest);
+  // Filtered courses matching both selectedKind AND selectedModality
+  const filteredCourses = useMemo(() => {
+    return activeCourses.filter(
+      (c) => c.kind === selectedKind && getModalityLabel(c.modality, c.kind) === selectedModality
+    );
+  }, [activeCourses, selectedKind, selectedModality]);
+
+  const currentInterest = selectedInterest && filteredCourses.some(c => c.title === selectedInterest)
+    ? selectedInterest
+    : (filteredCourses[0]?.title ?? '');
+
+  const selectedCourse = filteredCourses.find((c) => c.title === currentInterest) || filteredCourses[0];
 
   useEffect(() => {
     if (!referralCode) { setLoadError(true); return; }
@@ -1031,7 +1062,7 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
           preferredFormat: selectedModality === 'Online ao vivo' ? 'online_ao_vivo' : selectedModality === 'Presencial' ? 'presencial' : 'ead',
           source: 'indicacao',
           referralCode,
-          notes: `Indicação pelo código ${referralCode}. Interesse: ${currentInterest} | Modalidade: ${selectedModality}`,
+          notes: `Indicação pelo código ${referralCode}. Tipo: ${selectedKind} | Interesse: ${currentInterest} | Modalidade: ${selectedModality}`,
           consentLgpd: true,
         }),
       });
@@ -1090,9 +1121,28 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
               <p className="mt-2 text-sm text-slate-500">Sem compromisso. Um consultor entrará em contato para apresentar as opções ideais para você.</p>
 
               <div className="mt-6 grid gap-4">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
                   <label className="block">
-                    <span className="text-sm font-bold text-navy">Modalidade desejada</span>
+                    <span className="text-sm font-bold text-navy">1. Tipo de curso</span>
+                    <select
+                      name="kind"
+                      value={selectedKind}
+                      onChange={(e) => {
+                        setSelectedKind(e.target.value);
+                        setSelectedInterest('');
+                      }}
+                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none ring-orange-primary/20 transition focus:ring-4 text-navy"
+                    >
+                      {availableKinds.map((kind) => (
+                        <option key={kind} value={kind}>
+                          {kind}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-bold text-navy">2. Modalidade</span>
                     <select
                       name="modality"
                       value={selectedModality}
@@ -1100,7 +1150,7 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
                         setSelectedModality(e.target.value);
                         setSelectedInterest('');
                       }}
-                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4 text-navy"
+                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none ring-orange-primary/20 transition focus:ring-4 text-navy"
                     >
                       {availableModalities.map((mod) => (
                         <option key={mod} value={mod}>
@@ -1109,17 +1159,22 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
                       ))}
                     </select>
                   </label>
+
                   <label className="block">
-                    <span className="text-sm font-bold text-navy">O que você quer estudar?</span>
+                    <span className="text-sm font-bold text-navy">3. Curso pretendido</span>
                     <select
                       name="interest"
                       value={currentInterest}
                       onChange={(e) => setSelectedInterest(e.target.value)}
-                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 outline-none ring-orange-primary/20 transition focus:ring-4 text-navy"
+                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none ring-orange-primary/20 transition focus:ring-4 text-navy"
                     >
-                      {filteredCourses.map((c) => (
-                        <option key={c.id} value={c.title}>{c.title}</option>
-                      ))}
+                      {filteredCourses.length === 0 ? (
+                        <option value="">Nenhum curso nesta modalidade</option>
+                      ) : (
+                        filteredCourses.map((c) => (
+                          <option key={c.id} value={c.title}>{c.title}</option>
+                        ))
+                      )}
                     </select>
                   </label>
                 </div>
@@ -1137,7 +1192,7 @@ function ReferralPage({ referralCode }: { referralCode: string }) {
                         Autorizo o contato do Instituto Sentidos e o tratamento dos meus dados conforme a LGPD.
                       </label>
                       <button disabled={sending} className="w-full rounded-lg bg-orange-primary px-5 py-4 font-bold text-white transition hover:bg-orange-600 disabled:opacity-60">
-                        {sending ? 'Enviando…' : 'Quero indicar e cadastrar'}
+                        {sending ? 'Enviando…' : 'Quero me cadastrar'}
                       </button>
                     </form>
                   </div>
@@ -3539,7 +3594,7 @@ function AdminApp() {
                           <Select
                             label="Tipo de Curso"
                             name="kind"
-                            options={['Pós-graduação', 'Curso Livre', 'Mestrado EAD', 'Doutorado EAD']}
+                            options={['Pós-graduação', 'Curso Livre', 'ISP Preparatórios', 'Supletivo EJA', 'Mestrado EAD', 'Doutorado EAD']}
                             defaultValue={editingCourse?.kind || 'Pós-graduação'}
                           />
                           <Select
@@ -3824,10 +3879,12 @@ function AdminApp() {
                     const posPresencial = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.POS && c.modality === ModalityType.PRESENTIAL));
                     const posOnline    = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.POS && c.modality === ModalityType.ONLINE));
                     const cursoLivre   = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.LIBRE));
+                    const preparatorio = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.PREPARATORIO));
+                    const supletivoEja = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.SUPLETIVO_EJA));
                     const mestradoEad  = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.MESTRADO));
                     const doutoradoEad = sorted(filtered.filter((c: Course) => c.kind === CourseKindType.DOUTORADO));
 
-                    const total = posPresencial.length + posOnline.length + cursoLivre.length + mestradoEad.length + doutoradoEad.length;
+                    const total = posPresencial.length + posOnline.length + cursoLivre.length + preparatorio.length + supletivoEja.length + mestradoEad.length + doutoradoEad.length;
 
                     if (total === 0) return (
                       <div className="rounded-xl bg-slate-50 py-10 text-center">
@@ -3917,6 +3974,8 @@ function AdminApp() {
                       { title: 'Pós-graduação Presencial', items: posPresencial, dot: 'bg-orange-primary' },
                       { title: 'Pós-graduação Online / EAD', items: posOnline,    dot: 'bg-blue-action'   },
                       { title: 'Cursos Livres',              items: cursoLivre,   dot: 'bg-green-500'     },
+                      { title: 'ISP Preparatórios',          items: preparatorio, dot: 'bg-purple-600'    },
+                      { title: 'Supletivo EJA',              items: supletivoEja, dot: 'bg-teal-500'      },
                       { title: 'Mestrado EAD',               items: mestradoEad,  dot: 'bg-indigo-500'    },
                       { title: 'Doutorado EAD',              items: doutoradoEad, dot: 'bg-violet-500'    },
                     ];
