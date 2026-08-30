@@ -2373,6 +2373,148 @@ function AdminApp() {
   const [eligibleCourseTypes, setEligibleCourseTypes] = useState<string[]>([
     'livre', 'preparatorio', 'pos_presencial', 'pos_online', 'mestrado_ead', 'doutorado_ead', 'supletivo_eja'
   ]);
+  const [allReferralsLoading, setAllReferralsLoading] = useState(false);
+  const [referralActionLoading, setReferralActionLoading] = useState<string | null>(null);
+  const [gestaoStatusFilter, setGestaoStatusFilter] = useState<'todos' | 'pending' | 'approved' | 'paid' | 'capped'>('todos');
+
+  const COURSE_TYPE_LABELS: Record<string, string> = {
+    livre: 'Curso Livre',
+    preparatorio: 'Preparatório',
+    pos_presencial: 'Pós-graduação Presencial',
+    pos_online: 'Pós-graduação Online',
+    mestrado_ead: 'Mestrado EAD',
+    doutorado_ead: 'Doutorado EAD',
+    supletivo_eja: 'Supletivo / EJA',
+  };
+
+  const fetchAllReferrals = () => {
+    if (!token) return;
+    setAllReferralsLoading(true);
+    fetch('/api/admin/referrals', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.data) {
+          setAllReferrals(data.data.map((r: any) => ({
+            id: r.id,
+            leadName: r.lead?.name || 'Anônimo',
+            leadEmail: r.lead?.email || '',
+            leadPhone: r.lead?.phone || '',
+            courseTitle: r.lead?.course?.title || 'Curso Instituto Sentidos',
+            courseType: r.lead?.course?.type || 'Geral',
+            studentName: r.referralCode?.student?.name || 'Desconhecido',
+            studentEmail: r.referralCode?.student?.email || '',
+            code: r.referralCode?.code || '-',
+            pixKey: r.referralCode?.pixKey || null,
+            pixKeyType: r.referralCode?.pixKeyType || 'cpf',
+            status: r.status,
+            pixRewardValue: Number(r.pixRewardValue) || 50,
+            pixStatus: r.pixStatus || 'pending',
+            pixPaidAt: r.pixPaidAt,
+            pixPaymentProof: r.pixPaymentProof,
+            createdAt: r.createdAt,
+          })));
+        }
+      })
+      .catch(console.error)
+      .finally(() => setAllReferralsLoading(false));
+  };
+
+  async function approveReferralConversion(id: string) {
+    if (!token) return;
+    setReferralActionLoading(id);
+    try {
+      const res = await fetch(`/api/admin/referrals/${id}/approve`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        showNotice('Conversão aprovada e recompensa PIX calculada com sucesso!');
+        fetchAllReferrals();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alert('Erro ao aprovar conversão: ' + (body.error || 'Falha desconhecida.'));
+      }
+    } catch {
+      alert('Erro de conexão ao aprovar a conversão.');
+    } finally {
+      setReferralActionLoading(null);
+    }
+  }
+
+  async function payPixReferral(id: string) {
+    if (!token) return;
+    if (!confirm('Confirma que o PIX foi pago manualmente para esta indicação?')) return;
+    setReferralActionLoading(id);
+    try {
+      const res = await fetch(`/api/admin/referrals/${id}/pay-pix`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({}),
+      });
+      if (res.ok) {
+        showNotice('PIX marcado como pago com sucesso!');
+        fetchAllReferrals();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alert('Erro ao confirmar pagamento do PIX: ' + (body.error || 'Falha desconhecida.'));
+      }
+    } catch {
+      alert('Erro de conexão ao confirmar o PIX.');
+    } finally {
+      setReferralActionLoading(null);
+    }
+  }
+
+  async function deleteReferralEntry(id: string) {
+    if (!token) return;
+    if (!confirm('Tem certeza que deseja excluir esta indicação? Essa ação não pode ser desfeita.')) return;
+    setReferralActionLoading(id);
+    try {
+      const res = await fetch(`/api/admin/referrals/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        showNotice('Indicação excluída.');
+        setAllReferrals((prev) => prev.filter((r) => r.id !== id));
+      } else {
+        alert('Erro ao excluir indicação.');
+      }
+    } catch {
+      alert('Erro de conexão ao excluir a indicação.');
+    } finally {
+      setReferralActionLoading(null);
+    }
+  }
+
+  async function reevaluateCappedReferrals() {
+    if (!token) return;
+    setAllReferralsLoading(true);
+    try {
+      const res = await fetch('/api/admin/referrals/reevaluate-capped', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        showNotice(`Reavaliação concluída: ${body.promotedCount ?? 0} indicação(ões) promovida(s) de "Teto Atingido" para "Aprovado".`);
+        fetchAllReferrals();
+      } else {
+        alert('Erro ao reavaliar indicações no teto: ' + (body.error || 'Falha desconhecida.'));
+        setAllReferralsLoading(false);
+      }
+    } catch {
+      alert('Erro de conexão ao reavaliar indicações.');
+      setAllReferralsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (token && activeTab === 'referrals' && referralActiveSubtab === 'gestao') {
+      fetchAllReferrals();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, activeTab, referralActiveSubtab]);
 
   // Turmas state
   interface TurmaAdmin { id: string; title: string; slug: string; minStudents: number; enrollmentCount: number; tiers: TierData[]; }
@@ -5321,15 +5463,18 @@ function AdminApp() {
                                   </td>
                                   <td className="p-3 text-right">
                                     <div className="flex items-center justify-end gap-2">
-                                      {ref.studentPhone && currentUser?.role === 'admin' && (
-                                        <button
-                                          onClick={() => openWaQuickSend({ id: `indicador_${ref.id}`, recipientType: 'indicador', name: ref.studentName, phone: ref.studentPhone, email: ref.studentEmail, code: ref.code })}
-                                          className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 shadow-sm"
-                                          title="Enviar WhatsApp"
-                                        >
-                                          💬 WhatsApp
-                                        </button>
-                                      )}
+                                      {(() => {
+                                        const waPhone = ref.studentPhone || (ref.pixKeyType === 'phone' ? ref.pixKey : '');
+                                        return waPhone && currentUser?.role === 'admin' && (
+                                          <button
+                                            onClick={() => openWaQuickSend({ id: `indicador_${ref.id}`, recipientType: 'indicador', name: ref.studentName, phone: waPhone, email: ref.studentEmail, code: ref.code })}
+                                            className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 shadow-sm"
+                                            title="Enviar WhatsApp"
+                                          >
+                                            💬 WhatsApp
+                                          </button>
+                                        );
+                                      })()}
                                       <button
                                         onClick={() => setSelectedReferrerModal(ref)}
                                         className="rounded-lg bg-orange-primary px-3 py-1.5 text-xs font-bold text-white transition hover:bg-orange-600 shadow-sm"
@@ -5345,6 +5490,287 @@ function AdminApp() {
                       </div>
                     )}
                   </Panel>
+                </div>
+              )}
+
+              {referralActiveSubtab === 'gestao' && (
+                <div className="grid gap-6">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <span className="text-xs font-bold uppercase text-slate-400">Aguardando Matrícula</span>
+                      <div className="mt-2 text-3xl font-extrabold text-amber-600">
+                        {allReferrals.filter((r) => r.status !== 'converted').length}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <span className="text-xs font-bold uppercase text-slate-400">PIX a Pagar (Aprovado)</span>
+                      <div className="mt-2 text-3xl font-extrabold text-emerald-600">
+                        {allReferrals.filter((r) => r.pixStatus === 'approved').length}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <span className="text-xs font-bold uppercase text-slate-400">Teto Mensal Atingido</span>
+                      <div className="mt-2 text-3xl font-extrabold text-purple-600">
+                        {allReferrals.filter((r) => r.pixStatus === 'capped').length}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <span className="text-xs font-bold uppercase text-slate-400">PIX Pagos</span>
+                      <div className="mt-2 text-3xl font-extrabold text-green-600">
+                        {allReferrals.filter((r) => r.pixStatus === 'paid').length}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Panel title="Gestão de Indicações & PIX">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          ['todos', 'Todos'],
+                          ['pending', 'Aguardando Matrícula'],
+                          ['approved', 'PIX a Pagar'],
+                          ['capped', 'Teto Atingido'],
+                          ['paid', 'PIX Pago'],
+                        ].map(([val, label]) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setGestaoStatusFilter(val as any)}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                              gestaoStatusFilter === val ? 'bg-navy text-white shadow-sm' : 'bg-bg-light text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={reevaluateCappedReferrals}
+                          disabled={allReferralsLoading}
+                          className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-700 transition disabled:opacity-50"
+                          title="Promove indicações com status 'Teto Atingido' que já cabem no novo mês para 'Aprovado'"
+                        >
+                          🔄 Reavaliar Teto Mensal
+                        </button>
+                        <button
+                          onClick={fetchAllReferrals}
+                          className="inline-flex items-center gap-2 rounded-xl bg-navy px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${allReferralsLoading ? 'animate-spin' : ''}`} /> Atualizar
+                        </button>
+                      </div>
+                    </div>
+
+                    {allReferrals.filter((r) => gestaoStatusFilter === 'todos' || r.pixStatus === gestaoStatusFilter).length === 0 ? (
+                      <p className="rounded-lg bg-bg-light p-6 text-center text-sm text-slate-500">Nenhuma indicação encontrada para este filtro.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[950px] text-left text-sm">
+                          <thead className="bg-bg-light text-xs uppercase text-slate-500">
+                            <tr>
+                              <th className="p-3">Indicado</th>
+                              <th className="p-3">Indicador</th>
+                              <th className="p-3">Curso</th>
+                              <th className="p-3">Status Matrícula</th>
+                              <th className="p-3">Status PIX</th>
+                              <th className="p-3 text-right">Valor</th>
+                              <th className="p-3 text-right">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {allReferrals
+                              .filter((r) => gestaoStatusFilter === 'todos' || r.pixStatus === gestaoStatusFilter)
+                              .map((r) => {
+                                const rowBusy = referralActionLoading === r.id;
+                                const waPhone = r.leadPhone || '';
+                                return (
+                                  <tr key={r.id} className="border-b border-slate-100 align-top">
+                                    <td className="p-3">
+                                      <strong className="block text-navy">{r.leadName}</strong>
+                                      <span className="block text-xs text-slate-500">{r.leadEmail}</span>
+                                      {waPhone && <span className="block text-xs text-slate-400">{waPhone}</span>}
+                                    </td>
+                                    <td className="p-3">
+                                      <strong className="block text-navy">{r.studentName}</strong>
+                                      <span className="rounded-md bg-orange-50 border border-orange-200 px-1.5 py-0.5 text-[11px] font-mono font-bold text-orange-primary">{r.code}</span>
+                                    </td>
+                                    <td className="p-3 text-slate-600">{r.courseTitle}</td>
+                                    <td className="p-3">
+                                      {r.status === 'converted' ? (
+                                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">Matriculado</span>
+                                      ) : r.status === 'expired' ? (
+                                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-500 border border-slate-200">Expirado</span>
+                                      ) : (
+                                        <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200">Aguardando</span>
+                                      )}
+                                    </td>
+                                    <td className="p-3">
+                                      {r.pixStatus === 'paid' ? (
+                                        <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-bold text-green-700 border border-green-200">PIX Pago</span>
+                                      ) : r.pixStatus === 'approved' ? (
+                                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">Aprovado</span>
+                                      ) : r.pixStatus === 'capped' ? (
+                                        <span className="rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-bold text-purple-700 border border-purple-200">Teto Atingido</span>
+                                      ) : (
+                                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-500 border border-slate-200">Pendente</span>
+                                      )}
+                                    </td>
+                                    <td className="p-3 text-right font-extrabold text-navy whitespace-nowrap">
+                                      R$ {r.pixRewardValue.toFixed(2)}
+                                    </td>
+                                    <td className="p-3 text-right">
+                                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                        {waPhone && currentUser?.role === 'admin' && (
+                                          <button
+                                            onClick={() => openWaQuickSend({ id: `indicado_${r.id}`, recipientType: 'indicado', name: r.leadName, phone: waPhone, courseTitle: r.courseTitle, code: r.code })}
+                                            className="rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 shadow-sm"
+                                            title="Enviar WhatsApp"
+                                          >
+                                            💬
+                                          </button>
+                                        )}
+                                        {r.status !== 'converted' && (
+                                          <button
+                                            disabled={rowBusy}
+                                            onClick={() => approveReferralConversion(r.id)}
+                                            className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-700 shadow-sm disabled:opacity-50"
+                                          >
+                                            Aprovar Conversão
+                                          </button>
+                                        )}
+                                        {(r.pixStatus === 'approved' || r.pixStatus === 'capped') && (
+                                          <button
+                                            disabled={rowBusy}
+                                            onClick={() => payPixReferral(r.id)}
+                                            className="rounded-lg bg-navy px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-sm disabled:opacity-50"
+                                          >
+                                            Confirmar PIX Pago
+                                          </button>
+                                        )}
+                                        <button
+                                          disabled={rowBusy}
+                                          onClick={() => deleteReferralEntry(r.id)}
+                                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                                          title="Excluir indicação"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Panel>
+                </div>
+              )}
+
+              {referralActiveSubtab === 'config' && (
+                <div className="grid gap-6 max-w-3xl">
+                  <Panel title="Status do Programa de Indicação">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={referralActive}
+                        onChange={(e) => setReferralActive(e.target.checked)}
+                        className="h-5 w-5 accent-orange-primary rounded"
+                      />
+                      <span className="text-sm font-medium text-slate-700">
+                        Programa de Indicação <strong>ativo</strong> no site (indicadores podem gerar links e ganhar recompensas).
+                      </span>
+                    </label>
+                  </Panel>
+
+                  <Panel title="Tipo de Recompensa">
+                    <div className="grid gap-4">
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          ['pix', 'PIX (dinheiro por indicação convertida)'],
+                          ['desconto', 'Desconto na mensalidade/matrícula'],
+                        ].map(([val, label]) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setReferralRewardType(val as any)}
+                            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                              referralRewardType === val ? 'bg-orange-primary text-white shadow-md' : 'bg-bg-light text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {referralRewardType === 'pix' && (
+                        <>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">Teto Mensal de Pagamento em PIX (R$)</label>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={monthlyPixCap}
+                              onChange={(e) => setMonthlyPixCap(Number(e.target.value) || 0)}
+                              className="w-48 rounded-lg border border-slate-200 px-4 py-2 text-sm outline-none ring-orange-primary/20 focus:ring-4 font-bold text-navy"
+                            />
+                            <p className="mt-1 text-xs text-slate-400">Indicações que ultrapassarem esse valor no mês ficam com status "Teto Atingido" até o mês seguinte.</p>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-2">Valor do PIX por Categoria de Curso</label>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {Object.entries(COURSE_TYPE_LABELS).map(([type, label]) => (
+                                <div key={type} className="flex items-center justify-between gap-3 rounded-lg bg-bg-light px-3 py-2">
+                                  <span className="text-xs font-semibold text-slate-600">{label}</span>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs font-bold text-slate-400">R$</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      value={pixRewardByCategory[type] ?? 50}
+                                      onChange={(e) => setPixRewardByCategory((prev) => ({ ...prev, [type]: Number(e.target.value) || 0 }))}
+                                      className="w-24 rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none ring-orange-primary/20 focus:ring-4 font-bold text-navy"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </Panel>
+
+                  <Panel title="Cursos Elegíveis para o Programa">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {Object.entries(COURSE_TYPE_LABELS).map(([type, label]) => (
+                        <label key={type} className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={eligibleCourseTypes.includes(type)}
+                            onChange={(e) => {
+                              setEligibleCourseTypes((prev) =>
+                                e.target.checked ? [...prev, type] : prev.filter((t) => t !== type)
+                              );
+                            }}
+                            className="h-5 w-5 accent-orange-primary rounded"
+                          />
+                          <span className="text-sm font-medium text-slate-700">{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </Panel>
+
+                  <button
+                    onClick={saveReferralSettings}
+                    className="rounded-lg bg-orange-primary px-5 py-3 font-bold text-white max-w-xs transition hover:bg-orange-600 shadow-md"
+                  >
+                    Salvar Configurações do Programa
+                  </button>
                 </div>
               )}
 
