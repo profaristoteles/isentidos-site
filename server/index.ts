@@ -727,7 +727,6 @@ async function sendEvolutionWhatsApp(phoneNumber: string, message: string): Prom
       body: JSON.stringify({
         number: cleanNumber,
         text: message,
-        textMessage: { text: message },
       }),
     });
 
