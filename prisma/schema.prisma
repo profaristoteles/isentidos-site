@@ -293,6 +293,22 @@ model SystemSetting {
   @@map("system_settings")
 }
 
+model WhatsappMessageLog {
+  id            String   @id @default(cuid())
+  sendType      String   @map("send_type")
+  recipientType String   @map("recipient_type")
+  recipientName String?  @map("recipient_name")
+  phone         String
+  message       String
+  status        String   @default("sent")
+  errorMessage  String?  @map("error_message")
+  sentBy        String?  @map("sent_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("whatsapp_message_logs")
+}
+
 model MenuItem {
   id        String     @id @default(cuid())
   label     String

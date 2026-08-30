@@ -2116,6 +2116,152 @@ function AdminApp() {
   const [testSmtpEmail, setTestSmtpEmail] = useState('');
   const [testSmtpLoading, setTestSmtpLoading] = useState(false);
 
+  // ── Disparador de WhatsApp (Massa / Individual / Histórico) ──────────────────
+  interface WhatsappRecipient {
+    id: string;
+    recipientType: 'indicador' | 'indicado';
+    name: string;
+    phone: string;
+    email?: string;
+    code?: string;
+    courseTitle?: string;
+    status?: string | null;
+  }
+  interface BulkWhatsappJob {
+    id: string;
+    total: number;
+    sent: number;
+    successCount: number;
+    errorCount: number;
+    status: 'running' | 'done' | 'cancelled';
+    results: { name: string; phone: string; success: boolean; error?: string }[];
+  }
+  interface WhatsappMessageLog {
+    id: string;
+    sendType: string;
+    recipientType: string;
+    recipientName: string | null;
+    phone: string;
+    message: string;
+    status: string;
+    errorMessage: string | null;
+    createdAt: string;
+  }
+
+  const [whatsappSubtab, setWhatsappSubtab] = useState<'massa' | 'individual' | 'historico'>('massa');
+
+  // Disparo em massa
+  const [waTargetType, setWaTargetType] = useState<'indicadores' | 'indicados' | 'todos'>('indicadores');
+  const [waStatusFilter, setWaStatusFilter] = useState<'todos' | 'pendente' | 'aprovado' | 'rejeitado'>('todos');
+  const [waRecipients, setWaRecipients] = useState<WhatsappRecipient[]>([]);
+  const [waRecipientsLoading, setWaRecipientsLoading] = useState(false);
+  const [waExcludedIds, setWaExcludedIds] = useState<Set<string>>(new Set());
+  const [waBulkMessage, setWaBulkMessage] = useState('Olá {nome}! Tudo bem? Aqui é do Instituto Sentidos. 🎓');
+  const [waDelaySeconds, setWaDelaySeconds] = useState(3);
+  const [waBulkJobId, setWaBulkJobId] = useState<string | null>(null);
+  const [waBulkJob, setWaBulkJob] = useState<BulkWhatsappJob | null>(null);
+  const [waBulkStarting, setWaBulkStarting] = useState(false);
+
+  // Envio individual
+  const [waAllRecipients, setWaAllRecipients] = useState<WhatsappRecipient[]>([]);
+  const [waAllRecipientsLoading, setWaAllRecipientsLoading] = useState(false);
+  const [waIndividualSearch, setWaIndividualSearch] = useState('');
+  const [waIndividualSelected, setWaIndividualSelected] = useState<WhatsappRecipient | null>(null);
+  const [waIndividualPhone, setWaIndividualPhone] = useState('');
+  const [waIndividualName, setWaIndividualName] = useState('');
+  const [waIndividualMessage, setWaIndividualMessage] = useState('Olá {nome}! Tudo bem? Aqui é do Instituto Sentidos. 🎓');
+  const [waIndividualSending, setWaIndividualSending] = useState(false);
+  const [waQuickSendOpen, setWaQuickSendOpen] = useState(false);
+
+  // Histórico
+  const [waLogs, setWaLogs] = useState<WhatsappMessageLog[]>([]);
+  const [waLogsLoading, setWaLogsLoading] = useState(false);
+
+  function applyWaTemplateVars(template: string, data: { name?: string; code?: string; courseTitle?: string }) {
+    const domain = adminSettings.domain || 'isentidos.com.br';
+    return String(template || '')
+      .replace(/\{nome\}/gi, data.name || '')
+      .replace(/\{codigo\}/gi, data.code || '')
+      .replace(/\{cupom\}/gi, data.code || '')
+      .replace(/\{link_indicacao\}/gi, data.code ? `https://${domain}/indicacao/${data.code}` : '')
+      .replace(/\{curso\}/gi, data.courseTitle || '');
+  }
+
+  const fetchWaRecipients = () => {
+    if (!token) return;
+    setWaRecipientsLoading(true);
+    setWaExcludedIds(new Set());
+    fetch(`/api/admin/whatsapp/recipients?type=${waTargetType}&status=${waStatusFilter}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => { if (data.data) setWaRecipients(data.data); })
+      .catch(console.error)
+      .finally(() => setWaRecipientsLoading(false));
+  };
+
+  const fetchWaLogs = () => {
+    if (!token) return;
+    setWaLogsLoading(true);
+    fetch('/api/admin/whatsapp/logs?limit=200', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => { if (data.data) setWaLogs(data.data); })
+      .catch(console.error)
+      .finally(() => setWaLogsLoading(false));
+  };
+
+  function openWaQuickSend(recipient: WhatsappRecipient) {
+    setWaIndividualSelected(recipient);
+    setWaIndividualPhone(recipient.phone);
+    setWaIndividualName(recipient.name);
+    setWaIndividualMessage('Olá {nome}! Tudo bem? Aqui é do Instituto Sentidos. 🎓');
+    setActiveTab('whatsapp');
+    setWhatsappSubtab('individual');
+    setWaQuickSendOpen(true);
+  }
+
+  useEffect(() => {
+    if (token && activeTab === 'whatsapp' && whatsappSubtab === 'massa') {
+      fetchWaRecipients();
+    }
+    if (token && activeTab === 'whatsapp' && whatsappSubtab === 'historico') {
+      fetchWaLogs();
+    }
+    if (token && activeTab === 'whatsapp' && whatsappSubtab === 'individual' && waAllRecipients.length === 0) {
+      setWaAllRecipientsLoading(true);
+      fetch('/api/admin/whatsapp/recipients?type=todos&status=todos', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => r.json())
+        .then((data) => { if (data.data) setWaAllRecipients(data.data); })
+        .catch(console.error)
+        .finally(() => setWaAllRecipientsLoading(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, activeTab, whatsappSubtab, waTargetType, waStatusFilter]);
+
+  useEffect(() => {
+    if (!waBulkJobId || !token) return;
+    const interval = setInterval(() => {
+      fetch(`/api/admin/whatsapp/send-bulk/${waBulkJobId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.data) {
+            setWaBulkJob(data.data);
+            if (data.data.status !== 'running') {
+              clearInterval(interval);
+            }
+          }
+        })
+        .catch(console.error);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [waBulkJobId, token]);
+
   interface AdminMenuItem {
     id?: string;
     label: string;
@@ -3420,6 +3566,7 @@ function AdminApp() {
     ['events', 'Eventos', CalendarDays],
     ['leads', 'Leads', Users],
     ['referrals', 'Indicações', Gift],
+    ['whatsapp', 'Disparador WhatsApp', MessageCircle],
     ['turmas', 'Turmas', Users],
     ['users', 'Usuários', Users],
     ['settings', 'Configurações', Settings],
@@ -4980,9 +5127,20 @@ function AdminApp() {
                         <td className="p-3"><StatusBadge status={lead.status} /></td>
                         <td className="p-3">{lead.origin}</td>
                         <td className="p-3 text-right">
-                          <button onClick={() => deleteLead(lead.id)} className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500" title="Excluir lead">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            {lead.phone && currentUser?.role === 'admin' && (
+                              <button
+                                onClick={() => openWaQuickSend({ id: `indicado_${lead.id}`, recipientType: 'indicado', name: lead.name, phone: lead.phone, courseTitle: lead.interest, code: lead.referralCode || undefined })}
+                                className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 shadow-sm"
+                                title="Enviar WhatsApp"
+                              >
+                                💬 WhatsApp
+                              </button>
+                            )}
+                            <button onClick={() => deleteLead(lead.id)} className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500" title="Excluir lead">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -5162,12 +5320,23 @@ function AdminApp() {
                                     R$ {ref.totalEarnedPix.toFixed(2)}
                                   </td>
                                   <td className="p-3 text-right">
-                                    <button
-                                      onClick={() => setSelectedReferrerModal(ref)}
-                                      className="rounded-lg bg-orange-primary px-3 py-1.5 text-xs font-bold text-white transition hover:bg-orange-600 shadow-sm"
-                                    >
-                                      Ver Indicados ({ref.totalReferrals})
-                                    </button>
+                                    <div className="flex items-center justify-end gap-2">
+                                      {ref.studentPhone && currentUser?.role === 'admin' && (
+                                        <button
+                                          onClick={() => openWaQuickSend({ id: `indicador_${ref.id}`, recipientType: 'indicador', name: ref.studentName, phone: ref.studentPhone, email: ref.studentEmail, code: ref.code })}
+                                          className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 shadow-sm"
+                                          title="Enviar WhatsApp"
+                                        >
+                                          💬 WhatsApp
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => setSelectedReferrerModal(ref)}
+                                        className="rounded-lg bg-orange-primary px-3 py-1.5 text-xs font-bold text-white transition hover:bg-orange-600 shadow-sm"
+                                      >
+                                        Ver Indicados ({ref.totalReferrals})
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               ))}
@@ -5215,6 +5384,7 @@ function AdminApp() {
                               <th className="p-3">Data</th>
                               <th className="p-3">Status Matrícula / PIX</th>
                               <th className="p-3 text-right">Comissão</th>
+                              {currentUser?.role === 'admin' && <th className="p-3 text-right">Ação</th>}
                             </tr>
                           </thead>
                           <tbody>
@@ -5247,6 +5417,19 @@ function AdminApp() {
                                 <td className="p-3 text-right font-extrabold text-navy">
                                   R$ {r.pixRewardValue.toFixed(2)}
                                 </td>
+                                {currentUser?.role === 'admin' && (
+                                  <td className="p-3 text-right">
+                                    {r.leadPhone && (
+                                      <button
+                                        onClick={() => openWaQuickSend({ id: `indicado_${r.id}`, recipientType: 'indicado', name: r.leadName, phone: r.leadPhone, email: r.leadEmail, courseTitle: r.courseTitle })}
+                                        className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 shadow-sm"
+                                        title="Enviar WhatsApp"
+                                      >
+                                        💬
+                                      </button>
+                                    )}
+                                  </td>
+                                )}
                               </tr>
                             ))}
                           </tbody>
@@ -5264,6 +5447,447 @@ function AdminApp() {
                     </div>
                   </div>
                 </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'whatsapp' && currentUser?.role === 'admin' && (
+            <div className="grid gap-6">
+              <div className="flex border-b border-slate-200 bg-white p-3 rounded-xl shadow-sm gap-2 overflow-x-auto">
+                {[
+                  ['massa', '📢 Disparo em Massa'],
+                  ['individual', '💬 Envio Individual'],
+                  ['historico', '🕒 Histórico de Envios'],
+                ].map(([sub, label]) => (
+                  <button
+                    key={sub}
+                    type="button"
+                    onClick={() => setWhatsappSubtab(sub as any)}
+                    className={`rounded-lg px-4 py-2 text-sm font-bold transition whitespace-nowrap ${
+                      whatsappSubtab === sub ? 'bg-navy text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {whatsappSubtab === 'massa' && (
+                <div className="grid gap-6">
+                  <Panel title="1. Selecione o Público-Alvo">
+                    <div className="grid gap-4">
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          ['indicadores', 'Indicadores (Embaixadores)'],
+                          ['indicados', 'Amigos Indicados'],
+                          ['todos', 'Todos'],
+                        ].map(([val, label]) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setWaTargetType(val as any)}
+                            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                              waTargetType === val ? 'bg-orange-primary text-white shadow-md' : 'bg-bg-light text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {(waTargetType === 'indicados' || waTargetType === 'todos') && (
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Filtrar Amigos Indicados por Status</label>
+                          <select
+                            value={waStatusFilter}
+                            onChange={(e) => setWaStatusFilter(e.target.value as any)}
+                            className="rounded-lg border border-slate-200 px-4 py-2 text-sm outline-none ring-orange-primary/20 focus:ring-4 font-semibold text-navy"
+                          >
+                            <option value="todos">Todos os Status</option>
+                            <option value="pendente">Pendente</option>
+                            <option value="aprovado">Aprovado / Convertido</option>
+                            <option value="rejeitado">Expirado / Rejeitado</option>
+                          </select>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-slate-600">
+                          {waRecipientsLoading ? 'Carregando destinatários...' : `${waRecipients.length - waExcludedIds.size} de ${waRecipients.length} destinatários selecionados`}
+                        </span>
+                        <button
+                          onClick={fetchWaRecipients}
+                          className="inline-flex items-center gap-2 rounded-xl bg-navy px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${waRecipientsLoading ? 'animate-spin' : ''}`} /> Atualizar Lista
+                        </button>
+                      </div>
+                      {waRecipients.length > 0 && (
+                        <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200">
+                          <table className="w-full text-left text-sm">
+                            <thead className="sticky top-0 bg-bg-light text-xs uppercase text-slate-500">
+                              <tr>
+                                <th className="p-2 w-10"></th>
+                                <th className="p-2">Nome</th>
+                                <th className="p-2">Telefone</th>
+                                <th className="p-2">Tipo</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {waRecipients.map((r) => (
+                                <tr key={r.id} className={`border-b border-slate-100 ${waExcludedIds.has(r.id) ? 'opacity-40' : ''}`}>
+                                  <td className="p-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={!waExcludedIds.has(r.id)}
+                                      onChange={() => {
+                                        setWaExcludedIds((prev) => {
+                                          const next = new Set(prev);
+                                          if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                                          return next;
+                                        });
+                                      }}
+                                      className="h-4 w-4 accent-orange-primary"
+                                    />
+                                  </td>
+                                  <td className="p-2 font-semibold text-navy">{r.name}</td>
+                                  <td className="p-2 text-slate-500">{r.phone}</td>
+                                  <td className="p-2">
+                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${r.recipientType === 'indicador' ? 'bg-orange-50 text-orange-700' : 'bg-blue-50 text-blue-700'}`}>
+                                      {r.recipientType === 'indicador' ? 'Indicador' : 'Indicado'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      {!waRecipientsLoading && waRecipients.length === 0 && (
+                        <p className="rounded-lg bg-bg-light p-4 text-center text-sm text-slate-500">Nenhum destinatário com WhatsApp cadastrado para este público.</p>
+                      )}
+                    </div>
+                  </Panel>
+
+                  <Panel title="2. Escreva a Mensagem">
+                    <div className="grid gap-3">
+                      <div className="flex flex-wrap gap-2">
+                        {['{nome}', '{codigo}', '{link_indicacao}', '{cupom}', '{curso}'].map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setWaBulkMessage((prev) => `${prev}${v}`)}
+                            className="rounded-full bg-slate-100 px-3 py-1 text-xs font-mono font-bold text-navy hover:bg-slate-200 transition"
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        rows={5}
+                        value={waBulkMessage}
+                        onChange={(e) => setWaBulkMessage(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 p-3 text-sm outline-none ring-orange-primary/20 transition focus:ring-4 font-normal text-slate-700"
+                        placeholder="Escreva a mensagem que será enviada..."
+                      />
+                      {waRecipients.length > 0 && (
+                        <p className="text-xs text-slate-500 rounded-lg bg-bg-light p-2">
+                          <strong>Prévia (1º destinatário):</strong> {applyWaTemplateVars(waBulkMessage, waRecipients[0])}
+                        </p>
+                      )}
+                    </div>
+                  </Panel>
+
+                  <Panel title="3. Delay Anti-Banimento e Disparo">
+                    <div className="grid gap-4">
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800">
+                        ⚠️ Para evitar o bloqueio do número no WhatsApp, mantenha um intervalo mínimo entre os envios. Recomendamos ao menos 3 segundos por mensagem.
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Delay entre mensagens (segundos)</label>
+                        <input
+                          type="number"
+                          min={2}
+                          max={30}
+                          value={waDelaySeconds}
+                          onChange={(e) => setWaDelaySeconds(Math.min(30, Math.max(2, Number(e.target.value) || 3)))}
+                          className="w-32 rounded-lg border border-slate-200 px-4 py-2 text-sm outline-none ring-orange-primary/20 focus:ring-4 font-bold text-navy"
+                        />
+                      </div>
+
+                      {waBulkJob ? (
+                        <div className="rounded-lg border border-slate-200 bg-white p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-bold text-navy">
+                              {waBulkJob.status === 'running' ? 'Enviando mensagens...' : waBulkJob.status === 'cancelled' ? 'Disparo interrompido' : 'Disparo concluído'}
+                            </span>
+                            <span className="text-xs font-semibold text-slate-500">{waBulkJob.sent} / {waBulkJob.total}</span>
+                          </div>
+                          <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className="h-full rounded-full bg-orange-primary transition-all"
+                              style={{ width: `${waBulkJob.total > 0 ? (waBulkJob.sent / waBulkJob.total) * 100 : 0}%` }}
+                            />
+                          </div>
+                          <div className="mt-3 flex gap-4 text-xs font-semibold">
+                            <span className="text-green-600">✔ {waBulkJob.successCount} enviadas</span>
+                            <span className="text-red-500">✘ {waBulkJob.errorCount} falharam</span>
+                          </div>
+                          {waBulkJob.status === 'running' && (
+                            <button
+                              onClick={async () => {
+                                if (!token || !waBulkJobId) return;
+                                await fetch(`/api/admin/whatsapp/send-bulk/${waBulkJobId}/cancel`, {
+                                  method: 'POST',
+                                  headers: { Authorization: `Bearer ${token}` },
+                                });
+                              }}
+                              className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition"
+                            >
+                              Interromper Disparo
+                            </button>
+                          )}
+                          {waBulkJob.status !== 'running' && (
+                            <button
+                              onClick={() => { setWaBulkJob(null); setWaBulkJobId(null); }}
+                              className="mt-3 rounded-lg bg-slate-200 px-4 py-2 text-xs font-bold text-navy hover:bg-slate-300 transition"
+                            >
+                              Fechar Monitor
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          disabled={waBulkStarting || waRecipients.filter((r) => !waExcludedIds.has(r.id)).length === 0 || !waBulkMessage.trim()}
+                          onClick={async () => {
+                            if (!token) { alert('Sessão expirada. Faça login novamente.'); return; }
+                            const targets = waRecipients.filter((r) => !waExcludedIds.has(r.id));
+                            if (targets.length === 0) return;
+                            if (!confirm(`Confirma o disparo em massa para ${targets.length} destinatário(s) com intervalo de ${waDelaySeconds}s?`)) return;
+                            setWaBulkStarting(true);
+                            try {
+                              const res = await fetch('/api/admin/whatsapp/send-bulk', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({
+                                  recipients: targets.map((r) => ({ name: r.name, phone: r.phone, code: r.code, courseTitle: r.courseTitle })),
+                                  message: waBulkMessage,
+                                  delaySeconds: waDelaySeconds,
+                                  recipientType: waTargetType,
+                                }),
+                              });
+                              const body = await res.json();
+                              if (res.ok && body.data?.jobId) {
+                                setWaBulkJobId(body.data.jobId);
+                                setWaBulkJob({ id: body.data.jobId, total: targets.length, sent: 0, successCount: 0, errorCount: 0, status: 'running', results: [] });
+                              } else {
+                                alert('Erro ao iniciar disparo: ' + (body.error || 'Falha desconhecida.'));
+                              }
+                            } catch {
+                              alert('Erro de conexão ao iniciar o disparo.');
+                            } finally {
+                              setWaBulkStarting(false);
+                            }
+                          }}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-primary px-5 py-3 font-bold text-white max-w-sm transition hover:bg-orange-600 shadow-md disabled:opacity-50"
+                        >
+                          <Send className="h-4 w-4" />
+                          {waBulkStarting ? 'Iniciando disparo...' : `Disparar para ${waRecipients.filter((r) => !waExcludedIds.has(r.id)).length} destinatário(s)`}
+                        </button>
+                      )}
+                    </div>
+                  </Panel>
+                </div>
+              )}
+
+              {whatsappSubtab === 'individual' && (
+                <div className="grid gap-6 max-w-2xl">
+                  <Panel title="Buscar Contato">
+                    <input
+                      type="text"
+                      placeholder="Buscar por nome, telefone ou e-mail (indicador ou indicado)..."
+                      value={waIndividualSearch}
+                      onChange={(e) => setWaIndividualSearch(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none ring-orange-primary/20 focus:ring-4 font-semibold text-navy"
+                    />
+                    {waAllRecipientsLoading && <p className="mt-2 text-xs text-slate-400">Carregando contatos...</p>}
+                    {waIndividualSearch.trim().length > 1 && (
+                      <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-slate-200">
+                        {waAllRecipients
+                          .filter((r) => {
+                            const q = waIndividualSearch.toLowerCase();
+                            return r.name.toLowerCase().includes(q) || r.phone.includes(q) || (r.email || '').toLowerCase().includes(q);
+                          })
+                          .slice(0, 20)
+                          .map((r) => (
+                            <button
+                              key={r.id}
+                              type="button"
+                              onClick={() => {
+                                setWaIndividualSelected(r);
+                                setWaIndividualPhone(r.phone);
+                                setWaIndividualName(r.name);
+                                setWaIndividualSearch('');
+                              }}
+                              className="flex w-full items-center justify-between border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-bg-light transition"
+                            >
+                              <span>
+                                <strong className="text-navy">{r.name}</strong>
+                                <span className="ml-2 text-xs text-slate-400">{r.phone}</span>
+                              </span>
+                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${r.recipientType === 'indicador' ? 'bg-orange-50 text-orange-700' : 'bg-blue-50 text-blue-700'}`}>
+                                {r.recipientType === 'indicador' ? 'Indicador' : 'Indicado'}
+                              </span>
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </Panel>
+
+                  <Panel title="Destinatário e Mensagem">
+                    <div className="grid gap-4">
+                      {waIndividualSelected && (
+                        <div className="rounded-lg bg-bg-light p-3 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-navy">
+                            {waIndividualSelected.name} — {waIndividualSelected.recipientType === 'indicador' ? 'Indicador' : 'Indicado'}
+                          </span>
+                          <button onClick={() => setWaIndividualSelected(null)} className="text-xs font-bold text-red-500 hover:underline">Limpar seleção</button>
+                        </div>
+                      )}
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Nome (para variável {'{nome}'})</label>
+                          <input
+                            type="text"
+                            value={waIndividualName}
+                            onChange={(e) => setWaIndividualName(e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none ring-orange-primary/20 focus:ring-4 font-semibold text-navy"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone WhatsApp (com DDD)</label>
+                          <input
+                            type="text"
+                            value={waIndividualPhone}
+                            onChange={(e) => setWaIndividualPhone(e.target.value)}
+                            placeholder="Ex: 99999999999"
+                            className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none ring-orange-primary/20 focus:ring-4 font-semibold text-navy"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {['{nome}', '{codigo}', '{link_indicacao}', '{cupom}', '{curso}'].map((v) => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setWaIndividualMessage((prev) => `${prev}${v}`)}
+                              className="rounded-full bg-slate-100 px-3 py-1 text-xs font-mono font-bold text-navy hover:bg-slate-200 transition"
+                            >
+                              {v}
+                            </button>
+                          ))}
+                        </div>
+                        <textarea
+                          rows={5}
+                          value={waIndividualMessage}
+                          onChange={(e) => setWaIndividualMessage(e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 p-3 text-sm outline-none ring-orange-primary/20 transition focus:ring-4 font-normal text-slate-700"
+                        />
+                        <p className="mt-2 text-xs text-slate-500 rounded-lg bg-bg-light p-2">
+                          <strong>Prévia:</strong> {applyWaTemplateVars(waIndividualMessage, { name: waIndividualName, code: waIndividualSelected?.code, courseTitle: waIndividualSelected?.courseTitle })}
+                        </p>
+                      </div>
+                      <button
+                        disabled={waIndividualSending || !waIndividualPhone.trim() || !waIndividualMessage.trim()}
+                        onClick={async () => {
+                          if (!token) { alert('Sessão expirada. Faça login novamente.'); return; }
+                          setWaIndividualSending(true);
+                          try {
+                            const res = await fetch('/api/admin/whatsapp/send-individual', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({
+                                phone: waIndividualPhone,
+                                name: waIndividualName,
+                                message: waIndividualMessage,
+                                recipientType: waIndividualSelected?.recipientType || 'custom',
+                                code: waIndividualSelected?.code,
+                                courseTitle: waIndividualSelected?.courseTitle,
+                              }),
+                            });
+                            const body = await res.json();
+                            if (res.ok) {
+                              showNotice(body.message || 'Mensagem enviada no WhatsApp!');
+                            } else {
+                              alert('Erro ao enviar WhatsApp: ' + (body.error || 'Falha no envio.'));
+                            }
+                          } catch {
+                            alert('Erro de conexão ao enviar a mensagem.');
+                          } finally {
+                            setWaIndividualSending(false);
+                          }
+                        }}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-navy px-5 py-3 font-bold text-white max-w-xs transition hover:bg-slate-800 shadow-md disabled:opacity-50"
+                      >
+                        <Send className={`h-4 w-4 ${waIndividualSending ? 'animate-spin' : ''}`} />
+                        {waIndividualSending ? 'Enviando...' : 'Enviar Mensagem'}
+                      </button>
+                    </div>
+                  </Panel>
+                </div>
+              )}
+
+              {whatsappSubtab === 'historico' && (
+                <Panel title="Histórico de Envios">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-sm font-semibold text-slate-600">{waLogs.length} registros</span>
+                    <button
+                      onClick={fetchWaLogs}
+                      className="inline-flex items-center gap-2 rounded-xl bg-navy px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${waLogsLoading ? 'animate-spin' : ''}`} /> Atualizar
+                    </button>
+                  </div>
+                  {waLogs.length === 0 ? (
+                    <p className="rounded-lg bg-bg-light p-6 text-center text-sm text-slate-500">Nenhum envio registrado até o momento.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[800px] text-left text-sm">
+                        <thead className="bg-bg-light text-xs uppercase text-slate-500">
+                          <tr>
+                            <th className="p-3">Data/Hora</th>
+                            <th className="p-3">Destinatário</th>
+                            <th className="p-3">Telefone</th>
+                            <th className="p-3">Tipo</th>
+                            <th className="p-3">Mensagem</th>
+                            <th className="p-3">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {waLogs.map((log) => (
+                            <tr key={log.id} className="border-b border-slate-100 align-top">
+                              <td className="p-3 text-xs text-slate-500 whitespace-nowrap">{new Date(log.createdAt).toLocaleString('pt-BR')}</td>
+                              <td className="p-3 font-semibold text-navy">{log.recipientName || '—'}</td>
+                              <td className="p-3 text-slate-500">{log.phone}</td>
+                              <td className="p-3">
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 capitalize">
+                                  {log.sendType === 'bulk' ? 'Massa' : 'Individual'} · {log.recipientType}
+                                </span>
+                              </td>
+                              <td className="p-3 max-w-xs truncate text-slate-500" title={log.message}>{log.message}</td>
+                              <td className="p-3">
+                                {log.status === 'sent' ? (
+                                  <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-bold text-green-700 border border-green-200">Enviada</span>
+                                ) : (
+                                  <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-700 border border-red-200" title={log.errorMessage || ''}>Falhou</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Panel>
               )}
             </div>
           )}

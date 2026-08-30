@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -652,48 +653,131 @@ async function sendToCrmWebhook(event: string, data: any) {
   }
 }
 
-async function sendEvolutionWhatsApp(phoneNumber: string, message: string) {
+interface EvolutionConfig {
+  apiUrl: string;
+  apiKey: string;
+  instance: string;
+}
+
+function sanitizeEvolutionBaseUrl(raw: string): string {
+  let url = String(raw || '').trim();
+  if (!url) return '';
+  // Remove barras finais e paths que o usuário pode ter colado por engano
+  // (ex: a própria rota de envio ou o painel do manager da Evolution API).
+  url = url.replace(/\/+$/, '');
+  url = url.replace(/\/message\/sendText(\/.*)?$/i, '');
+  url = url.replace(/\/manager\/?$/i, '');
+  return url.replace(/\/+$/, '');
+}
+
+async function getEvolutionConfig(): Promise<EvolutionConfig | null> {
+  const settings = await getSystemSettings();
+  const apiUrl = sanitizeEvolutionBaseUrl(
+    settings.evolutionApiUrl || process.env.EVOLUTION_API_URL || process.env.WHATSAPP_API_URL || ''
+  );
+  const apiKey = settings.evolutionApiKey || process.env.EVOLUTION_API_KEY || process.env.WHATSAPP_API_TOKEN || '';
+  const instance = settings.evolutionInstance || process.env.EVOLUTION_INSTANCE || '';
+
+  if (!apiUrl || !apiKey || !instance) return null;
+  return { apiUrl, apiKey, instance };
+}
+
+function normalizeWhatsappNumber(phoneNumber: string): string {
+  let cleanNumber = String(phoneNumber || '').replace(/\D/g, '');
+  if (cleanNumber.length >= 10 && !cleanNumber.startsWith('55')) {
+    cleanNumber = '55' + cleanNumber;
+  }
+  return cleanNumber;
+}
+
+interface EvolutionSendResult {
+  success: boolean;
+  status?: number;
+  error?: string;
+  details?: any;
+}
+
+async function sendEvolutionWhatsApp(phoneNumber: string, message: string): Promise<EvolutionSendResult> {
+  const config = await getEvolutionConfig();
+  if (!config) {
+    console.log('[Evolution API] Configuração incompleta (URL, Instância ou API Key ausente). Ignorando envio.');
+    return {
+      success: false,
+      error: 'Configuração da Evolution API incompleta. Preencha a URL, a Instância e a API Key nas configurações (ou nas variáveis de ambiente EVOLUTION_API_URL/EVOLUTION_API_KEY/EVOLUTION_INSTANCE).',
+    };
+  }
+
+  const cleanNumber = normalizeWhatsappNumber(phoneNumber);
+  if (!cleanNumber) {
+    return { success: false, error: 'Número de telefone inválido ou não informado.' };
+  }
+
+  const url = `${config.apiUrl}/message/sendText/${encodeURIComponent(config.instance)}`;
+
   try {
-    const settings = await getSystemSettings();
-    if (!settings.evolutionApiUrl || !settings.evolutionApiKey || !settings.evolutionInstance) {
-      console.log('[Evolution API] Configuração não salva ou incompleta. Ignorando envio.');
-      return false;
-    }
-
-    let cleanNumber = phoneNumber.replace(/\D/g, '');
-    if (cleanNumber.length >= 10 && !cleanNumber.startsWith('55')) {
-      cleanNumber = '55' + cleanNumber;
-    }
-
-    const baseUrl = settings.evolutionApiUrl.replace(/\/+$/, '');
-    const url = `${baseUrl}/message/sendText/${encodeURIComponent(settings.evolutionInstance)}`;
-
     console.log(`[Evolution API] Enviando mensagem de WhatsApp para ${cleanNumber}...`);
 
     const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': settings.evolutionApiKey
+        'apikey': config.apiKey,
+        'Authorization': `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify({
         number: cleanNumber,
-        text: message
-      })
+        text: message,
+        textMessage: { text: message },
+      }),
     });
+
+    const rawBody = await res.text();
+    let parsedBody: any = null;
+    try { parsedBody = rawBody ? JSON.parse(rawBody) : null; } catch { /* resposta não é JSON */ }
 
     if (res.ok) {
       console.log(`[Evolution API] Mensagem enviada com sucesso para ${cleanNumber}!`);
-      return true;
-    } else {
-      const errText = await res.text();
-      console.error(`[Evolution API] Erro ao enviar mensagem (${res.status}):`, errText);
-      return false;
+      return { success: true, status: res.status, details: parsedBody };
     }
+
+    const apiMessage = parsedBody?.message ?? parsedBody?.error ?? parsedBody?.response?.message ?? rawBody;
+    const apiMessageText = Array.isArray(apiMessage) ? apiMessage.join(', ') : String(apiMessage || 'Erro desconhecido retornado pela Evolution API.');
+
+    let friendlyError: string;
+    if (res.status === 401 || res.status === 403) {
+      friendlyError = `Erro (${res.status}): Chave de API (apikey) inválida ou sem permissão para a instância "${config.instance}".`;
+    } else if (res.status === 404) {
+      friendlyError = `Erro (404): Instância "${config.instance}" não encontrada. Verifique o nome da instância e a URL base configurada.`;
+    } else if (res.status === 400) {
+      friendlyError = `Erro (400): Requisição inválida. ${apiMessageText}`;
+    } else {
+      friendlyError = `Erro (${res.status}): ${apiMessageText}`;
+    }
+
+    console.error(`[Evolution API] Erro ao enviar mensagem (${res.status}):`, rawBody);
+    return { success: false, status: res.status, error: friendlyError, details: parsedBody || rawBody };
   } catch (err: any) {
     console.error('[Evolution API] Erro na requisição WhatsApp:', err.message);
-    return false;
+    const isSsl = /certificate|SSL|self.signed/i.test(err.message || '');
+    const error = isSsl
+      ? `Falha de conexão SSL com a Evolution API. Verifique o certificado do servidor configurado na URL. (${err.message})`
+      : `Falha de conexão/rede com a Evolution API. Verifique se a URL está correta e acessível a partir do servidor. (${err.message})`;
+    return { success: false, error, details: err.message };
   }
+}
+
+function applyWhatsappTemplateVars(
+  template: string,
+  data: { name?: string; code?: string; courseTitle?: string },
+  domain?: string
+): string {
+  const baseDomain = domain || 'isentidos.com.br';
+  return String(template || '')
+    .replace(/\{nome\}/gi, data.name || '')
+    .replace(/\{codigo\}/gi, data.code || '')
+    .replace(/\{cupom\}/gi, data.code || '')
+    .replace(/\{link_indicacao\}/gi, data.code ? `https://${baseDomain}/indicacao/${data.code}` : '')
+    .replace(/\{curso\}/gi, data.courseTitle || '');
 }
 
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
@@ -2226,56 +2310,19 @@ const ALL_ECOSYSTEM_TYPES = [
 ];
 
 // Helper Utilitário: Envio de Notificações WhatsApp via Evolution API (Não-Bloqueante)
+// Delega para sendEvolutionWhatsApp() para usar a MESMA fonte de configuração
+// (banco de dados com fallback para variáveis de ambiente) das demais rotas de disparo.
 export async function sendReferralWhatsAppNotification(phone: string, message: string): Promise<boolean> {
   if (!phone) {
     console.log('[WhatsApp Notification] Telefone do indicador não informado. Notificação ignorada.');
     return false;
   }
 
-  const apiUrl = (process.env.EVOLUTION_API_URL || process.env.WHATSAPP_API_URL || '').replace(/\/$/, '');
-  const apiKey = process.env.EVOLUTION_API_KEY || process.env.WHATSAPP_API_TOKEN || '';
-  const instance = process.env.EVOLUTION_INSTANCE || 'isentidos';
-
-  if (!apiUrl || !apiKey) {
-    console.log('[WhatsApp Notification Log] Evolution API / WhatsApp API não configurada no ambiente (EVOLUTION_API_URL/KEY não fornecidos). Log da notificação:', {
-      to: phone,
-      message,
-    });
-    return false;
+  const result = await sendEvolutionWhatsApp(phone, message);
+  if (!result.success) {
+    console.log('[WhatsApp Notification Fail-Safe] Falha ao enviar notificação automática:', { to: phone, error: result.error });
   }
-
-  let cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.length === 10 || cleanPhone.length === 11) {
-    cleanPhone = `55${cleanPhone}`;
-  }
-
-  const endpoint = `${apiUrl}/message/sendText/${instance}`;
-
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': apiKey,
-      },
-      body: JSON.stringify({
-        number: cleanPhone,
-        text: message,
-      }),
-    });
-
-    if (response.ok) {
-      console.log(`[WhatsApp Notification Success] Mensagem enviada via Evolution API para ${cleanPhone}`);
-      return true;
-    } else {
-      const errBody = await response.text().catch(() => '');
-      console.error(`[WhatsApp Notification Error] Status ${response.status} ao enviar via Evolution API para ${cleanPhone}:`, errBody);
-      return false;
-    }
-  } catch (error: any) {
-    console.error(`[WhatsApp Notification Fail-Safe] Falha de conexão com a Evolution API para ${cleanPhone}:`, error?.message || error);
-    return false;
-  }
+  return result.success;
 }
 
 async function notifyReferralStatusApproved(referralId: string) {
@@ -3188,11 +3235,15 @@ app.post('/api/admin/settings/test-evolution', authMiddleware, adminOnlyMiddlewa
     return res.status(400).json({ error: 'Informe um número de telefone com DDD para testar o envio.' });
   }
 
-  const success = await sendEvolutionWhatsApp(targetPhone, testMessage);
-  if (success) {
+  const result = await sendEvolutionWhatsApp(targetPhone, testMessage);
+  if (result.success) {
     return res.json({ ok: true, message: `Mensagem de teste enviada com sucesso para ${targetPhone} via Evolution API!` });
   } else {
-    return res.status(500).json({ error: 'Falha ao enviar mensagem via Evolution API. Verifique a URL, Instância e API Key nas configurações.' });
+    const status = result.status && result.status >= 400 && result.status < 500 ? result.status : 502;
+    return res.status(status).json({
+      error: result.error || 'Falha ao enviar mensagem via Evolution API. Verifique a URL, Instância e API Key nas configurações.',
+      status: result.status ?? null,
+    });
   }
 });
 
@@ -3210,6 +3261,212 @@ app.post('/api/admin/settings/test-smtp', authMiddleware, adminOnlyMiddleware, a
   } else {
     return res.status(500).json({ error: 'Falha ao enviar e-mail via SMTP. Verifique as credenciais no painel.' });
   }
+});
+
+// ── Disparador de WhatsApp (Envio individual e em massa) ──────────────────────
+
+interface BulkWhatsappJob {
+  id: string;
+  total: number;
+  sent: number;
+  successCount: number;
+  errorCount: number;
+  status: 'running' | 'done' | 'cancelled';
+  startedAt: string;
+  finishedAt?: string;
+  results: { name: string; phone: string; success: boolean; error?: string }[];
+  cancelRequested: boolean;
+}
+
+const bulkWhatsappJobs = new Map<string, BulkWhatsappJob>();
+
+app.get('/api/admin/whatsapp/recipients', authMiddleware, async (req, res) => {
+  const type = String(req.query.type || 'todos'); // indicadores | indicados | todos
+  const statusFilter = String(req.query.status || 'todos');
+  const statusMap: Record<string, string> = { pendente: 'pending', aprovado: 'converted', rejeitado: 'expired' };
+
+  const recipients = await withDatabase(async () => {
+    const list: any[] = [];
+
+    if (type === 'indicadores' || type === 'todos') {
+      const codes = await prisma.referralCode.findMany({ include: { student: true } });
+      for (const c of codes) {
+        const phone = c.student.phone || '';
+        if (!phone) continue;
+        list.push({
+          id: `indicador_${c.id}`,
+          recipientType: 'indicador',
+          name: c.student.name,
+          phone,
+          email: c.student.email,
+          code: c.code,
+          courseTitle: '',
+          status: null,
+        });
+      }
+    }
+
+    if (type === 'indicados' || type === 'todos') {
+      const referrals = await prisma.referral.findMany({
+        include: { lead: { include: { course: true } }, referralCode: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      for (const r of referrals) {
+        const phone = r.lead?.phone || '';
+        if (!phone) continue;
+        if (statusFilter !== 'todos' && r.status !== (statusMap[statusFilter] || statusFilter)) continue;
+        list.push({
+          id: `indicado_${r.id}`,
+          recipientType: 'indicado',
+          name: r.lead?.name || 'Sem nome',
+          phone,
+          email: r.lead?.email || '',
+          code: r.referralCode?.code || '',
+          courseTitle: r.lead?.course?.title || '',
+          status: r.status,
+        });
+      }
+    }
+
+    return list;
+  }, []);
+
+  res.json({ data: recipients });
+});
+
+const individualWhatsappSchema = z.object({
+  phone: z.string().min(8),
+  name: z.string().optional().default(''),
+  message: z.string().min(1),
+  recipientType: z.string().optional().default('custom'),
+  code: z.string().optional(),
+  courseTitle: z.string().optional(),
+});
+
+app.post('/api/admin/whatsapp/send-individual', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  const parsed = individualWhatsappSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+  }
+  const { phone, name, message, recipientType, code, courseTitle } = parsed.data;
+  const settings = await getSystemSettings();
+  const personalizedMessage = applyWhatsappTemplateVars(message, { name, code, courseTitle }, settings.domain);
+
+  const result = await sendEvolutionWhatsApp(phone, personalizedMessage);
+
+  await withDatabase(async () => prisma.whatsappMessageLog.create({
+    data: {
+      sendType: 'individual',
+      recipientType,
+      recipientName: name || null,
+      phone,
+      message: personalizedMessage,
+      status: result.success ? 'sent' : 'failed',
+      errorMessage: result.error || null,
+      sentBy: (req as any).user?.sub || null,
+    },
+  }), null);
+
+  if (result.success) {
+    return res.json({ ok: true, message: `Mensagem enviada com sucesso para ${phone}!` });
+  }
+  const status = result.status && result.status >= 400 && result.status < 500 ? result.status : 502;
+  return res.status(status).json({ error: result.error || 'Falha ao enviar mensagem via Evolution API.' });
+});
+
+const bulkWhatsappSchema = z.object({
+  recipients: z.array(z.object({
+    name: z.string().optional().default(''),
+    phone: z.string().min(8),
+    code: z.string().optional(),
+    courseTitle: z.string().optional(),
+  })).min(1).max(2000),
+  message: z.string().min(1),
+  delaySeconds: z.coerce.number().min(2).max(30).default(3),
+  recipientType: z.string().optional().default('custom'),
+});
+
+app.post('/api/admin/whatsapp/send-bulk', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  const parsed = bulkWhatsappSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+  }
+  const { recipients, message, delaySeconds, recipientType } = parsed.data;
+  const settings = await getSystemSettings();
+  const userId = (req as any).user?.sub || null;
+
+  const jobId = crypto.randomUUID();
+  const job: BulkWhatsappJob = {
+    id: jobId,
+    total: recipients.length,
+    sent: 0,
+    successCount: 0,
+    errorCount: 0,
+    status: 'running',
+    startedAt: new Date().toISOString(),
+    results: [],
+    cancelRequested: false,
+  };
+  bulkWhatsappJobs.set(jobId, job);
+
+  (async () => {
+    for (let i = 0; i < recipients.length; i++) {
+      if (job.cancelRequested) break;
+      const recipient = recipients[i];
+      const personalizedMessage = applyWhatsappTemplateVars(message, recipient, settings.domain);
+      const result = await sendEvolutionWhatsApp(recipient.phone, personalizedMessage);
+
+      job.sent += 1;
+      if (result.success) job.successCount += 1; else job.errorCount += 1;
+      job.results.push({ name: recipient.name || '', phone: recipient.phone, success: result.success, error: result.error });
+
+      await withDatabase(async () => prisma.whatsappMessageLog.create({
+        data: {
+          sendType: 'bulk',
+          recipientType,
+          recipientName: recipient.name || null,
+          phone: recipient.phone,
+          message: personalizedMessage,
+          status: result.success ? 'sent' : 'failed',
+          errorMessage: result.error || null,
+          sentBy: userId,
+        },
+      }), null);
+
+      if (job.cancelRequested || i === recipients.length - 1) break;
+      await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
+    }
+    job.status = job.cancelRequested ? 'cancelled' : 'done';
+    job.finishedAt = new Date().toISOString();
+  })().catch((err) => {
+    console.error('[WhatsApp Bulk Job Error]', err);
+    job.status = 'done';
+    job.finishedAt = new Date().toISOString();
+  });
+
+  res.status(202).json({ data: { jobId } });
+});
+
+app.get('/api/admin/whatsapp/send-bulk/:jobId', authMiddleware, adminOnlyMiddleware, (req, res) => {
+  const job = bulkWhatsappJobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'Disparo não encontrado ou expirado.' });
+  res.json({ data: job });
+});
+
+app.post('/api/admin/whatsapp/send-bulk/:jobId/cancel', authMiddleware, adminOnlyMiddleware, (req, res) => {
+  const job = bulkWhatsappJobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'Disparo não encontrado ou expirado.' });
+  job.cancelRequested = true;
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/whatsapp/logs', authMiddleware, async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 100, 500);
+  const logs = await withDatabase(async () => prisma.whatsappMessageLog.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  }), []);
+  res.json({ data: logs });
 });
 
 app.get('/api/admin/referrers', authMiddleware, async (_req, res) => {
