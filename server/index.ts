@@ -245,6 +245,11 @@ const systemSettingSchema = z.object({
   outboundWebhookUrl: z.string().nullable().optional().transform(v => v ?? ''),
   mauticBaseUrl: z.string().nullable().optional().transform(v => v ?? 'https://mautic.isentidos.com.br'),
   mauticTrackingEnabled: z.boolean().default(true),
+  evoCrmEnabled: z.boolean().default(false),
+  evoCrmBaseUrl: z.string().nullable().optional().transform(v => v ?? ''),
+  evoCrmApiToken: z.string().nullable().optional().transform(v => v ?? ''),
+  evoCrmPipelineId: z.string().nullable().optional().transform(v => v ?? ''),
+  evoCrmStageId: z.string().nullable().optional().transform(v => v ?? ''),
 });
 
 const menuItemSchema = z.object({
@@ -560,6 +565,49 @@ async function submitCourseLeadToMautic(leadData: any, formId: number, courseTit
   }
 }
 
+async function sendLeadToEvoCrm(lead: { name: string; email: string; phone: string; source?: string | null; referralCode?: string | null }, dealTitle: string) {
+  const settings = await getSystemSettings();
+  if (!settings.evoCrmEnabled || !settings.evoCrmBaseUrl || !settings.evoCrmApiToken || !settings.evoCrmPipelineId || !settings.evoCrmStageId) {
+    return { attempted: false, reason: 'not_configured' };
+  }
+
+  const url = `${settings.evoCrmBaseUrl.replace(/\/$/, '')}/public/api/v1/leads`;
+  const payload = {
+    contact: {
+      name: lead.name,
+      email: lead.email,
+      phone_number: `+${normalizeWhatsappNumber(lead.phone)}`,
+    },
+    deal: {
+      title: dealTitle,
+      pipeline_id: settings.evoCrmPipelineId,
+      stage_id: settings.evoCrmStageId,
+    },
+    custom_fields: { source: lead.source || 'site' },
+    ...(lead.referralCode ? { metadata: { referral_code: lead.referralCode } } : {}),
+  };
+
+  console.log('[EvoCRM] lead:submit:start', { url, dealTitle, email: lead.email });
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', api_access_token: settings.evoCrmApiToken },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      console.error('[EvoCRM] lead:submit:failed', { status: res.status, body });
+    } else {
+      console.log('[EvoCRM] lead:submit:done', { status: res.status });
+    }
+    return { attempted: true, ok: res.ok, status: res.status, body };
+  } catch (error) {
+    console.error('[EvoCRM] lead:submit:error', error instanceof Error ? error.message : error);
+    return { attempted: true, ok: false, error };
+  }
+}
+
 async function getSystemSettings() {
   return await withDatabase(async () => {
     let settings = await prisma.systemSetting.findUnique({ where: { id: 'default' } });
@@ -608,54 +656,13 @@ async function getSystemSettings() {
     outboundWebhookUrl: '',
     mauticBaseUrl: 'https://mautic.isentidos.com.br',
     mauticTrackingEnabled: true,
+    evoCrmEnabled: false,
+    evoCrmBaseUrl: '',
+    evoCrmApiToken: '',
+    evoCrmPipelineId: '',
+    evoCrmStageId: '',
     updatedAt: new Date()
   });
-}
-
-async function sendToCrmWebhook(event: string, data: any) {
-  try {
-    const settings = await getSystemSettings();
-    if (!settings.outboundWebhookUrl) return;
-
-    let payload: any = {
-      event,
-      timestamp: new Date().toISOString(),
-      data
-    };
-
-    // Flatten core contact fields to root level for simpler GHL/LeadConnector mapping
-    if (event === 'lead_created') {
-      payload.name = data.name || '';
-      payload.email = data.email || '';
-      payload.phone = data.phone || '';
-      payload.referralCode = data.referralCode || '';
-      payload.source = data.source || 'site';
-      payload.notes = data.notes || '';
-    } else if (event === 'referral_code_created') {
-      const student = data.student || {};
-      payload.name = student.name || '';
-      payload.email = student.email || '';
-      payload.phone = student.phone || '';
-      payload.cpf = student.cpf || '';
-      payload.code = data.code || '';
-    }
-
-    console.log(`[Webhook CRM] Enviando payload para ${settings.outboundWebhookUrl}:`, JSON.stringify(payload, null, 2));
-
-    const res = await fetch(settings.outboundWebhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    
-    if (!res.ok) {
-      console.error(`[Webhook CRM] Falha ao enviar ${event}: Status ${res.status}`);
-    } else {
-      console.log(`[Webhook CRM] ${event} enviado com sucesso.`);
-    }
-  } catch (err) {
-    console.error(`[Webhook CRM] Erro na requisição do webhook:`, err);
-  }
 }
 
 interface EvolutionConfig {
@@ -1197,15 +1204,16 @@ app.post('/api/leads', async (req, res) => {
   }
 
   if (lead) {
-    sendToCrmWebhook(isUpdated ? 'lead_updated' : 'lead_created', lead);
-    
     if (parsed.data.courseSlug) {
       withDatabase(async () => {
         const course = await prisma.course.findUnique({ where: { slug: parsed.data.courseSlug } });
         if (course?.mauticFormId) {
           await submitCourseLeadToMautic(lead, course.mauticFormId, course.title);
         }
+        await sendLeadToEvoCrm(lead, course?.title || 'Interesse via site');
       }, null).catch(console.error);
+    } else {
+      sendLeadToEvoCrm(lead, 'Interesse via site').catch(console.error);
     }
   }
 
@@ -2549,11 +2557,6 @@ app.post('/api/referrals/register', async (req, res) => {
 
   if (!result) return res.status(503).json({ error: 'Falha ao registrar.' });
 
-  sendToCrmWebhook('referral_code_created', {
-    ...result,
-    student: { name: parsed.data.name, email: parsed.data.email, phone: parsed.data.phone },
-  });
-
   res.status(201).json({ data: result });
 });
 
@@ -2698,108 +2701,6 @@ app.post('/api/referrals/me', async (req, res) => {
 
   if (!result) return res.status(404).json({ error: 'Indicador não encontrado ou sem código ativo.' });
   res.json({ data: result });
-});
-
-// LeadConnector Webhook with authenticity verification
-app.post('/api/webhooks/leadconnector', async (req, res) => {
-  console.log('[Webhook:LeadConnector] Payload recebido:', req.body);
-
-  // Verification of webhook secret header if configured
-  const expectedSecret = process.env.WEBHOOK_SECRET;
-  const providedSecret = req.headers['x-webhook-secret'] || req.query.secret;
-  if (expectedSecret && providedSecret !== expectedSecret) {
-    return res.status(401).json({ error: 'Webhook não autorizado: Segredo inválido.' });
-  }
-
-  const name = req.body.name || req.body.first_name || req.body.fullName || `${req.body.firstName || ''} ${req.body.lastName || ''}`.trim() || 'Lead CRM';
-  const email = req.body.email;
-  const phone = req.body.phone || '';
-  const referralCodeStr = req.body.referral_code || req.body.referralCode || req.body.ref || (req.body.customFields ? req.body.customFields.referral_code || req.body.customFields.referralCode : undefined);
-  const courseSlug = req.body.course_slug || req.body.courseSlug;
-  const eventType = req.body.type || req.body.event || req.body.status || 'created';
-
-  if (!email) {
-    return res.status(400).json({ error: 'O campo "email" é obrigatório no webhook.' });
-  }
-
-  try {
-    // 1. Check if event is conversion/matriculado
-    if (eventType === 'converted' || eventType === 'matriculado' || (eventType === 'opportunity_status_changed' && req.body.opportunityStatus === 'won')) {
-      const existingReferrals = await prisma.referral.findMany({
-        where: {
-          lead: { email: email.trim().toLowerCase() },
-          status: 'pending',
-        },
-      });
-
-      if (existingReferrals.length > 0) {
-        const updated = await Promise.all(
-          existingReferrals.map((r) => processReferralConversion(r.id))
-        );
-        return res.json({ success: true, message: 'Referral(s) convertido(s) com recompensa PIX calculada.', updatedCount: updated.length });
-      }
-      return res.json({ success: true, message: 'Nenhuma indicação pendente encontrada para este e-mail.' });
-    }
-
-    // 2. Check if referralCode is present
-    if (referralCodeStr) {
-      const refCode = await prisma.referralCode.findUnique({
-        where: { code: referralCodeStr.trim().toUpperCase() },
-      });
-
-      if (refCode) {
-        let course = null;
-        if (courseSlug) {
-          course = await prisma.course.findUnique({ where: { slug: courseSlug } });
-        }
-
-        let lead = await prisma.lead.findFirst({
-          where: { email: email.trim().toLowerCase() },
-        });
-
-        if (!lead) {
-          lead = await prisma.lead.create({
-            data: {
-              name,
-              email: email.trim().toLowerCase(),
-              phone,
-              courseId: course?.id,
-              referralCode: refCode.code,
-              source: 'leadconnector_webhook',
-              status: 'novo',
-            },
-          });
-        }
-
-        const existingReferral = await prisma.referral.findFirst({
-          where: {
-            referralCodeId: refCode.id,
-            leadId: lead.id,
-          },
-        });
-
-        if (!existingReferral) {
-          await prisma.referral.create({
-            data: {
-              referralCodeId: refCode.id,
-              leadId: lead.id,
-              status: 'pending',
-              pixStatus: 'pending',
-              discountApplied: 0,
-            },
-          });
-          return res.json({ success: true, message: 'Indicação registrada (pendente).', leadId: lead.id });
-        }
-        return res.json({ success: true, message: 'Indicação já existia para este lead e código.' });
-      }
-      return res.status(400).json({ error: 'Código de indicação fornecido é inválido.' });
-    }
-
-    res.json({ success: true, message: 'Webhook recebido sem ação necessária.' });
-  } catch (error) {
-    console.error('[Webhook:LeadConnector] Erro ao processar:', error);
-    res.status(500).json({ error: 'Erro interno ao processar o webhook.' });
-  }
 });
 
 app.get('/api/admin/referral-settings', authMiddleware, async (_req, res) => {
@@ -2999,13 +2900,7 @@ app.post('/api/admin/referral-codes', authMiddleware, async (req, res) => {
   }, null);
 
   if (!result) return res.status(503).json({ error: 'Banco de dados indisponível.' });
-  
-  sendToCrmWebhook('referral_code_created', {
-    ...result,
-    studentName: result.student.name,
-    studentEmail: result.student.email
-  });
-  
+
   res.status(201).json({ data: result });
 });
 
@@ -3133,13 +3028,6 @@ app.post('/api/turma/:slug/registro', async (req, res) => {
     position: 1,
   });
 
-  if (createdLead) {
-    sendToCrmWebhook('lead_created', createdLead);
-  }
-  if (createdRefCode) {
-    sendToCrmWebhook('referral_code_created', createdRefCode);
-  }
-
   res.status(201).json({ data: result });
 });
 
@@ -3249,6 +3137,32 @@ app.post('/api/admin/settings/test-evolution', authMiddleware, adminOnlyMiddlewa
       status: result.status ?? null,
     });
   }
+});
+
+app.post('/api/admin/settings/test-evocrm', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  const { name, email, phone } = req.body;
+  const testName = String(name || '').trim();
+  const testEmail = String(email || '').trim();
+  const testPhone = String(phone || '').trim();
+
+  if (!testName || !testEmail || !testPhone) {
+    return res.status(400).json({ error: 'Informe nome, e-mail e telefone para testar o envio.' });
+  }
+
+  const result = await sendLeadToEvoCrm({ name: testName, email: testEmail, phone: testPhone, source: 'teste_admin' }, 'Lead de teste (Admin)');
+
+  if (!result.attempted) {
+    return res.status(400).json({ error: 'EvoCRM não está configurado ou não está ativado. Preencha URL, Token, Pipeline ID e Stage ID e ative a integração.' });
+  }
+  if (result.ok) {
+    return res.json({ ok: true, message: `Lead de teste enviado com sucesso para o EvoCRM!` });
+  }
+  const status = result.status && result.status >= 400 && result.status < 500 ? result.status : 502;
+  return res.status(status).json({
+    error: 'Falha ao enviar lead para o EvoCRM. Verifique a URL, o Token e os IDs de Pipeline/Stage nas configurações.',
+    status: result.status ?? null,
+    details: result.body ?? null,
+  });
 });
 
 app.post('/api/admin/settings/test-smtp', authMiddleware, adminOnlyMiddleware, async (req, res) => {

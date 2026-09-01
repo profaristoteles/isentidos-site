@@ -288,6 +288,11 @@ model SystemSetting {
   outboundWebhookUrl String   @default("") @map("outbound_webhook_url")
   mauticBaseUrl      String   @default("https://mautic.isentidos.com.br") @map("mautic_base_url")
   mauticTrackingEnabled Boolean @default(true) @map("mautic_tracking_enabled")
+  evoCrmEnabled      Boolean  @default(false) @map("evo_crm_enabled")
+  evoCrmBaseUrl      String   @default("") @map("evo_crm_base_url")
+  evoCrmApiToken     String   @default("") @map("evo_crm_api_token")
+  evoCrmPipelineId   String   @default("") @map("evo_crm_pipeline_id")
+  evoCrmStageId      String   @default("") @map("evo_crm_stage_id")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")

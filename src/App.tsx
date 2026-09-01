@@ -2080,6 +2080,11 @@ function AdminApp() {
     outboundWebhookUrl: '',
     mauticBaseUrl: 'https://mautic.isentidos.com.br',
     mauticTrackingEnabled: true,
+    evoCrmEnabled: false,
+    evoCrmBaseUrl: '',
+    evoCrmApiToken: '',
+    evoCrmPipelineId: '',
+    evoCrmStageId: '',
   });
 
   interface ReferrerData {
@@ -2117,6 +2122,10 @@ function AdminApp() {
   const [testEvolutionPhone, setTestEvolutionPhone] = useState('');
   const [testEvolutionMsg, setTestEvolutionMsg] = useState('🚀 Teste de envio de WhatsApp via Evolution API — Instituto Sentidos!');
   const [testEvolutionLoading, setTestEvolutionLoading] = useState(false);
+  const [testEvoCrmName, setTestEvoCrmName] = useState('');
+  const [testEvoCrmEmail, setTestEvoCrmEmail] = useState('');
+  const [testEvoCrmPhone, setTestEvoCrmPhone] = useState('');
+  const [testEvoCrmLoading, setTestEvoCrmLoading] = useState(false);
   const [testSmtpEmail, setTestSmtpEmail] = useState('');
   const [testSmtpLoading, setTestSmtpLoading] = useState(false);
 
@@ -2279,7 +2288,7 @@ function AdminApp() {
   const [editingMenuItem, setEditingMenuItem] = useState<AdminMenuItem | null>(null);
   
   // Settings Tab active subtab
-  const [settingsSubtab, setSettingsSubtab] = useState<'geral' | 'pixels' | 'api' | 'menu' | 'webhooks'>('geral');
+  const [settingsSubtab, setSettingsSubtab] = useState<'geral' | 'pixels' | 'api' | 'menu' | 'webhooks' | 'evocrm'>('geral');
 
 
   // Local state — each resource managed independently
@@ -3077,7 +3086,6 @@ function AdminApp() {
 
     const about              = String(form.get('about')              || '');
     const syllabus           = String(form.get('syllabus')           || '');
-    const leadConnectorFormId = String(form.get('leadConnectorFormId') || '');
     const mauticFormIdRaw = form.get('mauticFormId');
     const mauticFormId = mauticFormIdRaw ? parseInt(String(mauticFormIdRaw), 10) || null : null;
     const active             = form.get('active') === 'Ativo';
@@ -3107,7 +3115,6 @@ function AdminApp() {
       modules:             parseJson(String(form.get('modules')      || '')),
       teachers:            parseJson(String(form.get('teachers')     || '')),
       testimonials:        parseJson(String(form.get('testimonials') || '')),
-      leadConnectorFormId: leadConnectorFormId || null,
       mauticFormId,
       coverImageUrl:       courseCoverUrl || null,
     };
@@ -4148,7 +4155,7 @@ function AdminApp() {
                     <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
                       <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-navy uppercase tracking-wide">
                         <Share2 className="h-4 w-4 text-orange-primary" />
-                        CRM e Integrações
+                        Vídeo e Integrações
                       </h3>
                       <div className="grid gap-4">
                         <Field
@@ -4157,15 +4164,6 @@ function AdminApp() {
                           placeholder="https://www.youtube.com/watch?v=..."
                           defaultValue={editingCourse?.videoUrl}
                         />
-                        <div>
-                          <Field
-                            label="ID ou URL do Formulário LeadConnector / CRM"
-                            name="leadConnectorFormId"
-                            placeholder="Ex: m1woQ1eYGfimUdhQledm ou https://api.leadconnectorhq.com/widget/form/..."
-                            defaultValue={editingCourse?.leadConnectorFormId}
-                          />
-                          <p className="mt-1.5 text-xs text-slate-500">Se vazio, usa automaticamente Pós-ao vivo para cursos Online/EAD e Pós-presencial para cursos presenciais. Preencha um ID ou URL completa para sobrescrever por curso.</p>
-                        </div>
                         <Field
                           label="ID do Formulário Mautic (Opcional)"
                           name="mauticFormId"
@@ -6515,7 +6513,8 @@ function AdminApp() {
                   ['evolution', 'Evolution API (WhatsApp)'],
                   ['smtp', 'E-mail (SMTP)'],
                   ['menu', 'Menu do Site'],
-                  ['webhooks', 'Webhooks / CRM'],
+                  ['webhooks', 'Mautic'],
+                  ['evocrm', 'EvoCRM'],
                 ].map(([sub, label]) => (
                   <button
                     key={sub}
@@ -6677,6 +6676,160 @@ function AdminApp() {
                       >
                         <Send className={`h-4 w-4 ${testEvolutionLoading ? 'animate-spin' : ''}`} />
                         {testEvolutionLoading ? 'Enviando no WhatsApp...' : 'Enviar Mensagem de Teste'}
+                      </button>
+                    </div>
+                  </Panel>
+                </div>
+              )}
+
+              {settingsSubtab === 'evocrm' && (
+                <div className="grid gap-6 max-w-3xl">
+                  <Panel title="Configurações do EvoCRM">
+                    <p className="text-xs text-slate-500 mb-4">
+                      Configure a sua instância do EvoCRM (Evolution Foundation) para que todo lead capturado no site (Pós-graduação, EJA, Mestrado/Doutorado, Curso Livre, Preparatório) seja enviado automaticamente como um novo lead/negociação por lá.
+                    </p>
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!token) { alert('Sessão expirada. Por favor, faça login novamente.'); return; }
+                      const form = new FormData(e.currentTarget);
+                      const updated = {
+                        ...adminSettings,
+                        evoCrmBaseUrl: String(form.get('evoCrmBaseUrl') || ''),
+                        evoCrmApiToken: String(form.get('evoCrmApiToken') || ''),
+                        evoCrmPipelineId: String(form.get('evoCrmPipelineId') || ''),
+                        evoCrmStageId: String(form.get('evoCrmStageId') || ''),
+                        evoCrmEnabled: form.get('evoCrmEnabled') === 'on',
+                      };
+                      try {
+                        const res = await fetch('/api/admin/settings', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                          body: JSON.stringify(updated),
+                        });
+                        if (res.ok) {
+                          setAdminSettings(updated);
+                          showNotice('Configurações do EvoCRM salvas com sucesso!');
+                        } else {
+                          alert('Erro ao salvar: ' + await handleAdminResponseError(res));
+                        }
+                      } catch {
+                        alert('Erro de conexão ao servidor.');
+                      }
+                    }} className="grid gap-4">
+                      <Field
+                        label="URL Base da instância do EvoCRM"
+                        name="evoCrmBaseUrl"
+                        placeholder="https://crm.suaempresa.com.br"
+                        defaultValue={adminSettings.evoCrmBaseUrl}
+                      />
+                      <Field
+                        label="Token de API (api_access_token)"
+                        name="evoCrmApiToken"
+                        type="password"
+                        placeholder="Token UUID gerado em Settings → Access Tokens"
+                        defaultValue={adminSettings.evoCrmApiToken}
+                      />
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field
+                          label="Pipeline ID"
+                          name="evoCrmPipelineId"
+                          placeholder="UUID do pipeline padrão"
+                          defaultValue={adminSettings.evoCrmPipelineId}
+                        />
+                        <Field
+                          label="Stage ID"
+                          name="evoCrmStageId"
+                          placeholder="UUID do estágio padrão"
+                          defaultValue={adminSettings.evoCrmStageId}
+                        />
+                      </div>
+
+                      <label className="flex items-center gap-3 cursor-pointer border-t border-slate-100 pt-4 mt-2">
+                        <input
+                          type="checkbox"
+                          name="evoCrmEnabled"
+                          defaultChecked={adminSettings.evoCrmEnabled}
+                          className="h-5 w-5 accent-orange-primary rounded"
+                        />
+                        <span className="text-sm font-medium text-slate-700">
+                          <strong>Ativar</strong> envio automático de leads para o EvoCRM.
+                        </span>
+                      </label>
+
+                      <button className="rounded-lg bg-orange-primary px-5 py-3 font-bold text-white max-w-xs transition hover:bg-orange-600 shadow-md mt-2">
+                        Salvar EvoCRM
+                      </button>
+                    </form>
+                  </Panel>
+
+                  <Panel title="🧪 Testar Envio para o EvoCRM">
+                    <p className="text-xs text-slate-500 mb-4">
+                      Envia um lead de teste real para o EvoCRM utilizando as credenciais salvas acima.
+                    </p>
+                    <div className="grid gap-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Nome</label>
+                          <input
+                            type="text"
+                            placeholder="Nome de teste"
+                            value={testEvoCrmName}
+                            onChange={(e) => setTestEvoCrmName(e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none ring-orange-primary/20 transition focus:ring-4 font-semibold text-navy"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail</label>
+                          <input
+                            type="email"
+                            placeholder="teste@exemplo.com"
+                            value={testEvoCrmEmail}
+                            onChange={(e) => setTestEvoCrmEmail(e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none ring-orange-primary/20 transition focus:ring-4 font-semibold text-navy"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone (com DDD)</label>
+                        <input
+                          type="text"
+                          placeholder="Ex: 99999999999"
+                          value={testEvoCrmPhone}
+                          onChange={(e) => setTestEvoCrmPhone(e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none ring-orange-primary/20 transition focus:ring-4 font-semibold text-navy"
+                        />
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!testEvoCrmName || !testEvoCrmEmail || !testEvoCrmPhone) {
+                            alert('Preencha nome, e-mail e telefone para testar.');
+                            return;
+                          }
+                          if (!token) { alert('Sessão expirada. Faça login novamente.'); return; }
+                          setTestEvoCrmLoading(true);
+                          try {
+                            const res = await fetch('/api/admin/settings/test-evocrm', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({ name: testEvoCrmName, email: testEvoCrmEmail, phone: testEvoCrmPhone }),
+                            });
+                            const body = await res.json();
+                            if (res.ok) {
+                              showNotice(body.message || 'Lead de teste enviado para o EvoCRM!');
+                            } else {
+                              alert('Erro ao testar EvoCRM: ' + (body.error || 'Falha no envio.'));
+                            }
+                          } catch {
+                            alert('Erro de conexão ao testar o EvoCRM.');
+                          } finally {
+                            setTestEvoCrmLoading(false);
+                          }
+                        }}
+                        disabled={testEvoCrmLoading}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-navy px-5 py-3 font-bold text-white max-w-xs transition hover:bg-slate-800 shadow-md disabled:opacity-50"
+                      >
+                        <Send className={`h-4 w-4 ${testEvoCrmLoading ? 'animate-spin' : ''}`} />
+                        {testEvoCrmLoading ? 'Enviando...' : 'Enviar Lead de Teste'}
                       </button>
                     </div>
                   </Panel>
@@ -7150,47 +7303,8 @@ function AdminApp() {
               )}
 
               {settingsSubtab === 'webhooks' && (
-                <Panel title="Configurações de Webhook (Integração CRM)">
+                <Panel title="Integração Mautic (E-mail Marketing)">
                   <div className="grid gap-6">
-                    <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
-                      <h3 className="font-bold text-navy text-base mb-2">Envio de Dados para o CRM (Outbound Webhook)</h3>
-                      <p className="text-sm text-slate-600 mb-4">
-                        Cole aqui a URL fornecida pelo seu CRM (ex: LeadConnector). Toda vez que um novo Lead for capturado no site ou um novo código de indicação for criado, o sistema enviará os dados automaticamente para esta URL via POST.
-                      </p>
-                      <form onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (!token) { alert('Sessão expirada. Por favor, faça login novamente.'); return; }
-                        const form = new FormData(e.currentTarget);
-                        const updated = {
-                          ...adminSettings,
-                          outboundWebhookUrl: String(form.get('outboundWebhookUrl')),
-                          mauticBaseUrl: String(form.get('mauticBaseUrl') || 'https://mautic.isentidos.com.br'),
-                          mauticTrackingEnabled: form.get('mauticTrackingEnabled') === 'on',
-                        };
-                        try {
-                          const res = await fetch('/api/admin/settings', {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                            body: JSON.stringify(updated),
-                          });
-                          if (!res.ok) throw new Error();
-                          setAdminSettings(updated);
-                          showNotice('URL do CRM salva com sucesso!');
-                        } catch {
-                          showNotice('Erro ao salvar as configurações.');
-                        }
-                      }}>
-                        <div className="flex flex-col sm:flex-row gap-3 items-end">
-                          <div className="flex-1 w-full">
-                            <Field label="URL do Webhook do CRM" name="outboundWebhookUrl" placeholder="https://services.leadconnectorhq.com/hooks/..." defaultValue={adminSettings.outboundWebhookUrl} />
-                          </div>
-                          <button className="rounded-lg bg-orange-primary px-5 py-3 h-[46px] font-bold text-white transition hover:bg-orange-600 shadow-md whitespace-nowrap">
-                            Salvar URL
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-
                     <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
                       <h3 className="font-bold text-navy text-base mb-2">Integração Mautic (E-mail Marketing)</h3>
                       <p className="text-sm text-slate-600 mb-4">
@@ -7229,78 +7343,6 @@ function AdminApp() {
                           Salvar Configurações Mautic
                         </button>
                       </form>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-50 border border-slate-200 p-5">
-                      <h3 className="font-bold text-navy text-base mb-2">URL de Recebimento de Webhook</h3>
-                      <p className="text-sm text-slate-600 mb-4">
-                        Esta é a URL que deve ser configurada em sua automação/gatilho no CRM (como LeadConnector / GoHighLevel) para registrar indicações e conversões de matrículas automaticamente no site.
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="flex-1 font-mono text-xs bg-slate-900 text-green-400 p-3 rounded-lg overflow-x-auto break-all border border-slate-800">
-                          {`${window.location.origin}/api/webhooks/leadconnector`}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/leadconnector`);
-                            showNotice('URL do webhook copiada!');
-                          }}
-                          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-navy hover:border-orange-primary hover:text-orange-primary transition flex items-center justify-center gap-2"
-                        >
-                          <Copy className="h-4 w-4" /> Copiar URL
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4">
-                      <h3 className="font-display font-bold text-navy text-lg border-b border-slate-100 pb-2">Manual de Configuração no CRM</h3>
-                      
-                      <div className="grid gap-5">
-                        <div className="text-sm text-slate-700">
-                          <h4 className="font-bold text-navy mb-1">Gatilho 1: Cadastro de Novas Indicações (Leads)</h4>
-                          <p className="mb-2">
-                            Configure seu CRM para enviar um webhook para o site sempre que um novo lead for cadastrado através de uma página ou formulário que contenha o código de indicação do embaixador.
-                          </p>
-                          <ul className="list-decimal list-inside space-y-1 text-slate-600 pl-2">
-                            <li>Crie uma nova automação (Workflow) no seu CRM.</li>
-                            <li>Defina o gatilho como <strong>Form Submitted</strong> (Formulário Enviado) ou <strong>Contact Created</strong> (Contato Criado).</li>
-                            <li>Adicione uma condição/filtro para verificar se o campo personalizado contendo o código de indicação (ex: <code>referral_code</code>) não está em branco.</li>
-                            <li>Adicione a ação <strong>Webhook (Custom Webhook)</strong> com método <strong>POST</strong>.</li>
-                            <li>Cole a URL acima no campo de destino.</li>
-                            <li>
-                              Mapeie os campos no payload para enviar os seguintes dados:
-                              <ul className="list-disc list-inside pl-4 mt-1 space-y-0.5 text-slate-500 font-mono text-xs">
-                                <li>name (Nome completo do lead)</li>
-                                <li>email (E-mail do lead)</li>
-                                <li>phone (WhatsApp/Telefone)</li>
-                                <li>referral_code ou ref (Código do embaixador)</li>
-                                <li>interest (Nome do curso ou interesse)</li>
-                                <li>modality (presencial ou online)</li>
-                              </ul>
-                            </li>
-                          </ul>
-                        </div>
-
-                        <div className="text-sm text-slate-700">
-                          <h4 className="font-bold text-navy mb-1">Gatilho 2: Confirmação de Matrícula (Conversão do Lead)</h4>
-                          <p className="mb-2">
-                            Configure seu CRM para notificar o site quando o lead efetivar a matrícula. O site identificará o lead pelo e-mail ou telefone e marcará a indicação como <strong>Convertida</strong>.
-                          </p>
-                          <ul className="list-decimal list-inside space-y-1 text-slate-600 pl-2">
-                            <li>Crie uma automação para quando a venda/matrícula for ganha.</li>
-                            <li>Defina o gatilho (ex: <strong>Opportunity Status Changed</strong> para <i>Won/Ganho</i>, ou <strong>Contact Tag Added</strong>).</li>
-                            <li>Adicione a ação <strong>Webhook</strong> enviando um <strong>POST</strong> para a mesma URL acima.</li>
-                            <li>
-                              O payload deve conter os dados mínimos do contato:
-                              <ul className="list-disc list-inside pl-4 mt-1 text-slate-500 font-mono text-xs">
-                                <li>email (E-mail do lead - obrigatório para conciliação)</li>
-                                <li>status ("converted" - indica que o lead efetuou a matrícula)</li>
-                              </ul>
-                            </li>
-                          </ul>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </Panel>
@@ -7644,10 +7686,6 @@ function mapApiCourse(c: any): Course {
 
 // ── Nova Página de Cursos (Listagem + Filtros) ────────────────────────────────
 
-const LEADCONNECTOR_ONLINE_FORM_ID = 'm1woQ1eYGfimUdhQledm';
-const LEADCONNECTOR_PRESENTIAL_FORM_ID = 'vGP5eYKDquXDlCnq9mf9';
-const LEADCONNECTOR_FORM_BASE_URL = 'https://api.leadconnectorhq.com/widget/form';
-
 const BRAZIL_STATES = [
   { uf: 'AC', name: 'Acre' }, { uf: 'AL', name: 'Alagoas' }, { uf: 'AP', name: 'Amapá' },
   { uf: 'AM', name: 'Amazonas' }, { uf: 'BA', name: 'Bahia' }, { uf: 'CE', name: 'Ceará' },
@@ -7671,26 +7709,10 @@ const EJA_MOTIVO_OPTIONS = [
   'Outro',
 ];
 
-function appendCrmReferralParams(url: string, referralCode: string) {
-  if (!referralCode) return url;
-  try {
-    const parsed = new URL(url);
-    parsed.searchParams.set('ref', referralCode);
-    parsed.searchParams.set('referral_code', referralCode);
-    return parsed.toString();
-  } catch {
-    return url;
-  }
-}
-
 function isOnlineCourse(course: Pick<Course, 'modality' | 'kind'>) {
   const modality = String(course.modality);
   const kind = String(course.kind || '').toLowerCase();
   return modality === ModalityType.ONLINE || modality === 'ONLINE' || modality === 'EAD' || modality === 'Online ao vivo' || kind.includes('ead');
-}
-
-function getDefaultLeadConnectorFormId(course: Pick<Course, 'modality' | 'kind'>) {
-  return isOnlineCourse(course) ? LEADCONNECTOR_ONLINE_FORM_ID : LEADCONNECTOR_PRESENTIAL_FORM_ID;
 }
 
 function isAdvancedAcademicCourse(course: Pick<Course, 'kind'>) {
@@ -7700,6 +7722,10 @@ function isAdvancedAcademicCourse(course: Pick<Course, 'kind'>) {
 
 function isEjaSupletivoCourse(course: Pick<Course, 'kind'>) {
   return course.kind === CourseKindType.SUPLETIVO_EJA;
+}
+
+function isPosGraduacaoCourse(course: Pick<Course, 'kind'>) {
+  return course.kind === CourseKindType.POS;
 }
 
 // Formulário de orientação do Supletivo EJA — usado no modal do curso e na landing page dedicada
@@ -7894,71 +7920,103 @@ function EjaLeadForm({ courseSlug, courseTitle, onSubmitted }: { courseSlug?: st
   );
 }
 
-function resolveLeadConnectorForm(course: Course, referralCode = '') {
-  const configured = String(course.leadConnectorFormId || '').trim();
-  if (!configured && isAdvancedAcademicCourse(course)) {
-    return { isNative: true, redirectToWhatsapp: true, id: 'whatsapp-interest', url: '', iframeId: 'whatsapp-interest', formName: 'Atendimento via WhatsApp' };
-  }
+// Formulário de inscrição nativo — Pós-graduação (substitui o iframe do CRM externo)
+function PosLeadForm({ courseSlug, courseModality, courseTitle, onSubmitted }: { courseSlug: string; courseModality: 'presencial' | 'online_ao_vivo'; courseTitle: string; onSubmitted?: () => void }) {
+  const [sending, setSending] = useState(false);
+  const [leadMessage, setLeadMessage] = useState('');
+  const [posModality, setPosModality] = useState<'presencial' | 'online_ao_vivo'>(courseModality);
+  const [posCourses, setPosCourses] = useState<Course[]>([]);
+  const [posCourseSlug, setPosCourseSlug] = useState(courseSlug);
 
-  const value = configured || getDefaultLeadConnectorFormId(course);
-  const online = isOnlineCourse(course);
-
-  if (value.toLowerCase() === 'native') {
-    return { isNative: true, redirectToWhatsapp: false, id: 'native', url: '', iframeId: 'native', formName: 'Formulário interno' };
-  }
-
-  if (/^https?:\/\//i.test(value)) {
-    const secureUrl = value.replace(/^http:\/\//i, 'https://');
-    const id = secureUrl.match(/\/widget\/form\/([^/?#]+)/i)?.[1] || `custom-${course.id}`;
-    return {
-      isNative: false,
-      redirectToWhatsapp: false,
-      id,
-      url: appendCrmReferralParams(secureUrl, referralCode),
-      iframeId: `inline-${id}`,
-      formName: online ? 'Pós-ao vivo' : 'Pós-presencial',
-    };
-  }
-
-  const id = value.replace(/^https?:\/\/api\.leadconnectorhq\.com\/widget\/form\//i, '').split(/[?#]/)[0];
-  return {
-    isNative: false,
-    redirectToWhatsapp: false,
-    id,
-    url: appendCrmReferralParams(`${LEADCONNECTOR_FORM_BASE_URL}/${id}`, referralCode),
-    iframeId: `inline-${id}`,
-    formName: online ? 'Pós-ao vivo' : 'Pós-presencial',
-  };
-}
-
-function LeadConnectorFormFrame({ config, height = 720 }: { config: ReturnType<typeof resolveLeadConnectorForm>; height?: number }) {
   useEffect(() => {
-    const existingScript = document.querySelector('script[src="https://link.msgsndr.com/js/form_embed.js"]');
-    if (existingScript) return;
-    const script = document.createElement('script');
-    script.src = 'https://link.msgsndr.com/js/form_embed.js';
-    script.async = true;
-    document.body.appendChild(script);
+    fetch('/api/site-content')
+      .then(r => r.json())
+      .then(data => {
+        const allCourses: Course[] = (data.data?.courses || data.courses || []).map(mapApiCourse);
+        setPosCourses(allCourses.filter((c: Course) => isPosGraduacaoCourse(c) && c.active));
+      })
+      .catch(() => {});
   }, []);
 
+  const coursesForModality = posCourses.filter(c => (isOnlineCourse(c) ? 'online_ao_vivo' : 'presencial') === posModality);
+
+  useEffect(() => {
+    if (coursesForModality.length === 0) return;
+    if (!coursesForModality.some(c => c.slug === posCourseSlug)) {
+      setPosCourseSlug(coursesForModality[0].slug);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posModality, posCourses]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSending(true);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const selectedCourse = posCourses.find(c => c.slug === posCourseSlug);
+    try {
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: String(form.get('name')),
+          email: String(form.get('email')),
+          phone: String(form.get('phone')),
+          courseSlug: posCourseSlug,
+          preferredFormat: posModality,
+          source: 'pos_graduacao_form',
+          notes: `Interesse em Pós-graduação: ${selectedCourse?.title || courseTitle}`,
+          consentLgpd: true,
+        }),
+      });
+      if (!response.ok) throw new Error('lead_submit_failed');
+      const resData = await response.json().catch(() => ({}));
+      setLeadMessage(resData.isUpdated
+        ? 'Sua pré-matrícula foi atualizada com sucesso!'
+        : 'Recebemos sua solicitação! Nossa equipe entrará em contato em breve.');
+      formElement.reset();
+      onSubmitted?.();
+    } catch {
+      setLeadMessage('Não conseguimos registrar agora. Tente novamente em instantes.');
+    }
+    setSending(false);
+  }
+
   return (
-    <iframe
-      src={config.url}
-      style={{ width: '100%', height: `${height}px`, border: 'none', borderRadius: '8px' }}
-      id={config.iframeId}
-      data-layout="{'id':'INLINE'}"
-      data-trigger-type="alwaysShow"
-      data-trigger-value=""
-      data-activation-type="alwaysActivated"
-      data-activation-value=""
-      data-deactivation-type="neverDeactivate"
-      data-deactivation-value=""
-      data-form-name={config.formName}
-      data-height={String(height)}
-      data-layout-iframe-id={config.iframeId}
-      data-form-id={config.id}
-      title={config.formName}
-    />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div>
+        <label className="block text-xs font-bold text-slate-500 mb-1">Nome completo *</label>
+        <input required name="name" type="text" placeholder="Seu nome" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-slate-500 mb-1">E-mail *</label>
+        <input required name="email" type="email" placeholder="seuemail@exemplo.com" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-slate-500 mb-1">WhatsApp com DDD *</label>
+        <input required name="phone" type="tel" placeholder="(00) 00000-0000" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">Modalidade *</label>
+          <select required value={posModality} onChange={e => setPosModality(e.target.value as 'presencial' | 'online_ao_vivo')} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy">
+            <option value="presencial">Presencial</option>
+            <option value="online_ao_vivo">Online ao vivo</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">Curso *</label>
+          <select required value={posCourseSlug} onChange={e => setPosCourseSlug(e.target.value)} disabled={coursesForModality.length === 0} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy disabled:opacity-60">
+            {coursesForModality.length === 0 && <option value="">Nenhum curso disponível</option>}
+            {coursesForModality.map(c => <option key={c.slug} value={c.slug}>{c.title}</option>)}
+          </select>
+        </div>
+      </div>
+      <button disabled={sending || !posCourseSlug} type="submit" className="mt-2 w-full rounded-xl bg-orange-primary px-5 py-4 font-bold text-white transition hover:bg-orange-600 shadow-lg shadow-orange-primary/30 disabled:opacity-50">
+        {sending ? 'Enviando...' : 'Quero me inscrever'}
+      </button>
+      {leadMessage && <p className="text-center text-sm font-bold text-green-600">{leadMessage}</p>}
+    </form>
   );
 }
 
@@ -8105,7 +8163,6 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   const [activeInfoTab, setActiveInfoTab] = useState<'about' | 'modules' | 'syllabus' | 'faq'>('about');
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(null);
   const [showNativeForm, setShowNativeForm] = useState(false);
-  const [showCrmForm, setShowCrmForm] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -8158,6 +8215,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   const testimonials = parseOrEmpty(course.testimonials);
   const isAdvancedAcademic = isAdvancedAcademicCourse(course);
   const isEja = isEjaSupletivoCourse(course);
+  const isPos = isPosGraduacaoCourse(course);
 
   async function handleLeadSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -8201,16 +8259,9 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   const whatsappNumber = cleanWhatsapp.length <= 11 ? `55${cleanWhatsapp}` : cleanWhatsapp;
   const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Olá, quero saber mais sobre o curso ${course.title}`)}`;
 
-  const refCode = localStorage.getItem('isentidos_guest_referral_code') || '';
-  const crmForm = resolveLeadConnectorForm(course, refCode);
-
   const handleInscricaoClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (isEja || crmForm.isNative) {
-      setShowNativeForm(true);
-      return;
-    }
-    setShowCrmForm(true);
+    setShowNativeForm(true);
   };
 
   const isHtml = (str: string) => /<[a-z][\s\S]*>/i.test(str);
@@ -8467,7 +8518,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
 
               <div className="flex flex-col gap-3">
                 <a
-                  href={isEja ? '#' : (crmForm.url || '#')}
+                  href="#"
                   onClick={handleInscricaoClick}
                   className="block w-full rounded-xl bg-orange-primary px-6 py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-orange-primary/20 transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-orange-primary/30"
                 >
@@ -8573,32 +8624,8 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
 
       <SiteFooter />
 
-      {/* CRM Form Modal */}
-      {showCrmForm && !crmForm.isNative && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-orange-primary">Pré-matrícula</p>
-                <h3 className="font-display text-lg font-bold text-navy">{course.title}</h3>
-              </div>
-              <button
-                onClick={() => setShowCrmForm(false)}
-                className="rounded-lg border border-slate-200 p-2 text-slate-400 transition hover:border-red-300 hover:text-red-500"
-                aria-label="Fechar formulário"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="overflow-y-auto bg-slate-50 p-3">
-              <LeadConnectorFormFrame config={crmForm} height={760} />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Native Form Modal Fallback */}
-      {showNativeForm && !isEja && (
+      {showNativeForm && !isEja && !isPos && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <button
@@ -8650,7 +8677,30 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
           </div>
         </div>
       )}
-      
+
+      {/* Formulário de Inscrição — Pós-graduação */}
+      {showNativeForm && isPos && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl my-8">
+            <button
+              type="button"
+              onClick={() => setShowNativeForm(false)}
+              className="absolute top-4 right-4 p-1 rounded-full text-slate-400 hover:text-navy hover:bg-slate-100 transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <h3 className="font-display font-bold text-navy text-xl mb-1 pr-8">Quero me inscrever</h3>
+            <p className="text-sm text-slate-500 mb-4">Preencha seus dados e escolha o curso e a modalidade de sua preferência.</p>
+            <PosLeadForm
+              courseSlug={courseSlug}
+              courseModality={isOnlineCourse(course) ? 'online_ao_vivo' : 'presencial'}
+              courseTitle={course.title}
+              onSubmitted={() => setTimeout(() => setShowNativeForm(false), 2500)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Sticky Bottom Bar */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-2xl z-40 bg-white/90 backdrop-blur-md border border-slate-200/50 shadow-[0_10px_30px_rgba(0,0,0,0.08)] rounded-2xl px-6 py-4 flex items-center justify-between gap-4 transition-all duration-300">
          <div className="hidden sm:block">
@@ -10139,26 +10189,6 @@ export default function App() {
     };
   }, [path.startsWith('/admin')]);
 
-  useEffect(() => {
-    if (path.startsWith('/admin')) {
-      const existingScript = document.querySelector('script[src*="leadconnectorhq.com"]');
-      if (existingScript) existingScript.remove();
-      const widget = document.getElementById('chat-widget-container') || document.querySelector('.lc_chat-widget') || document.querySelector('[id*="chat-widget"]');
-      if (widget) widget.remove();
-      const iframe = document.querySelector('iframe[src*="chat-widget"]');
-      if (iframe) iframe.remove();
-      return;
-    }
-    const existingScript = document.querySelector('script[src*="leadconnectorhq.com"]');
-    if (!existingScript) {
-      const script = document.createElement('script');
-      script.src = "https://widgets.leadconnectorhq.com/loader.js";
-      script.setAttribute('data-resources-url', "https://widgets.leadconnectorhq.com/chat-widget/loader.js");
-      script.setAttribute('data-widget-id', "6a0ccb634d25f21aa1d04079");
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, [path]);
 
   useEffect(() => {
     if (path.startsWith('/admin')) return;
