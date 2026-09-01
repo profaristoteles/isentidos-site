@@ -3966,7 +3966,7 @@ function AdminApp() {
                         </div>
                         <p className="mt-3 text-xs text-slate-600 bg-amber-50 border border-amber-200/60 rounded-lg p-3 flex items-start gap-2">
                           <span className="text-base">💡</span>
-                          <span><strong>Nota de visibilidade:</strong> Cursos do <strong>ISP Preparatórios</strong> ficam salvos apenas para o <em>Sistema de Indicações</em> (links de embaixadores) e <strong>NÃO aparecem no catálogo público</strong> do site Instituto Sentidos (isentidos.com.br). Cursos de <strong>Supletivo EJA</strong> aparecem no catálogo público, mas <strong>sem exibir valores</strong> — o botão de inscrição leva direto para o parceiro <strong>Aprova Nexus</strong> (eja.aprovanexus.com.br).</span>
+                          <span><strong>Nota de visibilidade:</strong> Cursos do <strong>ISP Preparatórios</strong> ficam salvos apenas para o <em>Sistema de Indicações</em> (links de embaixadores) e <strong>NÃO aparecem no catálogo público</strong> do site Instituto Sentidos (isentidos.com.br). Cursos de <strong>Supletivo EJA</strong> aparecem no catálogo público, mas <strong>sem exibir valores</strong> — o botão de inscrição abre um formulário de orientação (parceria <strong>Aprova Nexus</strong>) e o lead cai na aba Leads Capturados para sua equipe entrar em contato e conduzir a venda.</span>
                         </p>
                       </div>
                     </section>
@@ -5282,7 +5282,12 @@ function AdminApp() {
                           <strong className="block text-navy">{lead.name}</strong>
                           <span className="text-slate-500">{lead.phone}</span>
                         </td>
-                        <td className="p-3">{lead.interest}</td>
+                        <td className="p-3 max-w-xs">
+                          <div>{lead.interest}</div>
+                          {lead.notes && lead.notes !== lead.interest && (
+                            <div className="mt-1 whitespace-pre-line text-xs text-slate-500 line-clamp-3" title={lead.notes}>{lead.notes}</div>
+                          )}
+                        </td>
                         <td className="p-3">{getModalityLabel(lead.modality as any)}</td>
                         <td className="p-3">{lead.referralCode ? <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-700">{lead.referralCode}</span> : <span className="text-slate-400">—</span>}</td>
                         <td className="p-3"><StatusBadge status={lead.status} /></td>
@@ -7638,7 +7643,29 @@ function mapApiCourse(c: any): Course {
 const LEADCONNECTOR_ONLINE_FORM_ID = 'm1woQ1eYGfimUdhQledm';
 const LEADCONNECTOR_PRESENTIAL_FORM_ID = 'vGP5eYKDquXDlCnq9mf9';
 const LEADCONNECTOR_FORM_BASE_URL = 'https://api.leadconnectorhq.com/widget/form';
-const APROVA_NEXUS_EJA_URL = 'https://eja.aprovanexus.com.br/';
+
+const BRAZIL_STATES = [
+  { uf: 'AC', name: 'Acre' }, { uf: 'AL', name: 'Alagoas' }, { uf: 'AP', name: 'Amapá' },
+  { uf: 'AM', name: 'Amazonas' }, { uf: 'BA', name: 'Bahia' }, { uf: 'CE', name: 'Ceará' },
+  { uf: 'DF', name: 'Distrito Federal' }, { uf: 'ES', name: 'Espírito Santo' }, { uf: 'GO', name: 'Goiás' },
+  { uf: 'MA', name: 'Maranhão' }, { uf: 'MT', name: 'Mato Grosso' }, { uf: 'MS', name: 'Mato Grosso do Sul' },
+  { uf: 'MG', name: 'Minas Gerais' }, { uf: 'PA', name: 'Pará' }, { uf: 'PB', name: 'Paraíba' },
+  { uf: 'PR', name: 'Paraná' }, { uf: 'PE', name: 'Pernambuco' }, { uf: 'PI', name: 'Piauí' },
+  { uf: 'RJ', name: 'Rio de Janeiro' }, { uf: 'RN', name: 'Rio Grande do Norte' }, { uf: 'RS', name: 'Rio Grande do Sul' },
+  { uf: 'RO', name: 'Rondônia' }, { uf: 'RR', name: 'Roraima' }, { uf: 'SC', name: 'Santa Catarina' },
+  { uf: 'SP', name: 'São Paulo' }, { uf: 'SE', name: 'Sergipe' }, { uf: 'TO', name: 'Tocantins' },
+];
+
+const EJA_ETAPA_OPTIONS = ['Ensino Fundamental', 'Ensino Médio', 'Não sei / Ambos'];
+const EJA_PRAZO_OPTIONS = ['O quanto antes', 'Nos próximos 6 meses', 'Ainda estou pesquisando'];
+const EJA_HORARIO_OPTIONS = ['Manhã (8h às 12h)', 'Tarde (12h às 18h)', 'Noite (18h às 21h)', 'Qualquer horário'];
+const EJA_MOTIVO_OPTIONS = [
+  'Preciso pro meu trabalho atual',
+  'Busco um emprego melhor',
+  'Quero fazer faculdade',
+  'Sempre foi um sonho meu',
+  'Outro',
+];
 
 function appendCrmReferralParams(url: string, referralCode: string) {
   if (!referralCode) return url;
@@ -7884,6 +7911,27 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   const [showNativeForm, setShowNativeForm] = useState(false);
   const [showCrmForm, setShowCrmForm] = useState(false);
 
+  // Campos extras do formulário de orientação do Supletivo EJA
+  const [ejaEstado, setEjaEstado] = useState('');
+  const [ejaCidade, setEjaCidade] = useState('');
+  const [ejaCidades, setEjaCidades] = useState<string[]>([]);
+  const [ejaCidadesError, setEjaCidadesError] = useState(false);
+  const [ejaEtapa, setEjaEtapa] = useState('');
+  const [ejaPrazo, setEjaPrazo] = useState('');
+  const [ejaHorario, setEjaHorario] = useState('');
+  const [ejaMotivos, setEjaMotivos] = useState<string[]>([]);
+  const [ejaMotivoOutro, setEjaMotivoOutro] = useState('');
+
+  useEffect(() => {
+    if (!ejaEstado) { setEjaCidades([]); return; }
+    setEjaCidade('');
+    setEjaCidadesError(false);
+    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${ejaEstado}/municipios`)
+      .then(r => r.json())
+      .then((data: any[]) => setEjaCidades(Array.isArray(data) ? data.map(m => m.nome) : []))
+      .catch(() => setEjaCidadesError(true));
+  }, [ejaEstado]);
+
   useEffect(() => {
     setLoading(true);
     setCourse(null);
@@ -7974,6 +8022,57 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
     setSending(false);
   }
 
+  async function handleEjaLeadSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (ejaMotivos.length === 0) {
+      setLeadMessage('Selecione ao menos um motivo para continuar.');
+      return;
+    }
+    setSending(true);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    const motivosTexto = ejaMotivos
+      .map(m => (m === 'Outro' && ejaMotivoOutro.trim() ? `Outro: ${ejaMotivoOutro.trim()}` : m))
+      .join('; ');
+    const notes = [
+      `Interesse em Supletivo EJA: ${course.title}`,
+      `Estado: ${ejaEstado || '-'} | Cidade: ${ejaCidade || '-'}`,
+      ejaHorario && `Melhor horário para contato: ${ejaHorario}`,
+      `Etapa desejada: ${ejaEtapa || '-'}`,
+      `Motivo: ${motivosTexto || '-'}`,
+      `Prazo para concluir: ${ejaPrazo || '-'}`,
+    ].filter(Boolean).join('\n');
+
+    try {
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: String(form.get('name')),
+          email: String(form.get('email')),
+          phone: String(form.get('phone')),
+          courseSlug: courseSlug,
+          source: 'eja_orientacao_form',
+          notes,
+          consentLgpd: true,
+        }),
+      });
+      if (!response.ok) throw new Error('lead_submit_failed');
+      const resData = await response.json().catch(() => ({}));
+      setLeadMessage(resData.isUpdated
+        ? 'Seu cadastro foi atualizado! Nossa equipe vai entrar em contato para te orientar.'
+        : 'Cadastro recebido! Nossa equipe vai entrar em contato para te orientar sobre o Supletivo EJA.');
+      formElement.reset();
+      setEjaEstado(''); setEjaCidade(''); setEjaEtapa(''); setEjaPrazo(''); setEjaHorario('');
+      setEjaMotivos([]); setEjaMotivoOutro('');
+      setTimeout(() => setShowNativeForm(false), 2500);
+    } catch {
+      setLeadMessage('Não conseguimos registrar agora. Tente novamente em instantes.');
+    }
+    setSending(false);
+  }
+
   const cleanWhatsapp = whatsapp.replace(/\D/g, '');
   const whatsappNumber = cleanWhatsapp.length <= 11 ? `55${cleanWhatsapp}` : cleanWhatsapp;
   const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Olá, quero saber mais sobre o curso ${course.title}`)}`;
@@ -7983,7 +8082,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
 
   const handleInscricaoClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (crmForm.isNative) {
+    if (isEja || crmForm.isNative) {
       setShowNativeForm(true);
       return;
     }
@@ -8215,7 +8314,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
                 <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 mb-6">
                   <p className="text-[10px] uppercase font-bold text-teal-600 mb-2">Parceria</p>
                   <p className="text-sm font-semibold text-navy">
-                    Este curso é ofertado em parceria com a <strong>Aprova Nexus</strong>. Valores e matrícula são feitos diretamente no site do parceiro.
+                    Este curso é ofertado em parceria com a <strong>Aprova Nexus</strong>. Preencha o formulário ao lado e nossa equipe vai entrar em contato para te orientar sobre valores e matrícula.
                   </p>
                 </div>
               ) : (
@@ -8243,24 +8342,13 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
               )}
 
               <div className="flex flex-col gap-3">
-                {isEja ? (
-                  <a
-                    href={APROVA_NEXUS_EJA_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block w-full rounded-xl bg-orange-primary px-6 py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-orange-primary/20 transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-orange-primary/30"
-                  >
-                    Matricule-se no site do parceiro
-                  </a>
-                ) : (
-                  <a
-                    href={crmForm.url || '#'}
-                    onClick={handleInscricaoClick}
-                    className="block w-full rounded-xl bg-orange-primary px-6 py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-orange-primary/20 transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-orange-primary/30"
-                  >
-                    Quero me inscrever
-                  </a>
-                )}
+                <a
+                  href={isEja ? '#' : (crmForm.url || '#')}
+                  onClick={handleInscricaoClick}
+                  className="block w-full rounded-xl bg-orange-primary px-6 py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-orange-primary/20 transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-orange-primary/30"
+                >
+                  {isEja ? 'Quero receber orientação' : 'Quero me inscrever'}
+                </a>
                 <a
                   href={whatsappLink}
                   target="_blank"
@@ -8386,7 +8474,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
       )}
 
       {/* Native Form Modal Fallback */}
-      {showNativeForm && (
+      {showNativeForm && !isEja && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <button
@@ -8416,6 +8504,138 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
                  {sending ? 'Enviando...' : 'Quero me inscrever'}
                </button>
                {leadMessage && <p className="mt-2 text-center text-sm font-bold text-green-600">{leadMessage}</p>}
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Formulário de Orientação — Supletivo EJA (parceria Aprova Nexus) */}
+      {showNativeForm && isEja && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl my-8">
+            <button
+              type="button"
+              onClick={() => setShowNativeForm(false)}
+              className="absolute top-4 right-4 p-1 rounded-full text-slate-400 hover:text-navy hover:bg-slate-100 transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <h3 className="font-display font-bold text-navy text-xl mb-1 pr-8">Quero receber orientação</h3>
+            <p className="text-sm text-slate-500 mb-4">Conte um pouco sobre você e nossa equipe entra em contato para te orientar sobre o Supletivo EJA.</p>
+            <form onSubmit={async (e) => {
+              await handleEjaLeadSubmit(e);
+            }} className="flex flex-col gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Seu nome completo *</label>
+                  <input required name="name" type="text" placeholder="Ex: Marco Silva" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">WhatsApp com DDD *</label>
+                  <input required name="phone" type="tel" placeholder="(00) 00000-0000" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Seu e-mail *</label>
+                <input required name="email" type="email" placeholder="seuemail@dominio.com" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Estado *</label>
+                  <select required value={ejaEstado} onChange={e => setEjaEstado(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy">
+                    <option value="">UF</option>
+                    {BRAZIL_STATES.map(s => <option key={s.uf} value={s.uf}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Cidade *</label>
+                  {ejaCidadesError ? (
+                    <input required value={ejaCidade} onChange={e => setEjaCidade(e.target.value)} type="text" placeholder="Digite sua cidade" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
+                  ) : (
+                    <select required disabled={!ejaEstado} value={ejaCidade} onChange={e => setEjaCidade(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy disabled:opacity-60">
+                      <option value="">{ejaEstado ? 'Selecione a cidade' : 'Selecione o estado primeiro'}</option>
+                      {ejaCidades.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Melhor horário para contato</label>
+                <select value={ejaHorario} onChange={e => setEjaHorario(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy">
+                  <option value="">Sem preferência</option>
+                  {EJA_HORARIO_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2">Qual etapa você deseja concluir? *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {EJA_ETAPA_OPTIONS.map(op => (
+                    <button
+                      key={op}
+                      type="button"
+                      onClick={() => setEjaEtapa(op)}
+                      className={`rounded-xl border px-2 py-3 text-xs font-bold transition ${ejaEtapa === op ? 'border-orange-primary bg-orange-50 text-orange-primary' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                    >
+                      {op}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2">Por que você quer terminar os estudos? *</label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {EJA_MOTIVO_OPTIONS.map(op => (
+                    <label key={op} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold cursor-pointer transition ${ejaMotivos.includes(op) ? 'border-orange-primary bg-orange-50 text-orange-primary' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+                      <input
+                        type="checkbox"
+                        checked={ejaMotivos.includes(op)}
+                        onChange={() => setEjaMotivos(prev => prev.includes(op) ? prev.filter(m => m !== op) : [...prev, op])}
+                        className="h-4 w-4 accent-orange-primary"
+                      />
+                      {op}
+                    </label>
+                  ))}
+                </div>
+                {ejaMotivos.includes('Outro') && (
+                  <input
+                    value={ejaMotivoOutro}
+                    onChange={e => setEjaMotivoOutro(e.target.value)}
+                    type="text"
+                    placeholder="Conte pra gente o motivo"
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2">Quando você pretende terminar os estudos? *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {EJA_PRAZO_OPTIONS.map(op => (
+                    <button
+                      key={op}
+                      type="button"
+                      onClick={() => setEjaPrazo(op)}
+                      className={`rounded-xl border px-2 py-3 text-xs font-bold transition ${ejaPrazo === op ? 'border-orange-primary bg-orange-50 text-orange-primary' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                    >
+                      {op}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                disabled={sending || !ejaEtapa || !ejaPrazo || ejaMotivos.length === 0}
+                type="submit"
+                className="mt-2 w-full rounded-xl bg-orange-primary px-5 py-4 font-bold text-white transition hover:bg-orange-600 shadow-lg shadow-orange-primary/30 disabled:opacity-50"
+              >
+                {sending ? 'Enviando...' : '🚀 Quero receber orientação'}
+              </button>
+              {leadMessage && <p className="text-center text-sm font-bold text-green-600">{leadMessage}</p>}
+              <p className="text-center text-[11px] text-slate-400">Seus dados estão seguros e vamos usar apenas para falar com você sobre os estudos.</p>
             </form>
           </div>
         </div>
