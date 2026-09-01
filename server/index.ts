@@ -1864,7 +1864,7 @@ app.get('/api/admin/banners', authMiddleware, async (_req, res) => {
 
 app.get('/api/admin/courses', authMiddleware, async (_req, res) => {
   const courses = await withDatabase(
-    async () => (await prisma.course.findMany({ orderBy: { title: 'asc' } })).map(serializeCourse),
+    async () => (await prisma.course.findMany({ where: { isSystemRecord: false }, orderBy: { title: 'asc' } })).map(serializeCourse),
     [],
   );
   res.json({ data: courses });
