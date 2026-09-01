@@ -3966,7 +3966,7 @@ function AdminApp() {
                         </div>
                         <p className="mt-3 text-xs text-slate-600 bg-amber-50 border border-amber-200/60 rounded-lg p-3 flex items-start gap-2">
                           <span className="text-base">💡</span>
-                          <span><strong>Nota de visibilidade:</strong> Cursos do <strong>ISP Preparatórios</strong> ou <strong>Supletivo EJA</strong> ficam salvos apenas para o <em>Sistema de Indicações</em> (links de embaixadores) e <strong>NÃO aparecem no catálogo público</strong> do site Instituto Sentidos (isentidos.com.br).</span>
+                          <span><strong>Nota de visibilidade:</strong> Cursos do <strong>ISP Preparatórios</strong> ficam salvos apenas para o <em>Sistema de Indicações</em> (links de embaixadores) e <strong>NÃO aparecem no catálogo público</strong> do site Instituto Sentidos (isentidos.com.br). Cursos de <strong>Supletivo EJA</strong> aparecem no catálogo público, mas <strong>sem exibir valores</strong> — o botão de inscrição leva direto para o parceiro <strong>Aprova Nexus</strong> (eja.aprovanexus.com.br).</span>
                         </p>
                       </div>
                     </section>
@@ -7638,6 +7638,7 @@ function mapApiCourse(c: any): Course {
 const LEADCONNECTOR_ONLINE_FORM_ID = 'm1woQ1eYGfimUdhQledm';
 const LEADCONNECTOR_PRESENTIAL_FORM_ID = 'vGP5eYKDquXDlCnq9mf9';
 const LEADCONNECTOR_FORM_BASE_URL = 'https://api.leadconnectorhq.com/widget/form';
+const APROVA_NEXUS_EJA_URL = 'https://eja.aprovanexus.com.br/';
 
 function appendCrmReferralParams(url: string, referralCode: string) {
   if (!referralCode) return url;
@@ -7664,6 +7665,10 @@ function getDefaultLeadConnectorFormId(course: Pick<Course, 'modality' | 'kind'>
 function isAdvancedAcademicCourse(course: Pick<Course, 'kind'>) {
   const kind = String(course.kind || '').toLowerCase();
   return kind.includes('mestrado') || kind.includes('doutorado');
+}
+
+function isEjaSupletivoCourse(course: Pick<Course, 'kind'>) {
+  return course.kind === CourseKindType.SUPLETIVO_EJA;
 }
 
 function resolveLeadConnectorForm(course: Course, referralCode = '') {
@@ -7826,7 +7831,11 @@ function CoursesPage() {
                   <h3 className="mt-4 font-display text-xl font-bold text-navy group-hover:text-orange-primary">{c.title}</h3>
                   <p className="mt-3 text-sm text-slate-600 line-clamp-3">{c.summary}</p>
                   
-                  {c.installmentValue && c.installmentValue > 0 ? (
+                  {isEjaSupletivoCourse(c) ? (
+                    <div className="mt-4 rounded-xl bg-teal-50 p-3 border border-teal-100 text-xs font-bold text-teal-700">
+                      Parceria Aprova Nexus
+                    </div>
+                  ) : c.installmentValue && c.installmentValue > 0 ? (
                     <div className="mt-4 rounded-xl bg-slate-50 p-3 border border-slate-100/50 text-xs text-navy font-semibold">
                       <span className="block text-[9px] uppercase font-bold text-slate-400 mb-1">Investimento</span>
                       {c.enrollmentFee && c.enrollmentFee > 0 && (
@@ -7925,6 +7934,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   const teachers = parseOrEmpty(course.teachers);
   const testimonials = parseOrEmpty(course.testimonials);
   const isAdvancedAcademic = isAdvancedAcademicCourse(course);
+  const isEja = isEjaSupletivoCourse(course);
 
   async function handleLeadSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -8201,36 +8211,56 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
                 </div>
               </div>
               
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100/50 mb-6">
-                <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Investimento</p>
-                {course.installmentValue && course.installmentValue > 0 ? (
-                  <div className="space-y-1">
-                    {course.enrollmentFee && course.enrollmentFee > 0 && (
-                      <div className="text-xs text-slate-600 font-semibold flex justify-between">
-                        <span>Taxa de Matrícula:</span>
-                        <span className="text-orange-primary font-bold">R$ {Number(course.enrollmentFee).toFixed(2)}</span>
+              {isEja ? (
+                <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 mb-6">
+                  <p className="text-[10px] uppercase font-bold text-teal-600 mb-2">Parceria</p>
+                  <p className="text-sm font-semibold text-navy">
+                    Este curso é ofertado em parceria com a <strong>Aprova Nexus</strong>. Valores e matrícula são feitos diretamente no site do parceiro.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100/50 mb-6">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Investimento</p>
+                  {course.installmentValue && course.installmentValue > 0 ? (
+                    <div className="space-y-1">
+                      {course.enrollmentFee && course.enrollmentFee > 0 && (
+                        <div className="text-xs text-slate-600 font-semibold flex justify-between">
+                          <span>Taxa de Matrícula:</span>
+                          <span className="text-orange-primary font-bold">R$ {Number(course.enrollmentFee).toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="text-2xl font-display font-extrabold text-navy mt-1">
+                        {course.maxInstallments || 1}x <span className="text-sm font-normal text-slate-500">de</span> R$ {Number(course.installmentValue).toFixed(2)}
                       </div>
-                    )}
-                    <div className="text-2xl font-display font-extrabold text-navy mt-1">
-                      {course.maxInstallments || 1}x <span className="text-sm font-normal text-slate-500">de</span> R$ {Number(course.installmentValue).toFixed(2)}
+                      <div className="text-[10px] text-slate-500 font-medium pt-1 border-t border-slate-200/50">
+                        Total do curso: R$ {Number((course.installmentValue * (course.maxInstallments || 1)) + (course.enrollmentFee || 0)).toFixed(2)}
+                      </div>
                     </div>
-                    <div className="text-[10px] text-slate-500 font-medium pt-1 border-t border-slate-200/50">
-                      Total do curso: R$ {Number((course.installmentValue * (course.maxInstallments || 1)) + (course.enrollmentFee || 0)).toFixed(2)}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xl font-bold text-navy">{course.investment}</p>
-                )}
-              </div>
+                  ) : (
+                    <p className="text-xl font-bold text-navy">{course.investment}</p>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-col gap-3">
-                <a
-                  href={crmForm.url || '#'}
-                  onClick={handleInscricaoClick}
-                  className="block w-full rounded-xl bg-orange-primary px-6 py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-orange-primary/20 transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-orange-primary/30"
-                >
-                  Quero me inscrever
-                </a>
+                {isEja ? (
+                  <a
+                    href={APROVA_NEXUS_EJA_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block w-full rounded-xl bg-orange-primary px-6 py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-orange-primary/20 transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-orange-primary/30"
+                  >
+                    Matricule-se no site do parceiro
+                  </a>
+                ) : (
+                  <a
+                    href={crmForm.url || '#'}
+                    onClick={handleInscricaoClick}
+                    className="block w-full rounded-xl bg-orange-primary px-6 py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-orange-primary/20 transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-orange-primary/30"
+                  >
+                    Quero me inscrever
+                  </a>
+                )}
                 <a
                   href={whatsappLink}
                   target="_blank"

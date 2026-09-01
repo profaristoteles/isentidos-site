@@ -93,8 +93,9 @@ function isPublicCourseVisible(course: any): boolean {
   const title = String(course?.title || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const type = normalizeCourseTypeToDatabase(course?.type, mapDatabaseModality(course?.modality));
   
-  // Cursos do ISP Preparatórios e Supletivo EJA não são exibidos no catálogo público do isentidos.com.br
-  if (type === 'preparatorio' || type === 'supletivo_eja') return false;
+  // Cursos do ISP Preparatórios não são exibidos no catálogo público do isentidos.com.br
+  // (Supletivo EJA aparece no catálogo, mas sem valores — a matrícula é feita direto com o parceiro Aprova Nexus)
+  if (type === 'preparatorio') return false;
 
   const looksLikeAdvancedAcademic = title.includes('mestrado') || title.includes('doutorado');
   if (!looksLikeAdvancedAcademic) return true;
