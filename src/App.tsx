@@ -8720,7 +8720,7 @@ function SupletivoEjaPage() {
     { q: 'O que é o Supletivo EJA?', a: 'É a modalidade de Educação de Jovens e Adultos voltada para quem não concluiu o Ensino Fundamental ou Médio na idade regular e quer retomar os estudos para conseguir o certificado de conclusão.' },
     { q: 'Quem pode fazer?', a: 'Qualquer pessoa a partir de 15 anos completos que não tenha concluído o Ensino Fundamental ou Médio. Se você não sabe qual etapa concluir, nossa equipe te orienta durante o contato.' },
     { q: 'O certificado tem validade em todo o Brasil?', a: 'Sim. O certificado é publicado em Diário Oficial e reconhecido pelo Conselho Estadual de Educação, podendo ser usado para entrar na faculdade, fazer cursos técnicos e prestar concursos públicos.' },
-    { q: 'Quanto tempo leva para concluir?', a: 'O prazo varia de acordo com a etapa e o ritmo de estudo de cada pessoa. Nossa equipe te passa uma estimativa mais precisa durante a orientação.' },
+    { q: 'Quanto tempo leva para concluir?', a: 'O prazo mínimo é de 6 meses. O tempo exato pode variar de acordo com sua dedicação e ritmo de estudo.' },
     { q: 'Preciso pagar algo agora para me inscrever?', a: 'Não. Preencher o formulário não gera nenhuma cobrança — é só o primeiro passo para nossa equipe te explicar como funciona e quais são os valores envolvidos.' },
   ];
 
