@@ -669,7 +669,11 @@ function PublicSite() {
                         <InfoBlock label="Área" value={course.area} />
                         <InfoBlock label="Modalidade" value={getModalityLabel(course.modality, course.kind)} />
                       </div>
-                      {course.installmentValue && course.installmentValue > 0 ? (
+                      {isEjaSupletivoCourse(course) ? (
+                        <div className="rounded-lg bg-teal-50 p-2 border border-teal-100">
+                          <span className="text-[10px] font-bold uppercase text-teal-600 block">Parceria Aprova Nexus</span>
+                        </div>
+                      ) : course.installmentValue && course.installmentValue > 0 ? (
                         <div className="rounded-lg bg-slate-50 p-2 border border-slate-100/50">
                           <span className="text-[10px] font-bold uppercase text-slate-400 block">Investimento</span>
                           <div className="text-navy text-xs mt-0.5 leading-relaxed font-semibold">
@@ -684,7 +688,7 @@ function PublicSite() {
                       )}
                     </div>
                     <div className="flex gap-2 border-t border-slate-100 p-5 mt-2">
-                      <a href={`/cursos/${course.slug}`} className="flex-1 rounded-lg bg-orange-primary px-3 py-2.5 text-center text-sm font-bold text-white transition hover:bg-orange-600">Ver detalhes</a>
+                      <a href={isEjaSupletivoCourse(course) ? '/supletivo-eja' : `/cursos/${course.slug}`} className="flex-1 rounded-lg bg-orange-primary px-3 py-2.5 text-center text-sm font-bold text-white transition hover:bg-orange-600">Ver detalhes</a>
                       <a href={WHATSAPP} className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-bold text-navy transition hover:border-blue-action hover:text-blue-action">WhatsApp</a>
                     </div>
                   </article>
@@ -7698,6 +7702,198 @@ function isEjaSupletivoCourse(course: Pick<Course, 'kind'>) {
   return course.kind === CourseKindType.SUPLETIVO_EJA;
 }
 
+// Formulário de orientação do Supletivo EJA — usado no modal do curso e na landing page dedicada
+function EjaLeadForm({ courseSlug, courseTitle, onSubmitted }: { courseSlug?: string; courseTitle: string; onSubmitted?: () => void }) {
+  const [sending, setSending] = useState(false);
+  const [leadMessage, setLeadMessage] = useState('');
+  const [ejaEstado, setEjaEstado] = useState('');
+  const [ejaCidade, setEjaCidade] = useState('');
+  const [ejaCidades, setEjaCidades] = useState<string[]>([]);
+  const [ejaCidadesError, setEjaCidadesError] = useState(false);
+  const [ejaEtapa, setEjaEtapa] = useState('');
+  const [ejaPrazo, setEjaPrazo] = useState('');
+  const [ejaHorario, setEjaHorario] = useState('');
+  const [ejaMotivos, setEjaMotivos] = useState<string[]>([]);
+  const [ejaMotivoOutro, setEjaMotivoOutro] = useState('');
+
+  useEffect(() => {
+    if (!ejaEstado) { setEjaCidades([]); return; }
+    setEjaCidade('');
+    setEjaCidadesError(false);
+    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${ejaEstado}/municipios`)
+      .then(r => r.json())
+      .then((data: any[]) => setEjaCidades(Array.isArray(data) ? data.map(m => m.nome) : []))
+      .catch(() => setEjaCidadesError(true));
+  }, [ejaEstado]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (ejaMotivos.length === 0) {
+      setLeadMessage('Selecione ao menos um motivo para continuar.');
+      return;
+    }
+    setSending(true);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    const motivosTexto = ejaMotivos
+      .map(m => (m === 'Outro' && ejaMotivoOutro.trim() ? `Outro: ${ejaMotivoOutro.trim()}` : m))
+      .join('; ');
+    const notes = [
+      `Interesse em Supletivo EJA: ${courseTitle}`,
+      `Estado: ${ejaEstado || '-'} | Cidade: ${ejaCidade || '-'}`,
+      ejaHorario && `Melhor horário para contato: ${ejaHorario}`,
+      `Etapa desejada: ${ejaEtapa || '-'}`,
+      `Motivo: ${motivosTexto || '-'}`,
+      `Prazo para concluir: ${ejaPrazo || '-'}`,
+    ].filter(Boolean).join('\n');
+
+    try {
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: String(form.get('name')),
+          email: String(form.get('email')),
+          phone: String(form.get('phone')),
+          courseSlug,
+          source: 'eja_orientacao_form',
+          notes,
+          consentLgpd: true,
+        }),
+      });
+      if (!response.ok) throw new Error('lead_submit_failed');
+      const resData = await response.json().catch(() => ({}));
+      setLeadMessage(resData.isUpdated
+        ? 'Seu cadastro foi atualizado! Nossa equipe vai entrar em contato para te orientar.'
+        : 'Cadastro recebido! Nossa equipe vai entrar em contato para te orientar sobre o Supletivo EJA.');
+      formElement.reset();
+      setEjaEstado(''); setEjaCidade(''); setEjaEtapa(''); setEjaPrazo(''); setEjaHorario('');
+      setEjaMotivos([]); setEjaMotivoOutro('');
+      onSubmitted?.();
+    } catch {
+      setLeadMessage('Não conseguimos registrar agora. Tente novamente em instantes.');
+    }
+    setSending(false);
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">Seu nome completo *</label>
+          <input required name="name" type="text" placeholder="Ex: Marco Silva" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">WhatsApp com DDD *</label>
+          <input required name="phone" type="tel" placeholder="(00) 00000-0000" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-slate-500 mb-1">Seu e-mail *</label>
+        <input required name="email" type="email" placeholder="seuemail@dominio.com" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">Estado *</label>
+          <select required value={ejaEstado} onChange={e => setEjaEstado(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy">
+            <option value="">UF</option>
+            {BRAZIL_STATES.map(s => <option key={s.uf} value={s.uf}>{s.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">Cidade *</label>
+          {ejaCidadesError ? (
+            <input required value={ejaCidade} onChange={e => setEjaCidade(e.target.value)} type="text" placeholder="Digite sua cidade" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
+          ) : (
+            <select required disabled={!ejaEstado} value={ejaCidade} onChange={e => setEjaCidade(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy disabled:opacity-60">
+              <option value="">{ejaEstado ? 'Selecione a cidade' : 'Selecione o estado primeiro'}</option>
+              {ejaCidades.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-bold text-slate-500 mb-1">Melhor horário para contato</label>
+        <select value={ejaHorario} onChange={e => setEjaHorario(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy">
+          <option value="">Sem preferência</option>
+          {EJA_HORARIO_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-xs font-bold text-slate-500 mb-2">Qual etapa você deseja concluir? *</label>
+        <div className="grid grid-cols-3 gap-2">
+          {EJA_ETAPA_OPTIONS.map(op => (
+            <button
+              key={op}
+              type="button"
+              onClick={() => setEjaEtapa(op)}
+              className={`rounded-xl border px-2 py-3 text-xs font-bold transition ${ejaEtapa === op ? 'border-orange-primary bg-orange-50 text-orange-primary' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+            >
+              {op}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-bold text-slate-500 mb-2">Por que você quer terminar os estudos? *</label>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {EJA_MOTIVO_OPTIONS.map(op => (
+            <label key={op} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold cursor-pointer transition ${ejaMotivos.includes(op) ? 'border-orange-primary bg-orange-50 text-orange-primary' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+              <input
+                type="checkbox"
+                checked={ejaMotivos.includes(op)}
+                onChange={() => setEjaMotivos(prev => prev.includes(op) ? prev.filter(m => m !== op) : [...prev, op])}
+                className="h-4 w-4 accent-orange-primary"
+              />
+              {op}
+            </label>
+          ))}
+        </div>
+        {ejaMotivos.includes('Outro') && (
+          <input
+            value={ejaMotivoOutro}
+            onChange={e => setEjaMotivoOutro(e.target.value)}
+            type="text"
+            placeholder="Conte pra gente o motivo"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy"
+          />
+        )}
+      </div>
+
+      <div>
+        <label className="block text-xs font-bold text-slate-500 mb-2">Quando você pretende terminar os estudos? *</label>
+        <div className="grid grid-cols-3 gap-2">
+          {EJA_PRAZO_OPTIONS.map(op => (
+            <button
+              key={op}
+              type="button"
+              onClick={() => setEjaPrazo(op)}
+              className={`rounded-xl border px-2 py-3 text-xs font-bold transition ${ejaPrazo === op ? 'border-orange-primary bg-orange-50 text-orange-primary' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+            >
+              {op}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button
+        disabled={sending || !ejaEtapa || !ejaPrazo || ejaMotivos.length === 0}
+        type="submit"
+        className="mt-2 w-full rounded-xl bg-orange-primary px-5 py-4 font-bold text-white transition hover:bg-orange-600 shadow-lg shadow-orange-primary/30 disabled:opacity-50"
+      >
+        {sending ? 'Enviando...' : '🚀 Quero receber orientação'}
+      </button>
+      {leadMessage && <p className="text-center text-sm font-bold text-green-600">{leadMessage}</p>}
+      <p className="text-center text-[11px] text-slate-400">Seus dados estão seguros e vamos usar apenas para falar com você sobre os estudos.</p>
+    </form>
+  );
+}
+
 function resolveLeadConnectorForm(course: Course, referralCode = '') {
   const configured = String(course.leadConnectorFormId || '').trim();
   if (!configured && isAdvancedAcademicCourse(course)) {
@@ -7789,7 +7985,7 @@ function CoursesPage() {
     if (filterKind !== 'Todos' && c.kind !== filterKind) return false;
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
-      if (!(c.title?.toLowerCase().includes(q)) && !(c.summary?.toLowerCase().includes(q)) && !(c.area?.toLowerCase().includes(q))) return false;
+      if (!(c.title?.toLowerCase().includes(q)) && !(c.summary?.toLowerCase().includes(q)) && !(c.area?.toLowerCase().includes(q)) && !(c.kind?.toLowerCase().includes(q))) return false;
     }
     return true;
   });
@@ -7843,7 +8039,7 @@ function CoursesPage() {
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map(c => (
-              <a key={c.id} href={`/cursos/${c.slug}`} className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition hover:shadow-xl hover:-translate-y-1">
+              <a key={c.id} href={isEjaSupletivoCourse(c) ? '/supletivo-eja' : `/cursos/${c.slug}`} className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition hover:shadow-xl hover:-translate-y-1">
                 {c.coverImageUrl ? (
                   <div className="relative h-48 w-full overflow-hidden bg-slate-100">
                     <img src={c.coverImageUrl} alt={c.title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
@@ -7910,27 +8106,6 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(null);
   const [showNativeForm, setShowNativeForm] = useState(false);
   const [showCrmForm, setShowCrmForm] = useState(false);
-
-  // Campos extras do formulário de orientação do Supletivo EJA
-  const [ejaEstado, setEjaEstado] = useState('');
-  const [ejaCidade, setEjaCidade] = useState('');
-  const [ejaCidades, setEjaCidades] = useState<string[]>([]);
-  const [ejaCidadesError, setEjaCidadesError] = useState(false);
-  const [ejaEtapa, setEjaEtapa] = useState('');
-  const [ejaPrazo, setEjaPrazo] = useState('');
-  const [ejaHorario, setEjaHorario] = useState('');
-  const [ejaMotivos, setEjaMotivos] = useState<string[]>([]);
-  const [ejaMotivoOutro, setEjaMotivoOutro] = useState('');
-
-  useEffect(() => {
-    if (!ejaEstado) { setEjaCidades([]); return; }
-    setEjaCidade('');
-    setEjaCidadesError(false);
-    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${ejaEstado}/municipios`)
-      .then(r => r.json())
-      .then((data: any[]) => setEjaCidades(Array.isArray(data) ? data.map(m => m.nome) : []))
-      .catch(() => setEjaCidadesError(true));
-  }, [ejaEstado]);
 
   useEffect(() => {
     setLoading(true);
@@ -8016,57 +8191,6 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
       if (redirectToWhatsapp) {
         window.location.href = whatsappLink;
       }
-    } catch {
-      setLeadMessage('Não conseguimos registrar agora. Tente novamente em instantes.');
-    }
-    setSending(false);
-  }
-
-  async function handleEjaLeadSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (ejaMotivos.length === 0) {
-      setLeadMessage('Selecione ao menos um motivo para continuar.');
-      return;
-    }
-    setSending(true);
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-
-    const motivosTexto = ejaMotivos
-      .map(m => (m === 'Outro' && ejaMotivoOutro.trim() ? `Outro: ${ejaMotivoOutro.trim()}` : m))
-      .join('; ');
-    const notes = [
-      `Interesse em Supletivo EJA: ${course.title}`,
-      `Estado: ${ejaEstado || '-'} | Cidade: ${ejaCidade || '-'}`,
-      ejaHorario && `Melhor horário para contato: ${ejaHorario}`,
-      `Etapa desejada: ${ejaEtapa || '-'}`,
-      `Motivo: ${motivosTexto || '-'}`,
-      `Prazo para concluir: ${ejaPrazo || '-'}`,
-    ].filter(Boolean).join('\n');
-
-    try {
-      const response = await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: String(form.get('name')),
-          email: String(form.get('email')),
-          phone: String(form.get('phone')),
-          courseSlug: courseSlug,
-          source: 'eja_orientacao_form',
-          notes,
-          consentLgpd: true,
-        }),
-      });
-      if (!response.ok) throw new Error('lead_submit_failed');
-      const resData = await response.json().catch(() => ({}));
-      setLeadMessage(resData.isUpdated
-        ? 'Seu cadastro foi atualizado! Nossa equipe vai entrar em contato para te orientar.'
-        : 'Cadastro recebido! Nossa equipe vai entrar em contato para te orientar sobre o Supletivo EJA.');
-      formElement.reset();
-      setEjaEstado(''); setEjaCidade(''); setEjaEtapa(''); setEjaPrazo(''); setEjaHorario('');
-      setEjaMotivos([]); setEjaMotivoOutro('');
-      setTimeout(() => setShowNativeForm(false), 2500);
     } catch {
       setLeadMessage('Não conseguimos registrar agora. Tente novamente em instantes.');
     }
@@ -8522,121 +8646,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
             </button>
             <h3 className="font-display font-bold text-navy text-xl mb-1 pr-8">Quero receber orientação</h3>
             <p className="text-sm text-slate-500 mb-4">Conte um pouco sobre você e nossa equipe entra em contato para te orientar sobre o Supletivo EJA.</p>
-            <form onSubmit={async (e) => {
-              await handleEjaLeadSubmit(e);
-            }} className="flex flex-col gap-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Seu nome completo *</label>
-                  <input required name="name" type="text" placeholder="Ex: Marco Silva" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">WhatsApp com DDD *</label>
-                  <input required name="phone" type="tel" placeholder="(00) 00000-0000" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Seu e-mail *</label>
-                <input required name="email" type="email" placeholder="seuemail@dominio.com" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Estado *</label>
-                  <select required value={ejaEstado} onChange={e => setEjaEstado(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy">
-                    <option value="">UF</option>
-                    {BRAZIL_STATES.map(s => <option key={s.uf} value={s.uf}>{s.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Cidade *</label>
-                  {ejaCidadesError ? (
-                    <input required value={ejaCidade} onChange={e => setEjaCidade(e.target.value)} type="text" placeholder="Digite sua cidade" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy" />
-                  ) : (
-                    <select required disabled={!ejaEstado} value={ejaCidade} onChange={e => setEjaCidade(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy disabled:opacity-60">
-                      <option value="">{ejaEstado ? 'Selecione a cidade' : 'Selecione o estado primeiro'}</option>
-                      {ejaCidades.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Melhor horário para contato</label>
-                <select value={ejaHorario} onChange={e => setEjaHorario(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy">
-                  <option value="">Sem preferência</option>
-                  {EJA_HORARIO_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-2">Qual etapa você deseja concluir? *</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {EJA_ETAPA_OPTIONS.map(op => (
-                    <button
-                      key={op}
-                      type="button"
-                      onClick={() => setEjaEtapa(op)}
-                      className={`rounded-xl border px-2 py-3 text-xs font-bold transition ${ejaEtapa === op ? 'border-orange-primary bg-orange-50 text-orange-primary' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
-                    >
-                      {op}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-2">Por que você quer terminar os estudos? *</label>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {EJA_MOTIVO_OPTIONS.map(op => (
-                    <label key={op} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold cursor-pointer transition ${ejaMotivos.includes(op) ? 'border-orange-primary bg-orange-50 text-orange-primary' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-                      <input
-                        type="checkbox"
-                        checked={ejaMotivos.includes(op)}
-                        onChange={() => setEjaMotivos(prev => prev.includes(op) ? prev.filter(m => m !== op) : [...prev, op])}
-                        className="h-4 w-4 accent-orange-primary"
-                      />
-                      {op}
-                    </label>
-                  ))}
-                </div>
-                {ejaMotivos.includes('Outro') && (
-                  <input
-                    value={ejaMotivoOutro}
-                    onChange={e => setEjaMotivoOutro(e.target.value)}
-                    type="text"
-                    placeholder="Conte pra gente o motivo"
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none ring-blue-action/20 transition focus:ring-4 focus:border-blue-action text-navy"
-                  />
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-2">Quando você pretende terminar os estudos? *</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {EJA_PRAZO_OPTIONS.map(op => (
-                    <button
-                      key={op}
-                      type="button"
-                      onClick={() => setEjaPrazo(op)}
-                      className={`rounded-xl border px-2 py-3 text-xs font-bold transition ${ejaPrazo === op ? 'border-orange-primary bg-orange-50 text-orange-primary' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
-                    >
-                      {op}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                disabled={sending || !ejaEtapa || !ejaPrazo || ejaMotivos.length === 0}
-                type="submit"
-                className="mt-2 w-full rounded-xl bg-orange-primary px-5 py-4 font-bold text-white transition hover:bg-orange-600 shadow-lg shadow-orange-primary/30 disabled:opacity-50"
-              >
-                {sending ? 'Enviando...' : '🚀 Quero receber orientação'}
-              </button>
-              {leadMessage && <p className="text-center text-sm font-bold text-green-600">{leadMessage}</p>}
-              <p className="text-center text-[11px] text-slate-400">Seus dados estão seguros e vamos usar apenas para falar com você sobre os estudos.</p>
-            </form>
+            <EjaLeadForm courseSlug={courseSlug} courseTitle={course.title} onSubmitted={() => setTimeout(() => setShowNativeForm(false), 2500)} />
           </div>
         </div>
       )}
@@ -8657,6 +8667,156 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
             <span>Falar no WhatsApp</span>
          </a>
       </div>
+    </div>
+  );
+}
+
+// ── Página dedicada: Supletivo EJA (parceria Aprova Nexus) ────────────────────
+
+function SupletivoEjaPage() {
+  const [whatsapp, setWhatsapp] = useState('(99) 3199-93940');
+  const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(null);
+
+  useSEO({
+    title: 'Supletivo EJA',
+    description: 'Termine o Ensino Fundamental ou Médio e conquiste seu certificado com validade nacional. Programa em parceria com a Aprova Nexus.',
+    keywords: ['Supletivo', 'EJA', 'Ensino Fundamental', 'Ensino Médio', 'Certificação', 'Aprova Nexus'],
+  });
+
+  useEffect(() => {
+    fetch('/api/site-content')
+      .then(r => r.json())
+      .then(data => {
+        const siteSettings = data.data?.settings || data.settings;
+        if (siteSettings?.whatsapp) setWhatsapp(siteSettings.whatsapp);
+      })
+      .catch(() => {});
+  }, []);
+
+  const cleanWhatsapp = whatsapp.replace(/\D/g, '');
+  const whatsappNumber = cleanWhatsapp.length <= 11 ? `55${cleanWhatsapp}` : cleanWhatsapp;
+  const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent('Olá, quero saber mais sobre o Supletivo EJA')}`;
+
+  const benefits = [
+    { icon: Award, title: 'Certificado reconhecido', desc: 'Documento com validade em todo o território nacional.' },
+    { icon: CalendarDays, title: 'Flexibilidade total', desc: 'Estude no seu ritmo, sem prejudicar o trabalho ou a rotina.' },
+    { icon: Users, title: 'Suporte próximo', desc: 'Nossa equipe te acompanha do primeiro contato até a matrícula.' },
+    { icon: ShieldCheck, title: 'Parceria de confiança', desc: 'Programa operado em parceria com a Aprova Nexus.' },
+  ];
+
+  const steps = [
+    'Você preenche o formulário ao lado contando sua etapa, motivo e prazo para concluir os estudos.',
+    'Nossa equipe entra em contato por WhatsApp ou telefone para te orientar sobre o processo.',
+    'A matrícula e a emissão da certificação são feitas junto ao nosso parceiro Aprova Nexus.',
+    'Você acompanha os estudos até a conclusão e a emissão do seu certificado.',
+  ];
+
+  const faqs = [
+    { q: 'O que é o Supletivo EJA?', a: 'É a modalidade de Educação de Jovens e Adultos voltada para quem não concluiu o Ensino Fundamental ou Médio na idade regular e quer retomar os estudos para conseguir o certificado de conclusão.' },
+    { q: 'Quem pode fazer?', a: 'Qualquer pessoa que não concluiu o Ensino Fundamental ou Médio, independentemente da idade. Se você não sabe qual etapa concluir, nossa equipe te orienta durante o contato.' },
+    { q: 'Como funciona a parceria com a Aprova Nexus?', a: 'O Instituto Sentidos capta e orienta o interessado; a matrícula, o processo pedagógico e a emissão da certificação são conduzidos pela Aprova Nexus, nossa parceira especializada nesse programa.' },
+    { q: 'Quanto tempo leva para concluir?', a: 'O prazo varia de acordo com a etapa e o ritmo de estudo de cada pessoa. Nossa equipe te passa uma estimativa mais precisa durante a orientação.' },
+    { q: 'Preciso pagar algo agora para me inscrever?', a: 'Não. Preencher o formulário não gera nenhuma cobrança — é só o primeiro passo para nossa equipe te explicar como funciona e quais são os valores envolvidos.' },
+  ];
+
+  return (
+    <div className="min-h-screen bg-bg-light">
+      <SiteHeader />
+
+      <header className="bg-navy text-white px-4 py-16 text-center border-t border-white/10">
+        <span className="inline-block rounded-full bg-orange-primary/20 px-4 py-1 text-xs font-bold uppercase tracking-wide text-orange-300 mb-4">
+          Parceria Aprova Nexus
+        </span>
+        <h1 className="font-display text-4xl font-bold md:text-5xl">Supletivo EJA</h1>
+        <p className="mt-4 text-lg text-white/80 max-w-2xl mx-auto">
+          Termine o Ensino Fundamental ou Médio e conquiste seu certificado com validade nacional, no seu ritmo.
+        </p>
+      </header>
+
+      <div className="mx-auto max-w-6xl px-4 py-12 grid gap-10 lg:grid-cols-[1.4fr_1fr] items-start">
+        <div className="space-y-10 min-w-0">
+          <section>
+            <h2 className="font-display text-2xl font-bold text-navy mb-6">Por que fazer o Supletivo EJA com a gente?</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {benefits.map((b, i) => (
+                <div key={i} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-primary">
+                    <b.icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-navy text-sm">{b.title}</h3>
+                    <p className="mt-1 text-sm text-slate-600">{b.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="font-display text-2xl font-bold text-navy mb-6">Para quem é o Supletivo EJA</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="font-bold text-navy mb-2">Ensino Fundamental</h3>
+                <p className="text-sm text-slate-600">Para quem não concluiu até o 9º ano e quer voltar a estudar, conseguir um emprego melhor ou seguir para um curso técnico.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="font-bold text-navy mb-2">Ensino Médio</h3>
+                <p className="text-sm text-slate-600">Para quem não concluiu o 3º ano e precisa do certificado para entrar na faculdade, prestar concursos ou avançar na carreira.</p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="font-display text-2xl font-bold text-navy mb-6">Como funciona</h2>
+            <ol className="space-y-4">
+              {steps.map((step, i) => (
+                <li key={i} className="flex items-start gap-4">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-primary text-sm font-bold text-white">{i + 1}</span>
+                  <p className="text-sm text-slate-600 pt-1">{step}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section>
+            <h2 className="font-display text-2xl font-bold text-navy mb-6">Perguntas frequentes</h2>
+            <div className="space-y-3">
+              {faqs.map((f, i) => (
+                <div key={i} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIdx(openFaqIdx === i ? null : i)}
+                    className="flex w-full items-center justify-between gap-3 p-4 text-left"
+                  >
+                    <span className="font-bold text-navy text-sm">{f.q}</span>
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${openFaqIdx === i ? 'rotate-180' : ''}`} />
+                  </button>
+                  {openFaqIdx === i && <p className="px-4 pb-4 text-sm text-slate-600">{f.a}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <aside className="lg:sticky lg:top-6 min-w-0">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-soft p-6">
+            <h2 className="font-display text-lg font-bold text-navy mb-1">Quero receber orientação</h2>
+            <p className="text-sm text-slate-500 mb-4">Preencha seus dados e nossa equipe entra em contato para te orientar sobre o Supletivo EJA.</p>
+            <EjaLeadForm courseTitle="Supletivo EJA" />
+          </div>
+          <a
+            href={whatsappLink}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#20ba56] px-6 py-3.5 text-sm font-bold text-white transition-all shadow-md hover:shadow-[#25D366]/20 hover:-translate-y-0.5"
+          >
+            <MessageCircle className="h-5 w-5 fill-current" />
+            <span>Falar no WhatsApp</span>
+          </a>
+        </aside>
+      </div>
+
+      <SiteFooter />
     </div>
   );
 }
@@ -10099,6 +10259,8 @@ export default function App() {
     pageComponent = <TurmaPage courseSlug={slug} referralCode={ref} />;
   } else if (path === '/cursos') {
     pageComponent = <CoursesPage />;
+  } else if (path === '/supletivo-eja') {
+    pageComponent = <SupletivoEjaPage />;
   } else if (path.startsWith('/cursos/')) {
     const slug = path.split('/')[2] ?? '';
     pageComponent = <CourseDetailsPage courseSlug={slug} />;
