@@ -2526,6 +2526,7 @@ function AdminApp() {
   // Editing state
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [isCloningCourse, setIsCloningCourse] = useState(false);
   const [courseAbout, setCourseAbout] = useState('');
   const [courseSyllabus, setCourseSyllabus] = useState('');
   const [courseCoverUrl, setCourseCoverUrl] = useState('');
@@ -3055,10 +3056,11 @@ function AdminApp() {
     const modalityUI   = parseModalityUI(String(form.get('modality') || 'Presencial'));
     const courseType   = courseTypeToApi({ kind, modality: modalityUI } as Course);
     const modalityDb   = mapModalityToDatabase(modalityUI, courseType);
+    const isEditingExisting = !!editingCourse && !isCloningCourse;
 
-    // Slug: mantém o existente ao editar (evita quebrar links/SEO)
-    const courseSlug   = editingCourse
-      ? editingCourse.slug
+    // Slug: mantém o existente ao editar; ao clonar ou criar, gera um slug novo (evita sobrescrever o curso original)
+    const courseSlug   = isEditingExisting
+      ? editingCourse!.slug
       : (slugify(rawTitle) || `curso-rascunho-${Date.now()}`);
 
     const enrollmentFee    = Number(form.get('enrollmentFee'))    || 0;
@@ -3113,8 +3115,8 @@ function AdminApp() {
 
     setCourseLoading(true);
     try {
-      const isEdit = !!editingCourse;
-      const url    = isEdit ? `/api/admin/courses/${editingCourse.id}` : '/api/admin/courses';
+      const isEdit = isEditingExisting;
+      const url    = isEdit ? `/api/admin/courses/${editingCourse!.id}` : '/api/admin/courses';
       const method = isEdit ? 'PUT' : 'POST';
 
       const res  = await fetch(url, {
@@ -3127,15 +3129,16 @@ function AdminApp() {
       if (res.ok && json.data) {
         const saved = mapApiCourse(json.data);
         if (isEdit) {
-          setCourses(prev => prev.map(c => c.id === editingCourse.id ? saved : c));
+          setCourses(prev => prev.map(c => c.id === editingCourse!.id ? saved : c));
           showNotice('✅ Curso atualizado com sucesso!');
         } else {
           setCourses(prev => [saved, ...prev]);
-          showNotice('✅ Curso cadastrado com sucesso!');
+          showNotice(isCloningCourse ? '✅ Curso clonado com sucesso!' : '✅ Curso cadastrado com sucesso!');
           formElement.reset();
         }
         // Limpar estado do editor
         setEditingCourse(null);
+        setIsCloningCourse(false);
         setCourseAbout('');
         setCourseSyllabus('');
         setCourseCoverUrl('');
@@ -3893,11 +3896,12 @@ function AdminApp() {
                     <div>
                       <h2 className="font-display text-lg font-bold text-navy flex items-center gap-2">
                         <GraduationCap className="h-5 w-5 text-orange-primary" />
-                        {editingCourse ? 'Editar Curso' : 'Novo Curso'}
+                        {isCloningCourse ? 'Clonar Curso' : (editingCourse ? 'Editar Curso' : 'Novo Curso')}
                       </h2>
                       {editingCourse && (
                         <p className="text-xs text-slate-500 mt-0.5 truncate max-w-xs">
-                          Editando: <span className="font-semibold text-navy">{editingCourse.title}</span>
+                          {isCloningCourse ? 'Duplicando a partir de: ' : 'Editando: '}
+                          <span className="font-semibold text-navy">{editingCourse.title}</span>
                         </p>
                       )}
                     </div>
@@ -3905,7 +3909,7 @@ function AdminApp() {
                       {editingCourse && (
                         <button
                           type="button"
-                          onClick={() => { setEditingCourse(null); setCourseAbout(''); setCourseSyllabus(''); setCourseCoverUrl(''); }}
+                          onClick={() => { setEditingCourse(null); setIsCloningCourse(false); setCourseAbout(''); setCourseSyllabus(''); setCourseCoverUrl(''); }}
                           className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
                         >
                           Cancelar
@@ -3919,7 +3923,7 @@ function AdminApp() {
                       >
                         {courseLoading
                           ? <><span className="animate-spin inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> Salvando...</>
-                          : (editingCourse ? '✓ Atualizar Curso' : '+ Salvar Curso')}
+                          : ((editingCourse && !isCloningCourse) ? '✓ Atualizar Curso' : '+ Salvar Curso')}
                       </button>
                     </div>
                   </div>
@@ -3939,7 +3943,7 @@ function AdminApp() {
                           <input
                             name="title"
                             required
-                            defaultValue={editingCourse?.title}
+                            defaultValue={isCloningCourse && editingCourse ? `${editingCourse.title} (Cópia)` : editingCourse?.title}
                             placeholder="Ex: Psicopedagogia Clínica e Institucional"
                             className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-navy outline-none transition focus:border-orange-primary focus:ring-2 focus:ring-orange-primary/20"
                           />
@@ -4177,12 +4181,12 @@ function AdminApp() {
                       >
                         {courseLoading
                           ? <><span className="animate-spin inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> Salvando...</>
-                          : (editingCourse ? '✓ Atualizar Curso' : '+ Salvar Curso')}
+                          : ((editingCourse && !isCloningCourse) ? '✓ Atualizar Curso' : '+ Salvar Curso')}
                       </button>
                       {editingCourse && (
                         <button
                           type="button"
-                          onClick={() => { setEditingCourse(null); setCourseAbout(''); setCourseSyllabus(''); setCourseCoverUrl(''); }}
+                          onClick={() => { setEditingCourse(null); setIsCloningCourse(false); setCourseAbout(''); setCourseSyllabus(''); setCourseCoverUrl(''); }}
                           className="rounded-xl border border-slate-200 px-6 py-3.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
                         >
                           Cancelar
@@ -4194,10 +4198,10 @@ function AdminApp() {
               </div>
 
               {/* ── Painel Direito: Lista de Cursos ──────────────────────────── */}
-              <div className="min-w-0 w-full xl:sticky xl:top-4">
-                <div className="rounded-xl border border-slate-200 bg-white shadow-soft p-5">
+              <div className="min-w-0 w-full xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)]">
+                <div className="flex flex-col rounded-xl border border-slate-200 bg-white shadow-soft p-5 xl:max-h-[calc(100vh-2rem)]">
                   {/* Cabeçalho da lista */}
-                  <div className="mb-4 flex items-center justify-between">
+                  <div className="mb-4 flex shrink-0 items-center justify-between">
                     <h2 className="font-display text-lg font-bold text-navy">Cursos Cadastrados</h2>
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
                       {courses.length} total
@@ -4205,7 +4209,7 @@ function AdminApp() {
                   </div>
 
                   {/* Campo de Busca */}
-                  <div className="relative mb-4">
+                  <div className="relative mb-4 shrink-0">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
@@ -4221,7 +4225,8 @@ function AdminApp() {
                     )}
                   </div>
 
-                  {/* Lista Agrupada por Tipo */}
+                  {/* Lista Agrupada por Tipo — rola de forma independente do formulário à esquerda */}
+                  <div className="min-h-0 overflow-y-auto pr-1 -mr-1 xl:flex-1">
                   {(() => {
                     const q = courseSearch.toLowerCase().trim();
                     const filtered: Course[] = q
@@ -4280,7 +4285,7 @@ function AdminApp() {
                               <div
                                 key={c.id}
                                 className={`flex items-start gap-2 rounded-lg border p-3 transition ${
-                                  editingCourse?.id === c.id
+                                  !isCloningCourse && editingCourse?.id === c.id
                                     ? 'border-orange-primary/40 bg-orange-50'
                                     : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                                 }`}
@@ -4303,9 +4308,10 @@ function AdminApp() {
                                 </div>
                                 <div className="flex shrink-0 gap-1">
                                   <button
+                                    type="button"
                                     onClick={() => {
                                       const found = courses.find((x: Course) => x.id === c.id);
-                                      if (found) { setEditingCourse(found); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+                                      if (found) { setEditingCourse(found); setIsCloningCourse(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }
                                     }}
                                     className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:border-blue-action hover:text-blue-action"
                                     title="Editar curso"
@@ -4313,6 +4319,18 @@ function AdminApp() {
                                     <Pencil className="h-3.5 w-3.5" />
                                   </button>
                                   <button
+                                    type="button"
+                                    onClick={() => {
+                                      const found = courses.find((x: Course) => x.id === c.id);
+                                      if (found) { setEditingCourse(found); setIsCloningCourse(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+                                    }}
+                                    className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:border-green-500 hover:text-green-600"
+                                    title="Clonar curso (criar novo curso com estes dados)"
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => deleteCourse(c.id)}
                                     className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:border-red-400 hover:text-red-500"
                                     title="Excluir curso"
@@ -4348,6 +4366,7 @@ function AdminApp() {
                       </div>
                     );
                   })()}
+                  </div>
                 </div>
               </div>
             </div>
