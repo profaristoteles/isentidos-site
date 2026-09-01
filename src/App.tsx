@@ -8698,23 +8698,28 @@ function SupletivoEjaPage() {
   const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent('Olá, quero saber mais sobre o Supletivo EJA')}`;
 
   const benefits = [
-    { icon: Award, title: 'Certificado reconhecido', desc: 'Documento com validade em todo o território nacional.' },
-    { icon: CalendarDays, title: 'Flexibilidade total', desc: 'Estude no seu ritmo, sem prejudicar o trabalho ou a rotina.' },
-    { icon: Users, title: 'Suporte próximo', desc: 'Nossa equipe te acompanha do primeiro contato até a matrícula.' },
+    { icon: Award, title: 'Certificado reconhecido', desc: 'Publicado em Diário Oficial e reconhecido pelo Conselho Estadual de Educação — vale para faculdade, cursos técnicos e concursos.' },
+    { icon: CalendarDays, title: 'Flexibilidade total', desc: 'Estude no seu ritmo, sem prejudicar o trabalho ou a rotina, em plataforma 100% online.' },
+    { icon: Users, title: 'Tutoria especializada', desc: 'Tutor por disciplina e suporte institucional do início ao fim dos seus estudos.' },
     { icon: ShieldCheck, title: 'Parceria de confiança', desc: 'Programa operado em parceria com a Aprova Nexus.' },
+  ];
+
+  const pricing = [
+    { etapa: 'Ensino Fundamental', total: 1100, installment: 91.67, cash: 1000 },
+    { etapa: 'Ensino Médio', total: 1320, installment: 110, cash: 1100 },
   ];
 
   const steps = [
     'Você preenche o formulário ao lado contando sua etapa, motivo e prazo para concluir os estudos.',
-    'Nossa equipe entra em contato por WhatsApp ou telefone para te orientar sobre o processo.',
-    'A matrícula e a emissão da certificação são feitas junto ao nosso parceiro Aprova Nexus.',
-    'Você acompanha os estudos até a conclusão e a emissão do seu certificado.',
+    'Nossa equipe entra em contato por WhatsApp ou telefone para te orientar sobre valores e prazos.',
+    'Você faz sua matrícula e recebe acesso à plataforma de estudos, no seu ritmo.',
+    'Ao concluir as disciplinas, seu certificado é emitido com reconhecimento oficial.',
   ];
 
   const faqs = [
     { q: 'O que é o Supletivo EJA?', a: 'É a modalidade de Educação de Jovens e Adultos voltada para quem não concluiu o Ensino Fundamental ou Médio na idade regular e quer retomar os estudos para conseguir o certificado de conclusão.' },
-    { q: 'Quem pode fazer?', a: 'Qualquer pessoa que não concluiu o Ensino Fundamental ou Médio, independentemente da idade. Se você não sabe qual etapa concluir, nossa equipe te orienta durante o contato.' },
-    { q: 'Como funciona a parceria com a Aprova Nexus?', a: 'O Instituto Sentidos capta e orienta o interessado; a matrícula, o processo pedagógico e a emissão da certificação são conduzidos pela Aprova Nexus, nossa parceira especializada nesse programa.' },
+    { q: 'Quem pode fazer?', a: 'Qualquer pessoa a partir de 15 anos completos que não tenha concluído o Ensino Fundamental ou Médio. Se você não sabe qual etapa concluir, nossa equipe te orienta durante o contato.' },
+    { q: 'O certificado tem validade em todo o Brasil?', a: 'Sim. O certificado é publicado em Diário Oficial e reconhecido pelo Conselho Estadual de Educação, podendo ser usado para entrar na faculdade, fazer cursos técnicos e prestar concursos públicos.' },
     { q: 'Quanto tempo leva para concluir?', a: 'O prazo varia de acordo com a etapa e o ritmo de estudo de cada pessoa. Nossa equipe te passa uma estimativa mais precisa durante a orientação.' },
     { q: 'Preciso pagar algo agora para me inscrever?', a: 'Não. Preencher o formulário não gera nenhuma cobrança — é só o primeiro passo para nossa equipe te explicar como funciona e quais são os valores envolvidos.' },
   ];
@@ -8764,6 +8769,29 @@ function SupletivoEjaPage() {
                 <p className="text-sm text-slate-600">Para quem não concluiu o 3º ano e precisa do certificado para entrar na faculdade, prestar concursos ou avançar na carreira.</p>
               </div>
             </div>
+            <p className="mt-4 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200/60 rounded-lg p-3">
+              ⚠️ É necessário ter no mínimo 15 anos completos para se matricular no Supletivo EJA.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-display text-2xl font-bold text-navy mb-6">Investimento</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {pricing.map((p) => (
+                <div key={p.etapa} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h3 className="font-bold text-navy mb-3">{p.etapa}</h3>
+                  <div className="font-display text-2xl font-extrabold text-navy">
+                    12x de R$ {p.installment.toFixed(2).replace('.', ',')}
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">
+                    ou <strong className="text-navy">R$ {p.cash.toFixed(2).replace('.', ',')}</strong> à vista
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-xs text-slate-500 text-center sm:text-left">
+              + taxa de matrícula única de <strong className="text-navy">R$ 200,00</strong>, para qualquer uma das etapas.
+            </p>
           </section>
 
           <section>
