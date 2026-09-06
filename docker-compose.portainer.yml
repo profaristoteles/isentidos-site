@@ -1,0 +1,94 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: isentidos-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: isentidos
+      POSTGRES_USER: isentidos
+      POSTGRES_PASSWORD: ${ISENTIDOS_DB_PASSWORD}
+
+    volumes:
+      - isentidos_pgdata:/var/lib/postgresql/data
+
+    networks:
+      - isentidos_internal
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U isentidos -d isentidos
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+  app:
+    image: ghcr.io/profaristoteles/isentidos-site:latest
+    pull_policy: always
+    container_name: isentidos-app
+    restart: unless-stopped
+
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${PORT}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      FRONTEND_URL: ${FRONTEND_URL}
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    volumes:
+      - isentidos_uploads_data:/app/public/uploads
+
+    networks:
+      - isentidos_internal
+      - traefik_network
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_network"
+      - "traefik.http.routers.isentidos-app.rule=Host(`isentidos.com.br`) || Host(`www.isentidos.com.br`)"
+      - "traefik.http.routers.isentidos-app.entrypoints=websecure"
+      - "traefik.http.routers.isentidos-app.tls=true"
+      - "traefik.http.routers.isentidos-app.tls.certresolver=letsencrypt"
+      - "traefik.http.services.isentidos-app.loadbalancer.server.port=4000"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+
+networks:
+
+  isentidos_internal:
+    internal: true
+
+  traefik_network:
+    external: true
+
+
+volumes:
+
+  isentidos_pgdata:
+    external: true
+    name: instituto-sentidos_isentidos_pgdata
+
+  isentidos_uploads_data:
+    external: true
+    name: instituto-sentidos_isentidos_uploads_data
