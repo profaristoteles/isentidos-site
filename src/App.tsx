@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from 'react';
 import {
   Award,
   AlertCircle,
+  Bell,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -2085,6 +2086,11 @@ function AdminApp() {
     evoCrmApiToken: '',
     evoCrmPipelineId: '',
     evoCrmStageId: '',
+    notificationEmail: '',
+    notificationWhatsapp: '',
+    notifyAdminOnEvent: true,
+    notifyAdminOnReservation: true,
+    notifyAdminOnLead: true,
   });
 
   interface ReferrerData {
@@ -6847,6 +6853,11 @@ function AdminApp() {
                       siteName: String(form.get('siteName')),
                       domain: String(form.get('domain')),
                       whatsapp: String(form.get('whatsapp')),
+                      notificationEmail: String(form.get('notificationEmail') || ''),
+                      notificationWhatsapp: String(form.get('notificationWhatsapp') || ''),
+                      notifyAdminOnEvent: form.get('notifyAdminOnEvent') === 'on',
+                      notifyAdminOnReservation: form.get('notifyAdminOnReservation') === 'on',
+                      notifyAdminOnLead: form.get('notifyAdminOnLead') === 'on',
                       instagram: String(form.get('instagram') || ''),
                       facebook: String(form.get('facebook') || ''),
                       linkedin: String(form.get('linkedin') || ''),
@@ -6872,6 +6883,89 @@ function AdminApp() {
                     <Field label="Nome do Site" name="siteName" placeholder="Instituto Sentidos" defaultValue={adminSettings.siteName} required />
                     <Field label="Domínio Oficial" name="domain" placeholder="isentidos.com.br" defaultValue={adminSettings.domain} required />
                     <Field label="WhatsApp de Contato" name="whatsapp" placeholder="(99) 3199-93940" defaultValue={adminSettings.whatsapp} required />
+
+                    <div className="border-t border-slate-100 pt-4 mt-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                        <div>
+                          <h4 className="text-sm font-bold text-navy flex items-center gap-2">
+                            <Bell className="h-4 w-4 text-orange-primary" />
+                            Notificações do Administrador (E-mail & WhatsApp)
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Receba alertas em tempo real de novas inscrições em eventos, reservas de turma e leads.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!token) return;
+                            try {
+                              const btn = document.getElementById('btn-test-notif');
+                              if (btn) btn.innerText = 'Testando...';
+                              const res = await fetch('/api/admin/settings/test-admin-notification', {
+                                method: 'POST',
+                                headers: { Authorization: `Bearer ${token}` }
+                              });
+                              const data = await res.json();
+                              if (res.ok) {
+                                const waStatus = data.data?.whatsapp?.success ? '✅ WhatsApp entregue com sucesso' : `⚠️ WhatsApp: ${data.data?.whatsapp?.error || 'Não configurado'}`;
+                                const mailStatus = data.data?.email?.success ? '✅ E-mail entregue com sucesso' : '⚠️ E-mail: Verifique configurações SMTP';
+                                alert(`Resultado do Teste de Alertas:\n\n${waStatus}\n${mailStatus}\n\nDestinatários:\n• WhatsApp: ${data.data?.whatsapp?.target || 'Nenhum'}\n• E-mails: ${(data.data?.email?.targets || []).join(', ') || 'Nenhum'}`);
+                              } else {
+                                alert('Erro ao testar: ' + (data.error || 'Falha no teste'));
+                              }
+                            } catch {
+                              alert('Erro de conexão ao testar notificações.');
+                            } finally {
+                              const btn = document.getElementById('btn-test-notif');
+                              if (btn) btn.innerText = 'Testar Alertas Agora';
+                            }
+                          }}
+                          id="btn-test-notif"
+                          className="self-start sm:self-auto rounded-lg border border-orange-primary/30 bg-orange-primary/10 px-3 py-1.5 text-xs font-bold text-orange-primary hover:bg-orange-primary hover:text-white transition shadow-sm"
+                        >
+                          Testar Alertas Agora
+                        </button>
+                      </div>
+
+                      <div className="grid gap-3">
+                        <div>
+                          <Field
+                            label="E-mail para Recebimento de Alertas"
+                            name="notificationEmail"
+                            placeholder="ex: admin@isentidos.com.br (ou múltiplos separados por vírgula)"
+                            defaultValue={adminSettings.notificationEmail}
+                          />
+                          <p className="text-[11px] text-slate-500 mt-1">Se em branco, enviará automaticamente para todos os usuários administradores cadastrados e o ADMIN_EMAIL.</p>
+                        </div>
+
+                        <div>
+                          <Field
+                            label="WhatsApp para Recebimento de Alertas"
+                            name="notificationWhatsapp"
+                            placeholder="Ex: (99) 3199-93940"
+                            defaultValue={adminSettings.notificationWhatsapp}
+                          />
+                          <p className="text-[11px] text-slate-500 mt-1">Se em branco, usará o WhatsApp de Contato institucional acima ({adminSettings.whatsapp || '(99) 3199-93940'}).</p>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 mt-1 space-y-2">
+                          <span className="text-xs font-bold text-navy block">Canais de Notificação Ativos:</span>
+                          <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                            <input type="checkbox" name="notifyAdminOnEvent" defaultChecked={adminSettings.notifyAdminOnEvent ?? true} className="rounded accent-orange-primary h-4 w-4" />
+                            Notificar novas inscrições em eventos e workshops
+                          </label>
+                          <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                            <input type="checkbox" name="notifyAdminOnReservation" defaultChecked={adminSettings.notifyAdminOnReservation ?? true} className="rounded accent-orange-primary h-4 w-4" />
+                            Notificar reservas de vaga em turmas e pré-matrículas
+                          </label>
+                          <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                            <input type="checkbox" name="notifyAdminOnLead" defaultChecked={adminSettings.notifyAdminOnLead ?? true} className="rounded accent-orange-primary h-4 w-4" />
+                            Notificar novos contatos, leads de cursos e downloads de e-books
+                          </label>
+                        </div>
+                      </div>
+                    </div>
                     
                     <div className="border-t border-slate-100 pt-4 mt-2">
                       <h4 className="text-sm font-bold text-navy mb-3">Redes Sociais</h4>
@@ -9841,10 +9935,211 @@ function EbooksPage() {
 
 // ── Events Page ─────────────────────────────────────────────────────────────
 
+interface EventRegistrationModalProps {
+  event: any;
+  onClose: () => void;
+}
+
+function EventRegistrationModal({ event, onClose }: EventRegistrationModalProps) {
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+
+  const formattedDate = event.startsAt
+    ? new Date(event.startsAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : 'A confirmar';
+
+  const isOnline = event.modality === 'online_ao_vivo';
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    const form = new FormData(e.currentTarget);
+    const payload = {
+      name: String(form.get('name') || '').trim(),
+      email: String(form.get('email') || '').trim(),
+      phone: String(form.get('phone') || '').trim(),
+      modality: String(form.get('modality') || (isOnline ? 'Online ao vivo' : 'Presencial')),
+      notes: String(form.get('notes') || '').trim(),
+      consentLgpd: form.get('consentLgpd') === 'on',
+    };
+
+    try {
+      const res = await fetch(`/api/events/${event.id}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setSuccess(true);
+      } else {
+        setError(data.error || 'Erro ao realizar inscrição. Tente novamente.');
+      }
+    } catch {
+      setError('Erro de conexão ao enviar inscrição. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
+      <div className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-navy to-slate-900 p-6 text-white relative">
+          <button
+            onClick={onClose}
+            className="absolute top-5 right-5 text-white/60 hover:text-white rounded-full p-1 transition"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div className="inline-flex items-center gap-2 rounded-full border border-orange-primary/30 bg-orange-primary/20 px-3 py-1 text-xs font-bold text-orange-300 mb-2">
+            <CalendarDays className="h-3.5 w-3.5" />
+            Inscrição no Evento
+          </div>
+          <h2 className="font-display text-xl font-bold line-clamp-2 leading-tight">
+            {event.title}
+          </h2>
+          <div className="flex items-center gap-3 mt-2 text-xs text-white/70">
+            <span>{isOnline ? '💻 Online ao vivo' : '🏛️ Presencial'}</span>
+            <span>•</span>
+            <span>📅 {formattedDate}</span>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {success ? (
+            <div className="py-6 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-4">
+                <CheckCircle2 className="h-9 w-9" />
+              </div>
+              <h3 className="font-display text-2xl font-bold text-navy">Inscrição Confirmada!</h3>
+              <p className="mt-2 text-sm text-slate-600 max-w-sm mx-auto">
+                Parabéns! Sua vaga para <strong>{event.title}</strong> foi registrada com sucesso.
+              </p>
+              <div className="mt-4 rounded-xl bg-orange-50 border border-orange-200/60 p-3.5 text-xs text-orange-800 text-left">
+                🔔 <strong>Notificação em tempo real:</strong> A coordenação do evento já foi notificada da sua inscrição. Enviamos os detalhes de confirmação para o seu e-mail e nossa equipe entrará em contato via WhatsApp com lembretes e orientações de acesso.
+              </div>
+
+              <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+                {event.link && (
+                  <a
+                    href={event.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-primary px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-orange-600 transition"
+                  >
+                    Acessar Link do Evento
+                    <ChevronRight className="h-4 w-4" />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-xl bg-slate-100 px-6 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200 transition"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700 font-medium">
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Nome Completo *</label>
+                <input
+                  required
+                  name="name"
+                  type="text"
+                  placeholder="Seu nome completo"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-orange-primary focus:ring-2 focus:ring-orange-primary/20 text-navy"
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">WhatsApp com DDD *</label>
+                  <input
+                    required
+                    name="phone"
+                    type="tel"
+                    placeholder="(99) 99999-9999"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-orange-primary focus:ring-2 focus:ring-orange-primary/20 text-navy"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">E-mail *</label>
+                  <input
+                    required
+                    name="email"
+                    type="email"
+                    placeholder="seuemail@exemplo.com"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-orange-primary focus:ring-2 focus:ring-orange-primary/20 text-navy"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Dúvidas ou Observações (opcional)</label>
+                <textarea
+                  name="notes"
+                  rows={2}
+                  placeholder="Alguma necessidade especial, dúvida ou comentário..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm outline-none focus:border-orange-primary focus:ring-2 focus:ring-orange-primary/20 text-navy resize-none"
+                />
+              </div>
+
+              <label className="flex items-start gap-2.5 text-xs text-slate-500 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  name="consentLgpd"
+                  defaultChecked
+                  required
+                  className="mt-0.5 rounded accent-orange-primary h-4 w-4"
+                />
+                <span>Concordo com o tratamento dos meus dados para recebimento de comunicações do evento, conforme a LGPD.</span>
+              </label>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 rounded-xl bg-orange-primary py-3 px-4 font-bold text-white shadow-md hover:bg-orange-600 transition flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Enviando Inscrição...
+                  </>
+                ) : (
+                  <>
+                    Garantir Minha Vaga no Evento
+                    <ChevronRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EventsPage() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterModality, setFilterModality] = useState('Todos');
+  const [selectedEventForModal, setSelectedEventForModal] = useState<any>(null);
 
   useEffect(() => {
     fetch('/api/events')
@@ -9944,11 +10239,6 @@ function EventsPage() {
                   ? new Date(ev.startsAt).toLocaleDateString('pt-BR')
                   : 'A confirmar';
 
-                // Use prefilled whatsapp link as fallback
-                const eventLink = ev.link || `https://wa.me/5599319993940?text=${encodeURIComponent(
-                  `Olá, gostaria de saber mais informações e me inscrever no evento: ${ev.title}`
-                )}`;
-
                 return (
                   <div
                     key={ev.id}
@@ -9992,15 +10282,14 @@ function EventsPage() {
                         <span className="text-sm font-bold text-navy">
                           {Number(ev.price) === 0 ? 'Gratuito' : `R$ ${Number(ev.price).toFixed(2)}`}
                         </span>
-                        <a
-                          href={eventLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-sm font-bold text-orange-primary hover:underline"
+                        <button
+                          type="button"
+                          onClick={() => setSelectedEventForModal(ev)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-orange-primary px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-orange-600 hover:shadow-md cursor-pointer"
                         >
-                          {ev.link ? 'Participar' : 'Inscrever-se'}
-                          <ChevronRight className="h-4 w-4" />
-                        </a>
+                          Inscrever-se
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -10010,6 +10299,13 @@ function EventsPage() {
           )}
         </main>
       </div>
+
+      {selectedEventForModal && (
+        <EventRegistrationModal
+          event={selectedEventForModal}
+          onClose={() => setSelectedEventForModal(null)}
+        />
+      )}
 
       <SiteFooter />
     </div>

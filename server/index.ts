@@ -13,6 +13,18 @@ import multer from 'multer';
 import { z } from 'zod';
 import { prisma } from './db.js';
 import { sendPasswordResetEmail, sendWelcomeEmail, sendTestEmail } from './mailer.js';
+import {
+  notifyOnEventRegistration,
+  notifyOnTurmaReservation,
+  notifyOnLeadSubmission,
+  notifyOnEbookLead,
+  notifyOnReferralRegistration,
+  sendAdminTestAlert,
+  sendEvolutionWhatsApp,
+  normalizeWhatsappNumber,
+  getEvolutionConfig,
+  sanitizeEvolutionBaseUrl
+} from './notifications.js';
 import { seedCourses, seedLeads, seedPosts } from './seed-data.js';
 import {
   serializeCourse,
@@ -242,6 +254,11 @@ const systemSettingSchema = z.object({
   evolutionInstance: z.string().nullable().optional().transform(v => v ?? ''),
   evolutionNotifyReferrer: z.boolean().default(true),
   evolutionNotifyReferred: z.boolean().default(true),
+  notificationEmail: z.string().nullable().optional().transform(v => v ?? ''),
+  notificationWhatsapp: z.string().nullable().optional().transform(v => v ?? ''),
+  notifyAdminOnEvent: z.boolean().default(true),
+  notifyAdminOnReservation: z.boolean().default(true),
+  notifyAdminOnLead: z.boolean().default(true),
   outboundWebhookUrl: z.string().nullable().optional().transform(v => v ?? ''),
   mauticBaseUrl: z.string().nullable().optional().transform(v => v ?? 'https://mautic.isentidos.com.br'),
   mauticTrackingEnabled: z.boolean().default(true),
@@ -653,6 +670,11 @@ async function getSystemSettings() {
     evolutionInstance: '',
     evolutionNotifyReferrer: true,
     evolutionNotifyReferred: true,
+    notificationEmail: '',
+    notificationWhatsapp: '',
+    notifyAdminOnEvent: true,
+    notifyAdminOnReservation: true,
+    notifyAdminOnLead: true,
     outboundWebhookUrl: '',
     mauticBaseUrl: 'https://mautic.isentidos.com.br',
     mauticTrackingEnabled: true,
@@ -663,118 +685,6 @@ async function getSystemSettings() {
     evoCrmStageId: '',
     updatedAt: new Date()
   });
-}
-
-interface EvolutionConfig {
-  apiUrl: string;
-  apiKey: string;
-  instance: string;
-}
-
-function sanitizeEvolutionBaseUrl(raw: string): string {
-  let url = String(raw || '').trim();
-  if (!url) return '';
-  // Remove barras finais e paths que o usuário pode ter colado por engano
-  // (ex: a própria rota de envio ou o painel do manager da Evolution API).
-  url = url.replace(/\/+$/, '');
-  url = url.replace(/\/message\/sendText(\/.*)?$/i, '');
-  url = url.replace(/\/manager\/?$/i, '');
-  return url.replace(/\/+$/, '');
-}
-
-async function getEvolutionConfig(): Promise<EvolutionConfig | null> {
-  const settings = await getSystemSettings();
-  const apiUrl = sanitizeEvolutionBaseUrl(
-    settings.evolutionApiUrl || process.env.EVOLUTION_API_URL || process.env.WHATSAPP_API_URL || ''
-  );
-  const apiKey = settings.evolutionApiKey || process.env.EVOLUTION_API_KEY || process.env.WHATSAPP_API_TOKEN || '';
-  const instance = settings.evolutionInstance || process.env.EVOLUTION_INSTANCE || '';
-
-  if (!apiUrl || !apiKey || !instance) return null;
-  return { apiUrl, apiKey, instance };
-}
-
-function normalizeWhatsappNumber(phoneNumber: string): string {
-  let cleanNumber = String(phoneNumber || '').replace(/\D/g, '');
-  if (cleanNumber.length >= 10 && !cleanNumber.startsWith('55')) {
-    cleanNumber = '55' + cleanNumber;
-  }
-  return cleanNumber;
-}
-
-interface EvolutionSendResult {
-  success: boolean;
-  status?: number;
-  error?: string;
-  details?: any;
-}
-
-async function sendEvolutionWhatsApp(phoneNumber: string, message: string): Promise<EvolutionSendResult> {
-  const config = await getEvolutionConfig();
-  if (!config) {
-    console.log('[Evolution API] Configuração incompleta (URL, Instância ou API Key ausente). Ignorando envio.');
-    return {
-      success: false,
-      error: 'Configuração da Evolution API incompleta. Preencha a URL, a Instância e a API Key nas configurações (ou nas variáveis de ambiente EVOLUTION_API_URL/EVOLUTION_API_KEY/EVOLUTION_INSTANCE).',
-    };
-  }
-
-  const cleanNumber = normalizeWhatsappNumber(phoneNumber);
-  if (!cleanNumber) {
-    return { success: false, error: 'Número de telefone inválido ou não informado.' };
-  }
-
-  const url = `${config.apiUrl}/message/sendText/${encodeURIComponent(config.instance)}`;
-
-  try {
-    console.log(`[Evolution API] Enviando mensagem de WhatsApp para ${cleanNumber}...`);
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': config.apiKey,
-        'Authorization': `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        number: cleanNumber,
-        text: message,
-      }),
-    });
-
-    const rawBody = await res.text();
-    let parsedBody: any = null;
-    try { parsedBody = rawBody ? JSON.parse(rawBody) : null; } catch { /* resposta não é JSON */ }
-
-    if (res.ok) {
-      console.log(`[Evolution API] Mensagem enviada com sucesso para ${cleanNumber}!`);
-      return { success: true, status: res.status, details: parsedBody };
-    }
-
-    const apiMessage = parsedBody?.message ?? parsedBody?.error ?? parsedBody?.response?.message ?? rawBody;
-    const apiMessageText = Array.isArray(apiMessage) ? apiMessage.join(', ') : String(apiMessage || 'Erro desconhecido retornado pela Evolution API.');
-
-    let friendlyError: string;
-    if (res.status === 401 || res.status === 403) {
-      friendlyError = `Erro (${res.status}): Chave de API (apikey) inválida ou sem permissão para a instância "${config.instance}".`;
-    } else if (res.status === 404) {
-      friendlyError = `Erro (404): Instância "${config.instance}" não encontrada. Verifique o nome da instância e a URL base configurada.`;
-    } else if (res.status === 400) {
-      friendlyError = `Erro (400): Requisição inválida. ${apiMessageText}`;
-    } else {
-      friendlyError = `Erro (${res.status}): ${apiMessageText}`;
-    }
-
-    console.error(`[Evolution API] Erro ao enviar mensagem (${res.status}):`, rawBody);
-    return { success: false, status: res.status, error: friendlyError, details: parsedBody || rawBody };
-  } catch (err: any) {
-    console.error('[Evolution API] Erro na requisição WhatsApp:', err.message);
-    const isSsl = /certificate|SSL|self.signed/i.test(err.message || '');
-    const error = isSsl
-      ? `Falha de conexão SSL com a Evolution API. Verifique o certificado do servidor configurado na URL. (${err.message})`
-      : `Falha de conexão/rede com a Evolution API. Verifique se a URL está correta e acessível a partir do servidor. (${err.message})`;
-    return { success: false, error, details: err.message };
-  }
 }
 
 function applyWhatsappTemplateVars(
@@ -1211,9 +1121,32 @@ app.post('/api/leads', async (req, res) => {
           await submitCourseLeadToMautic(lead, course.mauticFormId, course.title);
         }
         await sendLeadToEvoCrm(lead, course?.title || 'Interesse via site');
+        await notifyOnLeadSubmission({
+          leadId: lead.id,
+          name: lead.name,
+          email: lead.email,
+          phone: lead.phone,
+          courseTitle: course?.title,
+          source: lead.source,
+          preferredFormat: lead.preferredFormat || undefined,
+          notes: lead.notes || undefined,
+          referralCode: lead.referralCode || undefined,
+          isUpdated,
+        });
       }, null).catch(console.error);
     } else {
       sendLeadToEvoCrm(lead, 'Interesse via site').catch(console.error);
+      notifyOnLeadSubmission({
+        leadId: lead.id,
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        source: lead.source,
+        preferredFormat: lead.preferredFormat || undefined,
+        notes: lead.notes || undefined,
+        referralCode: lead.referralCode || undefined,
+        isUpdated,
+      }).catch(console.error);
     }
   }
 
@@ -1283,6 +1216,13 @@ app.post('/api/ebook-leads', async (req, res) => {
     ebookId: parsed.data.ebookId,
     mautic,
   });
+
+  notifyOnEbookLead({
+    ebookTitle: parsed.data.ebookTitle,
+    name: parsed.data.name,
+    email: parsed.data.email,
+    phone: parsed.data.phone,
+  }).catch(console.error);
 
   res.status(201).json({
     data: {
@@ -1808,6 +1748,95 @@ app.get('/api/events', async (_req, res) => {
     []
   );
   res.json({ data: events });
+});
+
+app.post('/api/events/:id/register', async (req, res) => {
+  const schema = z.object({
+    name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+    email: z.string().email('E-mail inválido'),
+    phone: z.string().min(8, 'Telefone inválido'),
+    modality: z.string().optional(),
+    notes: z.string().optional(),
+    consentLgpd: z.boolean().default(true),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+  }
+
+  const event = await withDatabase(async () => {
+    return prisma.event.findFirst({
+      where: {
+        OR: [
+          { id: req.params.id },
+          { slug: req.params.id }
+        ]
+      }
+    });
+  }, null);
+
+  if (!event) {
+    return res.status(404).json({ error: 'Evento não encontrado.' });
+  }
+
+  const normalizedEmail = parsed.data.email.toLowerCase().trim();
+  const notesText = [
+    `Inscrição no Evento: ${event.title}`,
+    parsed.data.modality ? `Modalidade: ${parsed.data.modality}` : null,
+    event.startsAt ? `Data do Evento: ${event.startsAt.toLocaleDateString('pt-BR')}` : null,
+    parsed.data.notes ? `Observações: ${parsed.data.notes}` : null
+  ].filter(Boolean).join(' | ');
+
+  const lead = await withDatabase(async () => {
+    return prisma.lead.create({
+      data: {
+        name: parsed.data.name,
+        email: normalizedEmail,
+        phone: parsed.data.phone,
+        source: 'evento_inscricao',
+        notes: notesText,
+        consentLgpd: parsed.data.consentLgpd,
+      }
+    });
+  }, {
+    id: `event-lead-${Date.now()}`,
+    name: parsed.data.name,
+    email: normalizedEmail,
+    phone: parsed.data.phone,
+    courseId: null,
+    status: 'novo' as const,
+    referralCode: null,
+    preferredFormat: null,
+    source: 'evento_inscricao',
+    notes: notesText,
+    consentLgpd: parsed.data.consentLgpd,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  // Notificação multicanal (WhatsApp + E-mail) para o admin e confirmação para o aluno
+  notifyOnEventRegistration({
+    eventTitle: event.title,
+    eventId: event.id,
+    name: parsed.data.name,
+    email: parsed.data.email,
+    phone: parsed.data.phone,
+    modality: parsed.data.modality || (event.modality === 'online_ao_vivo' ? 'Online ao vivo' : 'Presencial'),
+    startsAt: event.startsAt ? event.startsAt.toISOString() : null,
+    link: event.link || null,
+    notes: parsed.data.notes,
+  }).catch(console.error);
+
+  res.status(201).json({
+    ok: true,
+    message: 'Inscrição realizada com sucesso!',
+    data: {
+      leadId: (lead as any).id,
+      eventTitle: event.title,
+      eventLink: event.link
+    }
+  });
 });
 
 app.post('/api/admin/ebooks', authMiddleware, async (req, res) => {
@@ -2557,6 +2586,15 @@ app.post('/api/referrals/register', async (req, res) => {
 
   if (!result) return res.status(503).json({ error: 'Falha ao registrar.' });
 
+  notifyOnReferralRegistration({
+    name: parsed.data.name,
+    email: parsed.data.email,
+    phone: parsed.data.phone,
+    code: result.code,
+    pixKey: result.pixKey || undefined,
+    pixKeyType: result.pixKeyType || undefined,
+  }).catch(console.error);
+
   res.status(201).json({ data: result });
 });
 
@@ -3020,6 +3058,18 @@ app.post('/api/turma/:slug/registro', async (req, res) => {
       where: { referralCode: { code }, status: { not: 'expired' } },
     });
 
+    notifyOnTurmaReservation({
+      courseTitle: course.title,
+      courseSlug: course.slug,
+      name: parsed.data.name,
+      email: parsed.data.email,
+      phone: parsed.data.phone,
+      position: enrollmentCount,
+      referralCode: code,
+      referredBy: parsed.data.referralCode,
+      notes: `Pré-inscrição na turma via página pública. ${parsed.data.referralCode ? `Indicado por: ${parsed.data.referralCode}` : 'Acesso direto'}`,
+    }).catch(console.error);
+
     return { code, enrollmentCount, myReferralCount, position: enrollmentCount };
   }, {
     code: generateReferralCode(),
@@ -3178,6 +3228,23 @@ app.post('/api/admin/settings/test-smtp', authMiddleware, adminOnlyMiddleware, a
     return res.json({ ok: true, message: `E-mail de teste enviado com sucesso para ${targetEmail}!` });
   } else {
     return res.status(500).json({ error: 'Falha ao enviar e-mail via SMTP. Verifique as credenciais no painel.' });
+  }
+});
+
+app.post('/api/admin/settings/test-admin-notification', authMiddleware, adminOnlyMiddleware, async (_req, res) => {
+  try {
+    const result = await sendAdminTestAlert();
+    return res.json({
+      ok: true,
+      message: 'Disparo de teste administrativo finalizado!',
+      data: result,
+    });
+  } catch (err: any) {
+    console.error('Erro no teste de notificação do admin:', err);
+    return res.status(500).json({
+      error: 'Falha ao executar teste de notificação do administrador.',
+      details: err.message,
+    });
   }
 });
 

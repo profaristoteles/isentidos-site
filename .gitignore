@@ -9,3 +9,4 @@ coverage/
 !.env.example
 .vite/
 scratch/
+.claude/
