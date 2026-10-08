@@ -43,6 +43,7 @@ import {
   sanitizeHtml
 } from '../shared/serializers.js';
 import { ModalityType, CourseKindType, LeadStatusType } from '../shared/types.js';
+import { sendMetaCapiLead } from './meta-capi.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,16 +89,50 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+const leadAttributionSchema = z.object({
+  utmSource: z.string().optional().nullable(),
+  utmMedium: z.string().optional().nullable(),
+  utmCampaign: z.string().optional().nullable(),
+  utmContent: z.string().optional().nullable(),
+  utmTerm: z.string().optional().nullable(),
+  fbclid: z.string().optional().nullable(),
+  gclid: z.string().optional().nullable(),
+  fbc: z.string().optional().nullable(),
+  fbp: z.string().optional().nullable(),
+  landingPage: z.string().optional().nullable(),
+  referrer: z.string().optional().nullable(),
+}).optional().nullable();
+
 const leadSchema = z.object({
   name: z.string().min(3),
   email: z.string().email(),
   phone: z.string().min(8),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  graduation: z.string().optional(),
   courseSlug: z.string().optional(),
-  preferredFormat: z.enum(['presencial', 'online_ao_vivo']).optional(),
+  courseCode: z.string().optional(),
+  preferredFormat: z.enum(['presencial', 'online_ao_vivo', 'ead', 'internacional']).optional(),
   source: z.string().default('site'),
   referralCode: z.string().optional(),
   notes: z.string().optional(),
   consentLgpd: z.boolean(),
+  eventId: z.string().optional(),
+  funnelStatus: z.enum([
+    'NEW',
+    'CONTACTED',
+    'QUALIFIED',
+    'PRE_ENROLLED',
+    'CLASS_CONFIRMED',
+    'ENROLLMENT_RELEASED',
+    'ENROLLMENT_PAID',
+    'STUDENT',
+    'DROPPED',
+  ]).optional(),
+  attributions: z.object({
+    firstTouch: leadAttributionSchema,
+    lastTouch: leadAttributionSchema,
+  }).optional().nullable(),
 });
 
 function isPublicCourseVisible(course: any): boolean {
@@ -879,7 +914,12 @@ app.get('/api/courses', async (_req, res) => {
     async () => {
       const rows = await prisma.course.findMany({
         where: { isActive: true, isSystemRecord: false },
-        include: { leads: { select: { id: true } } },
+        include: {
+          leads: {
+            where: { funnelStatus: 'PRE_ENROLLED' },
+            select: { id: true },
+          },
+        },
         orderBy: [{ isFeatured: 'desc' }, { title: 'asc' }],
       });
       return rows.filter(isPublicCourseVisible).map(serializeCourse);
@@ -895,7 +935,12 @@ app.get('/api/referral-courses', async (_req, res) => {
     async () => {
       const rows = await prisma.course.findMany({
         where: { isActive: true, isSystemRecord: false },
-        include: { leads: { select: { id: true } } },
+        include: {
+          leads: {
+            where: { funnelStatus: 'PRE_ENROLLED' },
+            select: { id: true },
+          },
+        },
         orderBy: [{ isFeatured: 'desc' }, { title: 'asc' }],
       });
       return rows.map(serializeCourse);
@@ -912,6 +957,11 @@ app.get('/api/courses/:slug', async (req, res) => {
       where: { slug: req.params.slug, isActive: true },
       include: {
         referralTiers: true,
+        // Quorum rule: Only PRE_ENROLLED count towards enrolledCount / cohort progress
+        leads: {
+          where: { funnelStatus: 'PRE_ENROLLED' },
+          select: { id: true },
+        },
       }
     }),
     null
@@ -1037,11 +1087,15 @@ app.post('/api/leads', async (req, res) => {
     return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
   }
 
-  const result = await withDatabase<{ lead: any; isUpdated: boolean } | null>(
+  const result = await withDatabase<{ lead: any; isUpdated: boolean; course: any } | null>(
     async () => prisma.$transaction(async (tx) => {
-      let course = parsed.data.courseSlug
-        ? await tx.course.findFirst({ where: { slug: parsed.data.courseSlug } })
-        : null;
+      let course = null;
+      if (parsed.data.courseCode) {
+        course = await tx.course.findUnique({ where: { courseCode: parsed.data.courseCode } });
+      }
+      if (!course && parsed.data.courseSlug) {
+        course = await tx.course.findFirst({ where: { slug: parsed.data.courseSlug } });
+      }
 
       if (!course && parsed.data.notes) {
         const allActiveCourses = await tx.course.findMany({ where: { isSystemRecord: false } });
@@ -1052,6 +1106,48 @@ app.post('/api/leads', async (req, res) => {
       const normalizedEmail = parsed.data.email.toLowerCase().trim();
       const targetCourseId = course?.id || '__no_course__';
 
+      // 1. Contact resolution via normalized phone
+      const phoneNorm = normalizeWhatsappNumber(parsed.data.phone);
+      let contact = await tx.contact.findFirst({
+        where: { phoneNormalized: phoneNorm },
+      });
+
+      const cityVal = parsed.data.city ? parsed.data.city.trim() : null;
+      const stateVal = parsed.data.state ? parsed.data.state.trim().toUpperCase() : null;
+
+      if (!contact) {
+        contact = await tx.contact.create({
+          data: {
+            name: parsed.data.name.trim(),
+            email: normalizedEmail,
+            phone: parsed.data.phone.trim(),
+            phoneNormalized: phoneNorm,
+            city: cityVal,
+            state: stateVal,
+          },
+        });
+      } else {
+        const updateData: any = {};
+        if (!contact.email && normalizedEmail) updateData.email = normalizedEmail;
+        if (!contact.city && cityVal) updateData.city = cityVal;
+        if (!contact.state && stateVal) updateData.state = stateVal;
+        if (Object.keys(updateData).length > 0) {
+          contact = await tx.contact.update({
+            where: { id: contact.id },
+            data: updateData,
+          });
+        }
+      }
+
+      const initialFunnelStatus = (parsed.data.funnelStatus as any) || 'NEW';
+
+      // Build enriched notes with graduation and location
+      const enrichedNotes = [
+        parsed.data.notes,
+        parsed.data.graduation ? `Formação: ${parsed.data.graduation.trim()}` : null,
+        cityVal && stateVal ? `Localização: ${cityVal}/${stateVal}` : (cityVal || stateVal ? `Localização: ${cityVal || stateVal}` : null),
+      ].filter(Boolean).join(' | ');
+
       const lead = await tx.lead.upsert({
         where: {
           courseId_email: {
@@ -1060,14 +1156,18 @@ app.post('/api/leads', async (req, res) => {
           },
         },
         update: {
+          contactId: contact.id,
           name: parsed.data.name,
           phone: parsed.data.phone,
           preferredFormat: parsed.data.preferredFormat,
-          notes: parsed.data.notes,
+          notes: enrichedNotes || parsed.data.notes,
           consentLgpd: parsed.data.consentLgpd,
           source: parsed.data.source,
+          eventInstanceId: parsed.data.eventId || undefined,
+          funnelStatus: parsed.data.funnelStatus ? initialFunnelStatus : undefined,
         },
         create: {
+          contactId: contact.id,
           name: parsed.data.name,
           email: normalizedEmail,
           phone: parsed.data.phone,
@@ -1075,12 +1175,102 @@ app.post('/api/leads', async (req, res) => {
           preferredFormat: parsed.data.preferredFormat,
           source: parsed.data.source,
           referralCode: parsed.data.referralCode,
-          notes: parsed.data.notes,
+          notes: enrichedNotes || parsed.data.notes,
           consentLgpd: parsed.data.consentLgpd,
+          funnelStatus: initialFunnelStatus,
+          eventInstanceId: parsed.data.eventId || null,
         },
       });
 
       const isUpdated = lead.createdAt.getTime() !== lead.updatedAt.getTime();
+
+      // 2. Lead Attribution recording (First touch & Last touch)
+      if (parsed.data.attributions) {
+        const userAgent = (req.headers['user-agent'] as string) || null;
+        const ipAddress =
+          ((req.headers['x-forwarded-for'] as string) || '').split(',')[0]?.trim() ||
+          req.socket.remoteAddress ||
+          null;
+
+        const { firstTouch, lastTouch } = parsed.data.attributions;
+        if (firstTouch && (firstTouch.utmSource || firstTouch.fbclid || firstTouch.gclid || firstTouch.landingPage)) {
+          await tx.leadAttribution.create({
+            data: {
+              leadId: lead.id,
+              touchType: 'first',
+              utmSource: firstTouch.utmSource || null,
+              utmMedium: firstTouch.utmMedium || null,
+              utmCampaign: firstTouch.utmCampaign || null,
+              utmContent: firstTouch.utmContent || null,
+              utmTerm: firstTouch.utmTerm || null,
+              fbclid: firstTouch.fbclid || null,
+              gclid: firstTouch.gclid || null,
+              fbc: firstTouch.fbc || null,
+              fbp: firstTouch.fbp || null,
+              landingPage: firstTouch.landingPage || null,
+              referrer: firstTouch.referrer || null,
+              userAgent,
+              ipAddress,
+            },
+          });
+        }
+
+        if (lastTouch && (lastTouch.utmSource || lastTouch.fbclid || lastTouch.gclid || lastTouch.landingPage)) {
+          await tx.leadAttribution.create({
+            data: {
+              leadId: lead.id,
+              touchType: 'last',
+              utmSource: lastTouch.utmSource || null,
+              utmMedium: lastTouch.utmMedium || null,
+              utmCampaign: lastTouch.utmCampaign || null,
+              utmContent: lastTouch.utmContent || null,
+              utmTerm: lastTouch.utmTerm || null,
+              fbclid: lastTouch.fbclid || null,
+              gclid: lastTouch.gclid || null,
+              fbc: lastTouch.fbc || null,
+              fbp: lastTouch.fbp || null,
+              landingPage: lastTouch.landingPage || null,
+              referrer: lastTouch.referrer || null,
+              userAgent,
+              ipAddress,
+            },
+          });
+        }
+      }
+
+      // 3. Status History Log
+      await tx.leadStatusHistory.create({
+        data: {
+          leadId: lead.id,
+          toStatus: initialFunnelStatus,
+          reason: isUpdated ? 'Atualização via formulário' : 'Novo lead cadastrado',
+          changedBy: 'lead_form',
+        },
+      });
+
+      // 4. Marketing Event Log for strong event_id deduplication audit
+      if (parsed.data.eventId) {
+        await tx.marketingEventLog.upsert({
+          where: { eventId: parsed.data.eventId },
+          update: {
+            leadId: lead.id,
+            courseId: course?.id || null,
+          },
+          create: {
+            eventId: parsed.data.eventId,
+            eventName: 'Lead',
+            source: 'browser_form',
+            leadId: lead.id,
+            courseId: course?.id || null,
+            payload: {
+              name: lead.name,
+              courseCode: course?.courseCode || null,
+              courseSlug: course?.slug || null,
+              modality: course?.modality || null,
+            },
+          },
+        });
+      }
 
       if (parsed.data.referralCode) {
         const refCode = await tx.referralCode.findUnique({ where: { code: parsed.data.referralCode } });
@@ -1101,13 +1291,48 @@ app.post('/api/leads', async (req, res) => {
         }
       }
 
-      return { lead, isUpdated };
+      return { lead, isUpdated, course };
     }),
     null,
   );
 
   const lead = result?.lead;
   const isUpdated = result?.isUpdated ?? false;
+  const targetCourse = result?.course;
+
+  // 5. Meta Conversions API (CAPI) Server-Side Dispatch
+  if (lead && parsed.data.eventId) {
+    const clientIp =
+      ((req.headers['x-forwarded-for'] as string) || '').split(',')[0]?.trim() ||
+      req.socket.remoteAddress ||
+      null;
+    const userAgent = (req.headers['user-agent'] as string) || null;
+    const attributions = parsed.data.attributions;
+    const fbc = attributions?.lastTouch?.fbc || attributions?.firstTouch?.fbc || null;
+    const fbp = attributions?.lastTouch?.fbp || attributions?.firstTouch?.fbp || null;
+    const landingUrl = attributions?.lastTouch?.landingPage || attributions?.firstTouch?.landingPage || undefined;
+
+    sendMetaCapiLead({
+      eventId: parsed.data.eventId,
+      leadId: lead.id,
+      courseId: targetCourse?.id,
+      courseCode: targetCourse?.courseCode || parsed.data.courseCode,
+      courseTitle: targetCourse?.title || 'Curso Instituto Sentidos',
+      modality: targetCourse?.modality || parsed.data.preferredFormat || 'presencial',
+      eventSourceUrl: landingUrl,
+      name: parsed.data.name,
+      email: parsed.data.email,
+      phone: parsed.data.phone,
+      city: parsed.data.city,
+      state: parsed.data.state,
+      fbc,
+      fbp,
+      clientIp,
+      userAgent,
+    }).catch((err) => {
+      console.error('[Meta CAPI] Background error:', err);
+    });
+  }
 
   if (lead && lead.email && lead.name && !isUpdated) {
     sendWelcomeEmail(lead.email, lead.name).catch(console.error);
@@ -1199,6 +1424,9 @@ app.post('/api/ebook-leads', async (req, res) => {
         createdAt: new Date(),
         courseId: null,
         status: 'novo' as const,
+        funnelStatus: 'NEW' as const,
+        contactId: null,
+        eventInstanceId: null,
         referralCode: null,
         preferredFormat: null,
         source: 'ebook_download',
@@ -1806,6 +2034,9 @@ app.post('/api/events/:id/register', async (req, res) => {
     phone: parsed.data.phone,
     courseId: null,
     status: 'novo' as const,
+    funnelStatus: 'NEW' as const,
+    contactId: null,
+    eventInstanceId: null,
     referralCode: null,
     preferredFormat: null,
     source: 'evento_inscricao',
@@ -1928,7 +2159,14 @@ app.get('/api/admin/events', authMiddleware, async (_req, res) => {
 
 app.get('/api/admin/leads', authMiddleware, async (_req, res) => {
   const leads = await withDatabase(
-    async () => (await prisma.lead.findMany({ orderBy: { createdAt: 'desc' }, include: { course: true } })).map(serializeLead),
+    async () => (await prisma.lead.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        course: true,
+        contact: true,
+        attributions: true,
+      },
+    })).map(serializeLead),
     (seedLeads as any).map(serializeLead)
   );
   res.json({ data: leads });
@@ -1941,46 +2179,58 @@ app.get('/api/admin/leads/stats-by-course', authMiddleware, async (_req, res) =>
     });
 
     const allLeads = await prisma.lead.findMany({
-      select: { id: true, courseId: true, notes: true, createdAt: true },
+      select: { id: true, courseId: true, preferredFormat: true, notes: true, createdAt: true },
     });
 
     const courseStatsMap = new Map<string, { count: number; lastAt: Date | null }>();
-
-    for (const course of courses) {
-      if (course.isSystemRecord || course.id === '__no_course__') continue;
-
-      const titleLower = course.title.trim().toLowerCase();
-      let count = 0;
-      let lastAt: Date | null = null;
-
-      for (const lead of allLeads) {
-        let isMatch = false;
-        if (lead.courseId === course.id) {
-          isMatch = true;
-        } else if (lead.notes && lead.notes.toLowerCase().includes(titleLower)) {
-          isMatch = true;
-        }
-
-        if (isMatch) {
-          count++;
-          if (!lastAt || (lead.createdAt && lead.createdAt > lastAt)) {
-            lastAt = lead.createdAt;
-          }
-        }
-      }
-
-      courseStatsMap.set(course.id, { count, lastAt });
+    for (const c of courses) {
+      courseStatsMap.set(c.id, { count: 0, lastAt: null });
     }
 
-    const systemLeads = allLeads.filter((lead) => {
-      if (lead.courseId === '__no_course__' || !lead.courseId) {
-        const matchesRealCourse = courses.some(
-          (c) => !c.isSystemRecord && c.id !== '__no_course__' && lead.notes && lead.notes.toLowerCase().includes(c.title.toLowerCase())
-        );
-        return !matchesRealCourse;
+    const assignedLeadIds = new Set<string>();
+
+    // Pass 1: Direct courseId matching (highest precision, no cross-course attribution)
+    for (const lead of allLeads) {
+      if (lead.courseId && lead.courseId !== '__no_course__') {
+        const stat = courseStatsMap.get(lead.courseId);
+        if (stat) {
+          stat.count++;
+          if (!stat.lastAt || (lead.createdAt && lead.createdAt > stat.lastAt)) {
+            stat.lastAt = lead.createdAt;
+          }
+        }
+        assignedLeadIds.add(lead.id);
       }
-      return false;
-    });
+    }
+
+    // Pass 2: Unassigned leads matching strictly by title AND modality
+    for (const lead of allLeads) {
+      if (assignedLeadIds.has(lead.id)) continue;
+      if (!lead.notes) continue;
+
+      const leadNotes = lead.notes.toLowerCase();
+      const matchingCourse = courses.find((c) => {
+        if (c.isSystemRecord || c.id === '__no_course__') return false;
+        const titleMatch = leadNotes.includes(c.title.trim().toLowerCase());
+        if (!titleMatch) return false;
+        if (lead.preferredFormat && lead.preferredFormat !== c.modality) return false;
+        return true;
+      });
+
+      if (matchingCourse) {
+        const stat = courseStatsMap.get(matchingCourse.id);
+        if (stat) {
+          stat.count++;
+          if (!stat.lastAt || (lead.createdAt && lead.createdAt > stat.lastAt)) {
+            stat.lastAt = lead.createdAt;
+          }
+        }
+        assignedLeadIds.add(lead.id);
+      }
+    }
+
+    // System/General leads: all leads not attributed to any specific course
+    const systemLeads = allLeads.filter((lead) => !assignedLeadIds.has(lead.id));
 
     let systemLastAt: Date | null = null;
     for (const l of systemLeads) {

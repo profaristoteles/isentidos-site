@@ -146,6 +146,19 @@ export function serializeCourse(c: any): Course {
     coverImageUrl: c.coverImageUrl || c.cover_image_url || '',
     isSystemRecord: c.isSystemRecord ?? c.is_system_record ?? false,
     interestedCount: c.interestedCount ?? (Array.isArray(c.leads) ? c.leads.length : 0),
+    courseCode: c.courseCode || c.course_code || undefined,
+    eyebrow: c.eyebrow || undefined,
+    certificationOrg: c.certificationOrg || c.certification_org || undefined,
+    certificationPortaria: c.certificationPortaria || c.certification_portaria || undefined,
+    certificationText: c.certificationText || c.certification_text || undefined,
+    showCohortProgress: c.showCohortProgress ?? c.show_cohort_progress ?? true,
+    minStudentsToConfirm: c.minStudentsToConfirm ?? c.min_students_to_confirm ?? 15,
+    maxStudents: c.maxStudents ?? c.max_students ?? null,
+    lowAvailabilityThreshold: c.lowAvailabilityThreshold ?? c.low_availability_threshold ?? 5,
+    ctaPrimaryText: c.ctaPrimaryText || c.cta_primary_text || undefined,
+    ctaSecondaryText: c.ctaSecondaryText || c.cta_secondary_text || undefined,
+    seoTitle: c.seoTitle || c.seo_title || undefined,
+    seoDescription: c.seoDescription || c.seo_description || undefined,
   };
 }
 
@@ -229,5 +242,12 @@ export function serializeLead(lead: any): Lead {
     status: mapDatabaseLeadStatus(lead.status || ''),
     origin: lead.source ?? 'Site',
     notes: sanitizeHtml(lead.notes || ''),
+    contactId: lead.contactId || null,
+    contactPhone: lead.contact?.phoneNormalized || lead.phone,
+    funnelStatus: lead.funnelStatus || 'NEW',
+    eventInstanceId: lead.eventInstanceId || null,
+    courseCode: lead.course?.courseCode || null,
+    attributions: lead.attributions || [],
+    createdAt: lead.createdAt ? new Date(lead.createdAt).toISOString() : undefined,
   };
 }

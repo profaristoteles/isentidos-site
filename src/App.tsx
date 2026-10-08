@@ -49,6 +49,9 @@ import {
 
 import AccessibilityWidget from './components/AccessibilityWidget';
 import RichTextEditor from './components/RichTextEditor';
+import { PilotCourseLanding } from './components/PilotCourseLanding';
+import { initAttribution } from './utils/attribution';
+import { trackPageView, ensureDataLayer, updateConsent } from './utils/analytics';
 
 // ── Error Boundary ────────────────────────────────────────────────────────────
 interface ErrorBoundaryProps {
@@ -2134,6 +2137,9 @@ function AdminApp() {
   const [testEvoCrmLoading, setTestEvoCrmLoading] = useState(false);
   const [testSmtpEmail, setTestSmtpEmail] = useState('');
   const [testSmtpLoading, setTestSmtpLoading] = useState(false);
+  const [leadFilterModality, setLeadFilterModality] = useState<'all' | 'presencial' | 'online'>('all');
+  const [leadFilterFunnel, setLeadFilterFunnel] = useState<string>('all');
+  const [leadSearchText, setLeadSearchText] = useState('');
 
   // ── Disparador de WhatsApp (Massa / Individual / Histórico) ──────────────────
   interface WhatsappRecipient {
@@ -5258,72 +5264,295 @@ function AdminApp() {
             </div>
           )}
 
-          {activeTab === 'leads' && (
-            <div className="grid gap-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="font-display text-2xl font-bold text-navy">Leads Capturados</h2>
-                <button
-                  onClick={exportLeadsToCsv}
-                  className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-5 py-3 font-bold text-white transition hover:bg-green-700 shadow-md shadow-green-500/20"
-                >
-                  <Download className="h-5 w-5" /> Exportar Leads (Excel / CSV)
-                </button>
+          {activeTab === 'leads' && (() => {
+            const leadTotalCount = leads.length;
+            const leadPreEnrollmentCount = leads.filter(
+              (l) => (l.funnelStatus || '').toUpperCase() === 'PRE_ENROLLED' || l.notes?.includes('Pré-matrícula')
+            ).length;
+            const leadPresencialCount = leads.filter(
+              (l) => l.modality === ModalityType.PRESENTIAL || (l.modality as any) === 'Presencial'
+            ).length;
+            const leadOnlineCount = leads.filter(
+              (l) => l.modality === ModalityType.ONLINE || (l.modality as any) === 'Online ao vivo'
+            ).length;
+            const leadTrackedCount = leads.filter((l) => l.attributions && l.attributions.length > 0).length;
+
+            const filteredLeads = leads.filter((l) => {
+              if (
+                leadFilterModality === 'presencial' &&
+                l.modality !== ModalityType.PRESENTIAL &&
+                (l.modality as any) !== 'Presencial'
+              )
+                return false;
+              if (
+                leadFilterModality === 'online' &&
+                l.modality !== ModalityType.ONLINE &&
+                (l.modality as any) !== 'Online ao vivo'
+              )
+                return false;
+
+              if (leadFilterFunnel === 'pre_enrolled') {
+                const isPre =
+                  (l.funnelStatus || '').toUpperCase() === 'PRE_ENROLLED' || l.notes?.includes('Pré-matrícula');
+                if (!isPre) return false;
+              } else if (leadFilterFunnel !== 'all') {
+                if (
+                  (l.funnelStatus || '').toUpperCase() !== leadFilterFunnel.toUpperCase() &&
+                  l.status !== leadFilterFunnel
+                )
+                  return false;
+              }
+
+              if (leadSearchText.trim()) {
+                const q = leadSearchText.toLowerCase();
+                const matchName = l.name.toLowerCase().includes(q);
+                const matchEmail = l.email.toLowerCase().includes(q);
+                const matchPhone = l.phone.includes(q);
+                const matchInterest = l.interest.toLowerCase().includes(q);
+                const matchNotes = l.notes?.toLowerCase().includes(q);
+                const matchCode = l.courseCode?.toLowerCase().includes(q);
+                if (!matchName && !matchEmail && !matchPhone && !matchInterest && !matchNotes && !matchCode)
+                  return false;
+              }
+              return true;
+            });
+
+            return (
+              <div className="grid gap-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="font-display text-2xl font-bold text-navy">Painel de Origem e Pré-Matrículas</h2>
+                    <p className="text-slate-500 text-sm mt-0.5">
+                      Contatos únicos consolidados por telefone, atribuição UTM e separação por modalidade.
+                    </p>
+                  </div>
+                  <button
+                    onClick={exportLeadsToCsv}
+                    className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-5 py-3 font-bold text-white transition hover:bg-green-700 shadow-md shadow-green-500/20 cursor-pointer text-sm"
+                  >
+                    <Download className="h-4 w-4" /> Exportar Dados (CSV)
+                  </button>
+                </div>
+
+                {/* Métricas Principais */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <span className="text-xs font-bold uppercase text-slate-400">Total de Cadastros</span>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-navy">{leadTotalCount}</span>
+                      <span className="text-xs font-semibold text-slate-500">pessoas</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <span className="text-xs font-bold uppercase text-slate-400">Pré-Matrículas Ativas</span>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-emerald-600">{leadPreEnrollmentCount}</span>
+                      <span className="text-xs font-semibold text-slate-500">em formação</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <span className="text-xs font-bold uppercase text-slate-400">Por Modalidade</span>
+                    <div className="mt-2 flex items-center gap-3 text-xs">
+                      <span className="font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md border border-orange-200">
+                        {leadPresencialCount} Presenciais
+                      </span>
+                      <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200">
+                        {leadOnlineCount} Online
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <span className="text-xs font-bold uppercase text-slate-400">Rastreamento de Origem</span>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-blue-700">{leadTrackedCount}</span>
+                      <span className="text-xs font-semibold text-slate-500">com UTM / Tráfego Pago</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filtros e Busca */}
+                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400 uppercase">Modalidade:</span>
+                    <button
+                      type="button"
+                      onClick={() => setLeadFilterModality('all')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                        leadFilterModality === 'all'
+                          ? 'bg-navy text-white shadow'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      Todas ({leadTotalCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLeadFilterModality('presencial')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                        leadFilterModality === 'presencial'
+                          ? 'bg-orange-600 text-white shadow'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      Presencial ({leadPresencialCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLeadFilterModality('online')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                        leadFilterModality === 'online'
+                          ? 'bg-blue-600 text-white shadow'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      Online ({leadOnlineCount})
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Buscar por nome, email, telefone ou curso..."
+                      value={leadSearchText}
+                      onChange={(e) => setLeadSearchText(e.target.value)}
+                      className="w-full md:w-72 px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-primary/30"
+                    />
+                  </div>
+                </div>
+
+                {/* Tabela de Leads */}
+                <Panel title={`Lista de Contatos e Leads (${filteredLeads.length})`}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px] text-left text-sm">
+                      <thead className="bg-bg-light text-xs uppercase text-slate-500">
+                        <tr>
+                          <th className="p-3">Contato / Aluno</th>
+                          <th className="p-3">Curso & Código</th>
+                          <th className="p-3">Modalidade</th>
+                          <th className="p-3">Status do Funil</th>
+                          <th className="p-3">Origem & Atribuição</th>
+                          <th className="p-3">Data</th>
+                          <th className="p-3 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredLeads.map((lead) => {
+                          const isPreEnrolled =
+                            (lead.funnelStatus || '').toUpperCase() === 'PRE_ENROLLED' ||
+                            lead.notes?.includes('Pré-matrícula');
+
+                          const firstAttr = lead.attributions?.[0];
+                          const hasUtm = Boolean(firstAttr?.utmSource || firstAttr?.utmCampaign);
+
+                          return (
+                            <tr key={lead.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition">
+                              <td className="p-3">
+                                <div className="flex items-start gap-2">
+                                  <div className="min-w-0">
+                                    <strong className="block text-navy font-bold leading-tight">{lead.name}</strong>
+                                    <span className="text-xs text-slate-500 font-mono">{lead.phone}</span>
+                                    <div className="text-[11px] text-slate-400 truncate max-w-[200px]">{lead.email}</div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td className="p-3 max-w-xs">
+                                <div className="font-semibold text-navy leading-snug">{lead.interest}</div>
+                                {lead.courseCode && (
+                                  <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700">
+                                    {lead.courseCode}
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="p-3">
+                                <span
+                                  className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
+                                    lead.modality === ModalityType.PRESENTIAL || (lead.modality as any) === 'Presencial'
+                                      ? 'bg-orange-100 text-orange-800 border border-orange-200'
+                                      : 'bg-blue-100 text-blue-800 border border-blue-200'
+                                  }`}
+                                >
+                                  {getModalityLabel(lead.modality as any)}
+                                </span>
+                              </td>
+
+                              <td className="p-3">
+                                {isPreEnrolled ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    <CheckCircle2 className="h-3 w-3" /> Pré-Matrícula
+                                  </span>
+                                ) : (
+                                  <StatusBadge status={lead.status} />
+                                )}
+                              </td>
+
+                              <td className="p-3 text-xs">
+                                <div className="font-bold text-slate-700">{lead.origin}</div>
+                                {hasUtm ? (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {firstAttr.utmSource && (
+                                      <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-mono text-[10px]">
+                                        src:{firstAttr.utmSource}
+                                      </span>
+                                    )}
+                                    {firstAttr.utmCampaign && (
+                                      <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono text-[10px]">
+                                        cmp:{firstAttr.utmCampaign}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400">Orgânico / Direto</span>
+                                )}
+                              </td>
+
+                              <td className="p-3 text-xs text-slate-500 whitespace-nowrap">
+                                {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR') : '—'}
+                              </td>
+
+                              <td className="p-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  {lead.phone && currentUser?.role === 'admin' && (
+                                    <button
+                                      onClick={() =>
+                                        openWaQuickSend({
+                                          id: `indicado_${lead.id}`,
+                                          recipientType: 'indicado',
+                                          name: lead.name,
+                                          phone: lead.phone,
+                                          courseTitle: lead.interest,
+                                          code: lead.referralCode || undefined,
+                                        })
+                                      }
+                                      className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 shadow-sm cursor-pointer"
+                                      title="Enviar WhatsApp"
+                                    >
+                                      💬 WhatsApp
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => deleteLead(lead.id)}
+                                    className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500 cursor-pointer"
+                                    title="Excluir lead"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </Panel>
               </div>
-              <Panel title="Lista de Leads">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead className="bg-bg-light text-xs uppercase text-slate-500">
-                    <tr>
-                      <th className="p-3">Nome</th>
-                      <th className="p-3">Interesse</th>
-                      <th className="p-3">Modalidade</th>
-                      <th className="p-3">Indicação</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Origem</th>
-                      <th className="p-3 text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {leads.map((lead) => (
-                      <tr key={lead.id} className="border-b border-slate-100">
-                        <td className="p-3">
-                          <strong className="block text-navy">{lead.name}</strong>
-                          <span className="text-slate-500">{lead.phone}</span>
-                        </td>
-                        <td className="p-3 max-w-xs">
-                          <div>{lead.interest}</div>
-                          {lead.notes && lead.notes !== lead.interest && (
-                            <div className="mt-1 whitespace-pre-line text-xs text-slate-500 line-clamp-3" title={lead.notes}>{lead.notes}</div>
-                          )}
-                        </td>
-                        <td className="p-3">{getModalityLabel(lead.modality as any)}</td>
-                        <td className="p-3">{lead.referralCode ? <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-700">{lead.referralCode}</span> : <span className="text-slate-400">—</span>}</td>
-                        <td className="p-3"><StatusBadge status={lead.status} /></td>
-                        <td className="p-3">{lead.origin}</td>
-                        <td className="p-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {lead.phone && currentUser?.role === 'admin' && (
-                              <button
-                                onClick={() => openWaQuickSend({ id: `indicado_${lead.id}`, recipientType: 'indicado', name: lead.name, phone: lead.phone, courseTitle: lead.interest, code: lead.referralCode || undefined })}
-                                className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 shadow-sm"
-                                title="Enviar WhatsApp"
-                              >
-                                💬 WhatsApp
-                              </button>
-                            )}
-                            <button onClick={() => deleteLead(lead.id)} className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500" title="Excluir lead">
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Panel>
-            </div>
-          )}
+            );
+          })()}
 
           {activeTab === 'referrals' && (
             <div className="grid gap-6">
@@ -7775,6 +8004,20 @@ function mapApiCourse(c: any): Course {
     leadConnectorFormId: c.leadConnectorFormId || '',
     mauticFormId: c.mauticFormId || null,
     coverImageUrl: c.coverImageUrl || c.cover_image_url || '',
+    interestedCount: c.interestedCount ?? 0,
+    courseCode: c.courseCode || c.course_code || undefined,
+    eyebrow: c.eyebrow || undefined,
+    certificationOrg: c.certificationOrg || c.certification_org || undefined,
+    certificationPortaria: c.certificationPortaria || c.certification_portaria || undefined,
+    certificationText: c.certificationText || c.certification_text || undefined,
+    showCohortProgress: c.showCohortProgress ?? c.show_cohort_progress ?? true,
+    minStudentsToConfirm: c.minStudentsToConfirm ?? c.min_students_to_confirm ?? 15,
+    maxStudents: c.maxStudents ?? c.max_students ?? null,
+    lowAvailabilityThreshold: c.lowAvailabilityThreshold ?? c.low_availability_threshold ?? 5,
+    ctaPrimaryText: c.ctaPrimaryText || c.cta_primary_text || undefined,
+    ctaSecondaryText: c.ctaSecondaryText || c.cta_secondary_text || undefined,
+    seoTitle: c.seoTitle || c.seo_title || undefined,
+    seoDescription: c.seoDescription || c.seo_description || undefined,
   };
 }
 
@@ -8299,6 +8542,23 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
     </div>
   );
 
+  // Piloto: Rotear cursos aprovados para a nova Landing Page Piloto
+  const isPilotCourse =
+    course.slug === 'pos-graduacao-em-educacao-infantil-e-anos-iniciais-do-ensino-fundamental' ||
+    course.slug === 'pos-graduacao-em-atendimento-educacional-especializado-aee-2' ||
+    course.courseCode === 'POS-EI-PRES' ||
+    course.courseCode === 'POS-AEE-LIVE';
+
+  if (isPilotCourse) {
+    return (
+      <div className="min-h-screen flex flex-col justify-between">
+        <SiteHeader />
+        <PilotCourseLanding course={course} whatsappNumber={whatsapp} />
+        <SiteFooter />
+      </div>
+    );
+  }
+
   const parseOrEmpty = (str: string | undefined) => {
     try { return str ? JSON.parse(str) : []; } catch { return []; }
   };
@@ -8375,10 +8635,10 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
 
   const faqs = [
     {
-      q: isAdvancedAcademic ? "O mestrado/doutorado da Enber é reconhecido automaticamente pelo MEC?" : "Os cursos são reconhecidos pelo MEC?",
+      q: isAdvancedAcademic ? "O mestrado/doutorado da Enber é reconhecido automaticamente pelo MEC?" : "Como funciona a certificação do curso?",
       a: isAdvancedAcademic
         ? "Não há reconhecimento automático pelo MEC para diplomas estrangeiros. Os programas online da Enber são internacionais; para uso acadêmico ou profissional no Brasil quando exigido, o interessado deve solicitar o reconhecimento individual do diploma pela Plataforma Carolina Bori, conforme as regras do MEC e das universidades brasileiras habilitadas."
-        : "Sim! Todos os cursos de pós-graduação e especialização do Instituto Sentidos são oferecidos em parceria com instituições de ensino superior devidamente credenciadas e reconhecidas pelo MEC, garantindo validade nacional ao seu certificado."
+        : "Os cursos de pós-graduação e especialização do Instituto Sentidos são ofertados em consonância com as normas da legislação educacional vigente (Resoluções CNE/CES), com emissão de certificado oficial com validade acadêmica e profissional."
     },
     { q: "Quais são os documentos necessários para a matrícula?", a: "Para efetivar a matrícula, é necessário apresentar cópia do RG, CPF, comprovante de residência e cópia do Diploma de Graduação ou declaração de conclusão de curso superior." },
     { q: "Como funciona a modalidade Online ao Vivo e EAD?", a: "Na modalidade Online ao Vivo, as aulas ocorrem em tempo real via internet em datas programadas, permitindo interação direta com professores e alunos. No EAD, as videoaulas e materiais ficam disponíveis 24h por dia para você estudar no seu ritmo." },
@@ -8386,7 +8646,7 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
       q: "Como é feita a emissão do certificado?",
       a: isAdvancedAcademic
         ? "Ao concluir o programa internacional, o diploma é emitido pela instituição estrangeira responsável. Esse diploma não equivale automaticamente a um título brasileiro; o reconhecimento no Brasil, quando necessário, deve ser solicitado posteriormente via Plataforma Carolina Bori."
-        : "Após a conclusão com êxito de todas as disciplinas curriculares e a entrega dos documentos obrigatórios, o certificado de conclusão de pós-graduação Lato Sensu é emitido no prazo regulamentar pelas faculdades parceiras credenciadas pelo MEC."
+        : "Após a conclusão com êxito de todas as disciplinas curriculares e a entrega dos documentos obrigatórios, o certificado de conclusão de pós-graduação Lato Sensu é emitido no prazo regulamentar pela instituição credenciada certificadora."
     }
   ];
 
@@ -8573,7 +8833,13 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
                   <div>
                     <p className="text-[10px] uppercase font-bold text-slate-400">Certificado</p>
                     <p className="text-sm font-bold text-navy">
-                      {isAdvancedAcademic ? 'Diploma estrangeiro; reconhecimento via Carolina Bori' : 'Reconhecido pelo MEC'}
+                      {isAdvancedAcademic
+                        ? 'Diploma estrangeiro; reconhecimento via Carolina Bori'
+                        : course.certificationText
+                        ? course.certificationText
+                        : course.certificationOrg
+                        ? `Certificação expedida por ${course.certificationOrg}`
+                        : 'Certificado de Conclusão Lato Sensu'}
                     </p>
                   </div>
                 </div>
@@ -10426,15 +10692,21 @@ function TermsOfUsePage() {
 export default function App() {
   const path = window.location.pathname;
   
-  const [lgpdAccepted, setLgpdAccepted] = useState(() => {
-    return localStorage.getItem('isentidos_lgpd_accepted') === 'true';
+  const [lgpdConsent, setLgpdConsent] = useState<'granted' | 'denied' | null>(() => {
+    const saved = localStorage.getItem('isentidos_lgpd_consent');
+    if (saved === 'granted' || saved === 'denied') return saved;
+    if (localStorage.getItem('isentidos_lgpd_accepted') === 'true') return 'granted';
+    return null;
   });
-  const [showCookieBanner, setShowCookieBanner] = useState(!lgpdAccepted);
+  const [showCookieBanner, setShowCookieBanner] = useState(() => lgpdConsent === null);
 
-  const acceptCookies = () => {
-    localStorage.setItem('isentidos_lgpd_accepted', 'true');
-    setLgpdAccepted(true);
+  const handleConsentChoice = (granted: boolean) => {
+    const status = granted ? 'granted' : 'denied';
+    localStorage.setItem('isentidos_lgpd_consent', status);
+    localStorage.setItem('isentidos_lgpd_accepted', granted ? 'true' : 'false');
+    setLgpdConsent(status);
     setShowCookieBanner(false);
+    updateConsent(granted);
   };
 
   // VLibras injection effect
@@ -10488,6 +10760,13 @@ export default function App() {
 
   useEffect(() => {
     if (path.startsWith('/admin')) return;
+    ensureDataLayer();
+    initAttribution();
+    if (lgpdConsent !== null) {
+      updateConsent(lgpdConsent === 'granted');
+    }
+    trackPageView(path);
+
     fetch('/api/site-content')
       .then((r) => r.json())
       .then((data) => {
@@ -10645,8 +10924,17 @@ export default function App() {
               Nós utilizamos cookies e outras tecnologias para melhorar a sua experiência de navegação, analisar o tráfego do site e personalizar o conteúdo de acordo com a LGPD. Ao continuar navegando, você concorda com a nossa <a href="/politica-de-privacidade" className="font-semibold text-orange-primary hover:underline">Política de Privacidade</a>.
             </p>
           </div>
-          <div className="flex gap-3 shrink-0">
-            <button onClick={acceptCookies} className="rounded-xl bg-orange-primary px-5 py-3 font-bold text-white transition hover:bg-orange-600 shadow-md shadow-orange-primary/20">
+          <div className="flex flex-col sm:flex-row gap-2.5 shrink-0">
+            <button
+              onClick={() => handleConsentChoice(false)}
+              className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-semibold text-white/90 transition hover:bg-white/20 cursor-pointer"
+            >
+              Apenas Essenciais
+            </button>
+            <button
+              onClick={() => handleConsentChoice(true)}
+              className="rounded-xl bg-orange-primary px-5 py-2.5 text-xs font-bold text-white transition hover:bg-orange-600 shadow-md shadow-orange-primary/20 cursor-pointer"
+            >
               Aceitar Todos
             </button>
           </div>

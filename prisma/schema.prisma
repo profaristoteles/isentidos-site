@@ -49,6 +49,19 @@ model Course {
   teachers           Json?
   testimonials       Json?
   minStudents        Int                  @default(15) @map("min_students")
+  minStudentsToConfirm Int                @default(15) @map("min_students_to_confirm")
+  maxStudents        Int?                 @map("max_students")
+  lowAvailabilityThreshold Int            @default(5) @map("low_availability_threshold")
+  showCohortProgress Boolean              @default(true) @map("show_cohort_progress")
+  courseCode         String?              @unique @map("course_code")
+  eyebrow            String?
+  certificationOrg   String?              @map("certification_org")
+  certificationPortaria String?          @map("certification_portaria")
+  certificationText  String?              @map("certification_text")
+  ctaPrimaryText     String?              @map("cta_primary_text")
+  ctaSecondaryText   String?              @map("cta_secondary_text")
+  seoTitle           String?              @map("seo_title")
+  seoDescription     String?              @map("seo_description")
   leadConnectorFormId String?              @map("lead_connector_form_id")
   mauticFormId       Int?                 @map("mautic_form_id")
   isSystemRecord     Boolean              @default(false) @map("is_system_record")
@@ -101,24 +114,57 @@ model CourseClass {
   @@map("course_classes")
 }
 
+model Contact {
+  id                      String        @id @default(cuid())
+  name                    String
+  email                   String?
+  phone                   String
+  phoneNormalized         String        @map("phone_normalized")
+  cpf                     String?
+  city                    String?
+  state                   String?
+  notes                   String?
+  mergedIntoId            String?       @map("merged_into_id")
+  mergedInto              Contact?      @relation("ContactMerges", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom              Contact[]     @relation("ContactMerges")
+  isManualConflict        Boolean       @default(false) @map("is_manual_conflict")
+  conflictResolutionNotes String?       @map("conflict_resolution_notes")
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt @map("updated_at")
+  leads                   Lead[]
+
+  @@index([phoneNormalized])
+  @@index([email])
+  @@index([cpf])
+  @@map("contacts")
+}
+
 model Lead {
-  id              String          @id @default(cuid())
+  id              String              @id @default(cuid())
+  contactId       String?             @map("contact_id")
   name            String
   email           String
   phone           String
-  courseId        String?         @map("course_id")
-  preferredFormat CourseModality? @map("preferred_format")
-  source          String          @default("site")
-  referralCode    String?         @map("referral_code")
-  status          LeadStatus      @default(novo)
+  courseId        String?             @map("course_id")
+  preferredFormat CourseModality?     @map("preferred_format")
+  source          String              @default("site")
+  referralCode    String?             @map("referral_code")
+  status          LeadStatus          @default(novo)
+  funnelStatus    FunnelStatus        @default(NEW) @map("funnel_status")
+  eventInstanceId String?             @map("event_instance_id")
   notes           String?
-  consentLgpd     Boolean         @default(false) @map("consent_lgpd")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at")
-  course          Course?         @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  consentLgpd     Boolean             @default(false) @map("consent_lgpd")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at")
+  contact         Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  course          Course?             @relation(fields: [courseId], references: [id], onDelete: Restrict)
   referrals       Referral[]
+  attributions    LeadAttribution[]
+  statusHistory   LeadStatusHistory[]
 
   @@unique([courseId, email], name: "courseId_email")
+  @@index([contactId])
+  @@index([funnelStatus])
   @@map("leads")
 }
 
@@ -379,4 +425,70 @@ enum ReferralStatus {
   pending
   converted
   expired
+}
+
+enum FunnelStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PRE_ENROLLED
+  CLASS_CONFIRMED
+  ENROLLMENT_RELEASED
+  ENROLLMENT_PAID
+  STUDENT
+  DROPPED
+}
+
+model LeadStatusHistory {
+  id         String        @id @default(cuid())
+  leadId     String        @map("lead_id")
+  fromStatus FunnelStatus? @map("from_status")
+  toStatus   FunnelStatus  @map("to_status")
+  reason     String?
+  changedBy  String?       @map("changed_by")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  lead       Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("lead_status_history")
+}
+
+model LeadAttribution {
+  id          String   @id @default(cuid())
+  leadId      String   @map("lead_id")
+  touchType   String   @map("touch_type")
+  utmSource   String?  @map("utm_source")
+  utmMedium   String?  @map("utm_medium")
+  utmCampaign String?  @map("utm_campaign")
+  utmContent  String?  @map("utm_content")
+  utmTerm     String?  @map("utm_term")
+  fbclid      String?
+  gclid       String?
+  fbc         String?
+  fbp         String?
+  landingPage String?  @map("landing_page")
+  referrer    String?
+  userAgent   String?  @map("user_agent")
+  ipAddress   String?  @map("ip_address")
+  recordedAt  DateTime @default(now()) @map("recorded_at")
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([utmSource, utmCampaign])
+  @@map("lead_attributions")
+}
+
+model MarketingEventLog {
+  id        String   @id @default(cuid())
+  eventId   String   @unique @map("event_id")
+  eventName String   @map("event_name")
+  source    String
+  leadId    String?  @map("lead_id")
+  courseId  String?  @map("course_id")
+  payload   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([eventName])
+  @@index([createdAt])
+  @@map("marketing_event_logs")
 }

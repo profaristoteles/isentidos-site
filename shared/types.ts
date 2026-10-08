@@ -100,6 +100,19 @@ export interface Course {
   mauticFormId?: number | null;
   isSystemRecord?: boolean;
   interestedCount?: number;
+  courseCode?: string;
+  eyebrow?: string;
+  certificationOrg?: string;
+  certificationPortaria?: string;
+  certificationText?: string;
+  showCohortProgress?: boolean;
+  minStudentsToConfirm?: number;
+  maxStudents?: number | null;
+  lowAvailabilityThreshold?: number;
+  ctaPrimaryText?: string;
+  ctaSecondaryText?: string;
+  seoTitle?: string;
+  seoDescription?: string;
 }
 
 export interface CourseInterestedStatsData {
@@ -174,6 +187,13 @@ export interface Lead {
   status: LeadStatusType;
   origin: string;
   notes?: string;
+  contactId?: string | null;
+  contactPhone?: string | null;
+  funnelStatus?: string;
+  eventInstanceId?: string | null;
+  courseCode?: string | null;
+  attributions?: any[];
+  createdAt?: string;
 }
 
 
