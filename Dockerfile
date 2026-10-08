@@ -15,11 +15,11 @@ COPY . .
 # Compila o frontend e o backend
 RUN npm run build:all
 
-# Gera o cliente Prisma explicitamente
-RUN npx prisma generate
-
 # Remove dependências de desenvolvimento para economizar espaço
 RUN npm prune --production
+
+# Gera o cliente Prisma explicitamente DEPOIS do prune
+RUN npx prisma generate
 
 # Stage 2: Runtime
 FROM node:20-alpine AS runner
@@ -36,6 +36,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server-dist ./server-dist
 COPY --from=builder /app/node_modules ./node_modules
 
+# Garante o cliente Prisma gerado pronto no runner
+RUN npx prisma generate
+
 # Garante que a pasta de uploads local exista para os arquivos estáticos de upload
 RUN mkdir -p public/uploads
 
@@ -43,5 +46,6 @@ RUN mkdir -p public/uploads
 EXPOSE 4000
 
 # Executa a sincronização do banco e aguarda o PostgreSQL subir antes de iniciar
-CMD ["sh", "-c", "until npx prisma db push --skip-generate; do echo 'Aguardando banco de dados (db:5432) inicializar...'; sleep 3; done && npm run start"]
+CMD ["sh", "-c", "until npx prisma db push --accept-data-loss; do echo 'Aguardando banco de dados (db:5432) inicializar...'; sleep 3; done && npm run start"]
+
 
