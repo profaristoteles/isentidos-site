@@ -38,7 +38,13 @@ jobs:
 
       - name: Acionar Portainer
         if: success()
+        env:
+          PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
         run: |
-          curl --fail --silent --show-error \
-            -X POST \
-            "${{ secrets.PORTAINER_WEBHOOK_URL }}"
+          if [ -n "$PORTAINER_WEBHOOK_URL" ]; then
+            echo "Acionando webhook de redeploy do Portainer..."
+            curl --fail --silent --show-error -X POST "$PORTAINER_WEBHOOK_URL"
+            echo "Portainer notificado com sucesso!"
+          else
+            echo "PORTAINER_WEBHOOK_URL não configurado em Secrets do GitHub. A imagem Docker foi publicada com sucesso no GHCR e está pronta para uso no Portainer."
+          fi
