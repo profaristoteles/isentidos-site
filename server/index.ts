@@ -1021,7 +1021,7 @@ app.get('/api/site-content', async (_req, res) => {
         prisma.banner.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } }),
         prisma.course.findMany({ where: { isActive: true }, orderBy: { createdAt: 'desc' } }),
         prisma.blogPost.findMany({ where: { isPublished: true }, orderBy: { publishedAt: 'desc' }, take: 4 }),
-        prisma.ebook.findMany({ where: { isActive: true }, take: 3 }),
+        prisma.ebook.findMany({ where: { isActive: true }, orderBy: { position: 'asc' }, take: 6 }),
         prisma.event.findMany({ where: { isActive: true }, orderBy: { startsAt: 'asc' }, take: 4 }),
         prisma.menuItem.findMany({ where: { isActive: true }, orderBy: { position: 'asc' } }),
       ]);

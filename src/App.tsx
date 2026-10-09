@@ -468,9 +468,48 @@ function PublicSite() {
       .then(({ data }) => {
         if (data?.banners?.length) setBanners(data.banners.map(mapApiBanner));
         if (data?.courses?.length) setCourses(data.courses.map(mapApiCourse));
-        if (data?.posts?.length) setPosts(data.posts.map((p: any) => ({ id: p.id, title: p.title, category: p.category, excerpt: p.excerpt, published: p.isPublished, publishedAt: p.publishedAt, slug: p.slug })));
-        if (data?.ebooks?.length) setEbooks(data.ebooks.map((e: any) => ({ id: e.id, title: e.title, description: e.description, category: e.category ?? 'Livro Digital', coverUrl: e.coverUrl ?? '', mauticFormId: e.mauticFormId ?? null, pages: e.pages ?? '', year: e.year ?? '', position: e.position ?? 0, active: e.isActive })));
-        if (data?.events?.length) setEvents(data.events.map((ev: any) => ({ id: String(ev.id), title: ev.title, modality: parseModalityUI(ev.modality), date: ev.startsAt ? new Date(ev.startsAt).toLocaleDateString('pt-BR') : '', description: ev.description, active: ev.isActive })));
+        if (data?.posts?.length) setPosts(data.posts.map((p: any) => ({ id: p.id, title: p.title, category: p.category, excerpt: p.excerpt, published: p.published !== undefined ? p.published : (p.isPublished !== undefined ? p.isPublished : true), publishedAt: p.publishedAt, slug: p.slug })));
+        
+        if (data?.ebooks?.length) {
+          setEbooks(data.ebooks.map((e: any) => ({
+            id: String(e.id),
+            title: e.title,
+            description: e.description,
+            category: e.category ?? 'Livro Digital',
+            coverUrl: e.coverUrl ?? e.cover_url ?? '',
+            fileUrl: e.fileUrl ?? e.file_url ?? '',
+            mauticFormId: e.mauticFormId ?? e.mautic_form_id ?? null,
+            pages: e.pages ?? '',
+            year: e.year ?? '',
+            position: e.position ?? 0,
+            active: e.active !== undefined ? e.active : (e.isActive !== undefined ? e.isActive : true),
+          })));
+        } else {
+          // Fallback para buscar ebooks direto de /api/ebooks
+          fetch('/api/ebooks')
+            .then(res => res.json())
+            .then(ebData => {
+              const list = ebData?.data || ebData;
+              if (Array.isArray(list) && list.length > 0) {
+                setEbooks(list.map((e: any) => ({
+                  id: String(e.id),
+                  title: e.title,
+                  description: e.description,
+                  category: e.category ?? 'Livro Digital',
+                  coverUrl: e.coverUrl ?? e.cover_url ?? '',
+                  fileUrl: e.fileUrl ?? e.file_url ?? '',
+                  mauticFormId: e.mauticFormId ?? e.mautic_form_id ?? null,
+                  pages: e.pages ?? '',
+                  year: e.year ?? '',
+                  position: e.position ?? 0,
+                  active: e.active !== undefined ? e.active : (e.isActive !== undefined ? e.isActive : true),
+                })));
+              }
+            })
+            .catch(() => {});
+        }
+
+        if (data?.events?.length) setEvents(data.events.map((ev: any) => ({ id: String(ev.id), title: ev.title, modality: parseModalityUI(ev.modality), date: ev.startsAt ? new Date(ev.startsAt).toLocaleDateString('pt-BR') : '', description: ev.description, active: ev.active !== undefined ? ev.active : (ev.isActive !== undefined ? ev.isActive : true) })));
         if (data?.settings) setPublicSettings({ ...defaultPublicSettings, ...data.settings });
       })
       .catch(() => {});
@@ -527,9 +566,15 @@ function PublicSite() {
       .slice(0, 4);
   }, [posts]);
 
+  const homeEbooks = useMemo(() => {
+    return [...ebooks]
+      .filter((e) => e.active !== false)
+      .slice(0, 3);
+  }, [ebooks]);
+
   const homeEvents = useMemo(() => {
     return [...events]
-      .filter((e) => e.active)
+      .filter((e) => e.active !== false)
       .slice(0, 4);
   }, [events]);
 
@@ -783,12 +828,12 @@ function PublicSite() {
           </div>
         </section>
 
-        <section id="blog" className="py-16">
-          <div className="mx-auto max-w-7xl px-4 lg:px-8">
-            <SectionHeader eyebrow="Blog" title="Conteúdos para quem educa e inclui" text="Artigos para fortalecer autoridade, SEO e relacionamento com futuros alunos." />
-            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {homePosts.length > 0 ? (
-                homePosts.map((post) => (
+        {homePosts.length > 0 && (
+          <section id="blog" className="py-16">
+            <div className="mx-auto max-w-7xl px-4 lg:px-8">
+              <SectionHeader eyebrow="Blog" title="Conteúdos para quem educa e inclui" text="Artigos para fortalecer autoridade e desenvolvimento profissional." />
+              <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                {homePosts.map((post) => (
                   <article key={post.id} className="flex flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-soft">
                     <Newspaper className="h-7 w-7 text-orange-primary" aria-hidden />
                     <p className="mt-4 text-xs font-bold uppercase text-blue-action">{post.category}</p>
@@ -798,84 +843,80 @@ function PublicSite() {
                       Ler artigo <ChevronRight className="h-4 w-4" />
                     </a>
                   </article>
-                ))
-              ) : (
-                <div className="col-span-full text-center py-12 bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
-                  <Newspaper className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                  <p className="text-lg font-bold text-navy">Nenhuma postagem no blog disponível.</p>
-                  <p className="text-slate-500 mt-2">Fique ligado, novidades serão publicadas em breve!</p>
-                </div>
-              )}
+                ))}
+              </div>
+              <div className="mt-12 text-center">
+                <a href="/blog" className="inline-flex items-center gap-2 rounded-full border-2 border-orange-primary px-8 py-3.5 text-center text-base font-bold text-orange-primary hover:bg-orange-primary/10 transition hover:-translate-y-0.5">
+                  Ver todos os artigos <ChevronRight className="h-5 w-5" />
+                </a>
+              </div>
             </div>
-            <div className="mt-12 text-center">
-              <a href="/blog" className="inline-flex items-center gap-2 rounded-full border-2 border-orange-primary px-8 py-3.5 text-center text-base font-bold text-orange-primary hover:bg-orange-primary/10 transition hover:-translate-y-0.5">
-                Ver todos os artigos <ChevronRight className="h-5 w-5" />
-              </a>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
-        <section id="ebooks" className="bg-bg-light py-16">
-          <div className="mx-auto max-w-7xl px-4 lg:px-8">
-            <SectionHeader eyebrow="E-books" title="Materiais para divulgar e capturar leads" text="Catálogo de e-books gratuitos ou pagos para fortalecer campanhas, captação e relacionamento." />
-            
-            <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {ebooks.filter((e) => e.active).slice(0, 3).map((ebook) => (
-                <article key={ebook.id} className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft transition-all duration-300 hover:-translate-y-2 hover:shadow-xl">
-                  <div className={`relative flex h-64 items-center justify-center overflow-hidden bg-gradient-to-br ${
-                    ebookCategoryGradients[ebook.category] || 'from-navy to-blue-action'
-                  }`}>
-                    {ebook.coverUrl ? (
-                      <img
-                        src={ebook.coverUrl}
-                        alt={ebook.title}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <BookOpen className="h-16 w-16 text-white/40" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <div className="absolute left-3 top-3 rounded-full bg-black/40 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">
-                      {ebook.category}
+        {homeEbooks.length > 0 && (
+          <section id="ebooks" className="bg-bg-light py-16">
+            <div className="mx-auto max-w-7xl px-4 lg:px-8">
+              <SectionHeader eyebrow="E-books Gratuitos" title="Materiais Educativos e Guias Práticos" text="Catálogo de e-books e materiais gratuitos para aprofundar seus conhecimentos em educação e inclusão." />
+              
+              <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                {homeEbooks.map((ebook) => (
+                  <article key={ebook.id} className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft transition-all duration-300 hover:-translate-y-2 hover:shadow-xl">
+                    <div className={`relative flex h-64 items-center justify-center overflow-hidden bg-gradient-to-br ${
+                      ebookCategoryGradients[ebook.category] || 'from-navy to-blue-action'
+                    }`}>
+                      {ebook.coverUrl ? (
+                        <img
+                          src={ebook.coverUrl}
+                          alt={ebook.title}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <BookOpen className="h-16 w-16 text-white/40" />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                      <div className="absolute left-3 top-3 rounded-full bg-black/40 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">
+                        {ebook.category}
+                      </div>
+                      <div className="absolute right-3 top-3 rounded-full bg-green-500 px-3 py-1 text-xs font-bold text-white shadow">
+                        GRÁTIS
+                      </div>
                     </div>
-                    <div className="absolute right-3 top-3 rounded-full bg-green-500 px-3 py-1 text-xs font-bold text-white shadow">
-                      GRÁTIS
+
+                    <div className="flex flex-1 flex-col p-6">
+                      <h3 className="mb-3 font-display text-lg font-bold leading-snug text-navy line-clamp-2 min-h-[3rem]">
+                        {ebook.title}
+                      </h3>
+                      <p className="mb-5 flex-1 text-sm leading-relaxed text-slate-600 line-clamp-3">
+                        {ebook.description}
+                      </p>
+                      <a
+                        href="/ebooks"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-primary py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-orange-600 active:scale-95"
+                      >
+                        <Download className="h-4 w-4" />
+                        Fazer Download Grátis
+                      </a>
                     </div>
-                  </div>
-
-                  <div className="flex flex-1 flex-col p-6">
-                    <h3 className="mb-3 font-display text-lg font-bold leading-snug text-navy line-clamp-2 min-h-[3rem]">
-                      {ebook.title}
-                    </h3>
-                    <p className="mb-5 flex-1 text-sm leading-relaxed text-slate-600 line-clamp-3">
-                      {ebook.description}
-                    </p>
-                    <a
-                      href="/ebooks"
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-primary py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-orange-600 active:scale-95"
-                    >
-                      <Download className="h-4 w-4" />
-                      Fazer Download Grátis
-                    </a>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                ))}
+              </div>
+              
+              <div className="mt-12 text-center">
+                <a href="/ebooks" className="inline-flex items-center gap-2 rounded-full border-2 border-orange-primary px-8 py-3.5 text-center text-base font-bold text-orange-primary hover:bg-orange-primary/10 transition hover:-translate-y-0.5">
+                  Ver todos os e-books <ChevronRight className="h-5 w-5" />
+                </a>
+              </div>
             </div>
-            
-            <div className="mt-12 text-center">
-              <a href="/ebooks" className="inline-flex items-center gap-2 rounded-full border-2 border-orange-primary px-8 py-3.5 text-center text-base font-bold text-orange-primary hover:bg-orange-primary/10 transition hover:-translate-y-0.5">
-                Ver todos os e-books <ChevronRight className="h-5 w-5" />
-              </a>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
-        <section id="eventos" className="py-16">
-          <div className="mx-auto max-w-7xl px-4 lg:px-8">
-            <SectionHeader eyebrow="Eventos" title="Encontros presenciais e online ao vivo" text="Aulas abertas, imersões e eventos de relacionamento para aproximar alunos e professores." />
-            <div className="mt-8 grid gap-5 md:grid-cols-2">
-              {homeEvents.length > 0 ? (
-                homeEvents.map((ev) => (
+        {homeEvents.length > 0 && (
+          <section id="eventos" className="py-16">
+            <div className="mx-auto max-w-7xl px-4 lg:px-8">
+              <SectionHeader eyebrow="Eventos" title="Encontros presenciais e online ao vivo" text="Aulas abertas, imersões e eventos de relacionamento para aproximar alunos e professores." />
+              <div className="mt-8 grid gap-5 md:grid-cols-2">
+                {homeEvents.map((ev) => (
                   <article key={ev.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-soft">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -887,22 +928,16 @@ function PublicSite() {
                     <p className="mt-4 text-slate-600">{ev.description}</p>
                     <p className="mt-5 font-bold text-navy">{ev.date}</p>
                   </article>
-                ))
-              ) : (
-                <div className="col-span-full text-center py-12 bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
-                  <CalendarDays className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                  <p className="text-lg font-bold text-navy">Nenhum evento agendado no momento.</p>
-                  <p className="text-slate-500 mt-2">Novos eventos e encontros presenciais ou virtuais serão anunciados aqui.</p>
-                </div>
-              )}
+                ))}
+              </div>
+              <div className="mt-12 text-center">
+                <a href="/eventos" className="inline-flex items-center gap-2 rounded-full border-2 border-orange-primary px-8 py-3.5 text-center text-base font-bold text-orange-primary hover:bg-orange-primary/10 transition hover:-translate-y-0.5">
+                  Ver todos os eventos <ChevronRight className="h-5 w-5" />
+                </a>
+              </div>
             </div>
-            <div className="mt-12 text-center">
-              <a href="/eventos" className="inline-flex items-center gap-2 rounded-full border-2 border-orange-primary px-8 py-3.5 text-center text-base font-bold text-orange-primary hover:bg-orange-primary/10 transition hover:-translate-y-0.5">
-                Ver todos os eventos <ChevronRight className="h-5 w-5" />
-              </a>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         <section className="bg-navy py-16 text-white">
           <div className="mx-auto grid max-w-7xl gap-10 px-4 lg:grid-cols-[.9fr_1.1fr] lg:px-8">
@@ -8359,16 +8394,21 @@ function PosLeadForm({ courseSlug, courseModality, courseTitle, onSubmitted }: {
 
 function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterModality, setFilterModality] = useState<string>('Todos');
   const [filterArea, setFilterArea] = useState<string>('Todas');
   const [filterKind, setFilterKind] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetch('/api/site-content').then(r => r.json()).then(data => {
-      if (data.data?.courses?.length) setCourses(data.data.courses.map(mapApiCourse));
-      else if (data.courses?.length) setCourses(data.courses.map(mapApiCourse)); // fallback
-    }).catch(() => setCourses(initialCourses));
+    fetch('/api/site-content')
+      .then(r => r.json())
+      .then(data => {
+        if (data.data?.courses?.length) setCourses(data.data.courses.map(mapApiCourse));
+        else if (data.courses?.length) setCourses(data.courses.map(mapApiCourse)); // fallback
+      })
+      .catch(() => setCourses(initialCourses))
+      .finally(() => setLoading(false));
   }, []);
 
   const areas = ['Todas', ...Array.from(new Set(courses.map(c => c.area)))];
@@ -8433,47 +8473,65 @@ function CoursesPage() {
             />
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(c => (
-              <a key={c.id} href={isEjaSupletivoCourse(c) ? '/supletivo-eja' : `/cursos/${c.slug}`} className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition hover:shadow-xl hover:-translate-y-1">
-                {c.coverImageUrl ? (
-                  <div className="relative h-48 w-full overflow-hidden bg-slate-100">
-                    <img src={c.coverImageUrl} alt={c.title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+            {loading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm border border-slate-100 animate-pulse">
+                  <div className="h-48 w-full bg-slate-200" />
+                  <div className="p-6 flex-1 space-y-3">
+                    <div className="h-4 w-24 bg-slate-200 rounded-full" />
+                    <div className="h-6 w-3/4 bg-slate-200 rounded-lg" />
+                    <div className="h-4 w-full bg-slate-100 rounded" />
+                    <div className="h-4 w-5/6 bg-slate-100 rounded" />
+                    <div className="h-12 w-full bg-slate-100 rounded-xl mt-4" />
                   </div>
-                ) : (
-                  <div className="relative h-48 w-full bg-gradient-to-br from-navy to-blue-action flex items-center justify-center">
-                    <GraduationCap className="h-16 w-16 text-white/30" />
+                  <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                    <div className="h-4 w-24 bg-slate-200 rounded" />
+                    <div className="h-4 w-4 bg-slate-200 rounded" />
                   </div>
-                )}
-                <div className="p-6 flex-1">
-                  <span className="inline-block rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-600">{c.kind}</span>
-                  <h3 className="mt-4 font-display text-xl font-bold text-navy group-hover:text-orange-primary">{c.title}</h3>
-                  <p className="mt-3 text-sm text-slate-600 line-clamp-3">{c.summary}</p>
-                  
-                  {isEjaSupletivoCourse(c) ? (
-                    <div className="mt-4 rounded-xl bg-teal-50 p-3 border border-teal-100 text-xs font-bold text-teal-700">
-                      Parceria Aprova Nexus
-                    </div>
-                  ) : c.installmentValue && c.installmentValue > 0 ? (
-                    <div className="mt-4 rounded-xl bg-slate-50 p-3 border border-slate-100/50 text-xs text-navy font-semibold">
-                      <span className="block text-[9px] uppercase font-bold text-slate-400 mb-1">Investimento</span>
-                      {c.enrollmentFee && c.enrollmentFee > 0 && (
-                        <span>Matrícula: <strong className="text-orange-primary">R$ {Number(c.enrollmentFee).toFixed(2)}</strong> + </span>
-                      )}
-                      <span><strong className="text-navy">{c.maxInstallments || 1}x</strong> de <strong className="text-navy">R$ {Number(c.installmentValue).toFixed(2)}</strong></span>
+                </div>
+              ))
+            ) : filtered.length > 0 ? (
+              filtered.map(c => (
+                <a key={c.id} href={isEjaSupletivoCourse(c) ? '/supletivo-eja' : `/cursos/${c.slug}`} className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition hover:shadow-xl hover:-translate-y-1">
+                  {c.coverImageUrl ? (
+                    <div className="relative h-48 w-full overflow-hidden bg-slate-100">
+                      <img src={c.coverImageUrl} alt={c.title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
                     </div>
                   ) : (
-                    <div className="mt-4 text-xs font-bold text-slate-500">
-                      Investimento: {c.investment}
+                    <div className="relative h-48 w-full bg-gradient-to-br from-navy to-blue-action flex items-center justify-center">
+                      <GraduationCap className="h-16 w-16 text-white/30" />
                     </div>
                   )}
-                </div>
-                <div className="bg-slate-50 px-6 py-4 flex items-center justify-between border-t border-slate-100">
-                  <span className="text-sm font-bold text-navy">{getModalityLabel(c.modality, c.kind)}</span>
-                  <ChevronRight className="h-4 w-4 text-orange-primary" />
-                </div>
-              </a>
-            ))}
-            {filtered.length === 0 && (
+                  <div className="p-6 flex-1">
+                    <span className="inline-block rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-600">{c.kind}</span>
+                    <h3 className="mt-4 font-display text-xl font-bold text-navy group-hover:text-orange-primary">{c.title}</h3>
+                    <p className="mt-3 text-sm text-slate-600 line-clamp-3">{c.summary}</p>
+                    
+                    {isEjaSupletivoCourse(c) ? (
+                      <div className="mt-4 rounded-xl bg-teal-50 p-3 border border-teal-100 text-xs font-bold text-teal-700">
+                        Parceria Aprova Nexus
+                      </div>
+                    ) : c.installmentValue && c.installmentValue > 0 ? (
+                      <div className="mt-4 rounded-xl bg-slate-50 p-3 border border-slate-100/50 text-xs text-navy font-semibold">
+                        <span className="block text-[9px] uppercase font-bold text-slate-400 mb-1">Investimento</span>
+                        {c.enrollmentFee && c.enrollmentFee > 0 && (
+                          <span>Matrícula: <strong className="text-orange-primary">R$ {Number(c.enrollmentFee).toFixed(2)}</strong> + </span>
+                        )}
+                        <span><strong className="text-navy">{c.maxInstallments || 1}x</strong> de <strong className="text-navy">R$ {Number(c.installmentValue).toFixed(2)}</strong></span>
+                      </div>
+                    ) : (
+                      <div className="mt-4 text-xs font-bold text-slate-500">
+                        Investimento: {c.investment}
+                      </div>
+                    )}
+                  </div>
+                  <div className="bg-slate-50 px-6 py-4 flex items-center justify-between border-t border-slate-100">
+                    <span className="text-sm font-bold text-navy">{getModalityLabel(c.modality, c.kind)}</span>
+                    <ChevronRight className="h-4 w-4 text-orange-primary" />
+                  </div>
+                </a>
+              ))
+            ) : (
               <div className="col-span-full text-center py-16 bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <Search className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                 <p className="text-lg font-bold text-navy">Nenhum curso encontrado.</p>
