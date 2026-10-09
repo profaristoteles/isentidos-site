@@ -42,7 +42,7 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'about' | 'modules' | 'faq'>('about');
+  const [activeTab, setActiveTab] = useState<'about' | 'modules' | 'syllabus' | 'faq'>('about');
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(null);
 
   const formRef = useRef<HTMLDivElement>(null);
@@ -51,7 +51,7 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
   const cleanPhone = whatsappNumber.replace(/\D/g, '');
   const waTarget = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
   const whatsappUrl = `https://wa.me/${waTarget}?text=${encodeURIComponent(
-    `Olá! Tenho interesse na pré-matrícula da ${course.title} (${course.courseCode || course.slug}). Poderia me tirar algumas dúvidas?`
+    `Olá! Tenho interesse no curso ${course.title} (${course.courseCode || course.slug}). Poderia me tirar algumas dúvidas?`
   )}`;
 
   // Parse JSON fields safely
@@ -66,6 +66,7 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
   const modules = parseJson(course.modules);
   const teachers = parseJson(course.teachers);
   const testimonials = parseJson(course.testimonials);
+  const benefits = parseJson(course.benefits);
 
   // 1. Fire ViewContent on landing load
   useEffect(() => {
@@ -78,15 +79,11 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
     });
   }, [course]);
 
-  // Cohort and Urgency Calculations
+  // Urgency Calculation
   const enrolledCount = course.interestedCount || 0;
-  const minRequired = course.minStudentsToConfirm || 15;
   const maxCap = course.maxStudents || null;
   const lowThreshold = course.lowAvailabilityThreshold || 5;
-
-  const isCohortConfirmed = enrolledCount >= minRequired;
   const isLowAvailability = maxCap !== null && maxCap - enrolledCount <= lowThreshold && maxCap > enrolledCount;
-  const progressPercent = Math.min(100, Math.round((enrolledCount / minRequired) * 100));
 
   // Phone input formatting mask: (99) 99999-9999
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,11 +189,7 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
           <div className="flex items-center gap-2 font-medium">
             <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>
-              {isCohortConfirmed
-                ? 'Turma Confirmada com Quórum Mínimo Atingido!'
-                : `Turma em formação: faltam ${Math.max(0, minRequired - enrolledCount)} vagas para confirmação.`}
-            </span>
+            <span>Inscrições Abertas • Garanta sua vaga com condições especiais</span>
           </div>
           <div className="font-semibold text-orange-300 flex items-center gap-1.5">
             <ShieldCheck className="h-3.5 w-3.5" />
@@ -277,11 +270,11 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
                 </div>
 
                 <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-3 col-span-2 sm:col-span-1">
-                  <Users className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
                   <div>
-                    <span className="block text-white/50 text-[10px] uppercase font-bold">Status Turma</span>
+                    <span className="block text-white/50 text-[10px] uppercase font-bold">Status</span>
                     <span className="font-bold text-emerald-400">
-                      {isCohortConfirmed ? 'Confirmada' : 'Em Formação'}
+                      Inscrições Abertas
                     </span>
                   </div>
                 </div>
@@ -311,34 +304,6 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
             {/* Coluna da Direita: Card de Pré-Matrícula Nativo */}
             <div className="lg:col-span-5" ref={formRef}>
               <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 text-slate-800">
-                {/* Cohort Progress Indicator */}
-                {course.showCohortProgress && (
-                  <div className="mb-6 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                    <div className="flex items-center justify-between text-xs font-bold mb-1.5">
-                      <span className="text-navy flex items-center gap-1.5">
-                        <Users className="h-4 w-4 text-orange-primary" />
-                        Formação da Turma
-                      </span>
-                      <span className="text-slate-600">
-                        {enrolledCount} de {minRequired} inscritos
-                      </span>
-                    </div>
-
-                    <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-orange-primary to-emerald-500 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.max(5, progressPercent)}%` }}
-                      ></div>
-                    </div>
-
-                    <p className="text-[11px] text-slate-500 mt-2 leading-tight">
-                      {isCohortConfirmed
-                        ? '🎉 Turma confirmada! Garanta sua vaga enquanto há disponibilidade.'
-                        : 'A turma é confirmada com 15 inscritos. Nenhuma taxa é cobrada neste momento.'}
-                    </p>
-                  </div>
-                )}
-
                 {submitSuccess ? (
                   <div className="py-8 text-center space-y-4 animate-fade-in">
                     <div className="h-16 w-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
@@ -353,7 +318,7 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
                     <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-xs text-emerald-800 text-left space-y-1">
                       <p className="font-bold">Próximos passos:</p>
                       <p>1. Nossa equipe entrará em contato pelo WhatsApp para validar seu interesse.</p>
-                      <p>2. Assim que o quórum for atingido, você receberá o aviso oficial de início de aulas.</p>
+                      <p>2. Você receberá todas as orientações sobre cronograma e início das aulas.</p>
                     </div>
                     <a
                       href={whatsappUrl}
@@ -557,6 +522,18 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
                   Matriz Curricular ({modules.length})
                 </button>
               )}
+              {course.syllabus && (
+                <button
+                  onClick={() => setActiveTab('syllabus')}
+                  className={`flex-1 py-3 px-5 text-sm font-bold rounded-xl transition ${
+                    activeTab === 'syllabus'
+                      ? 'bg-orange-primary text-white shadow'
+                      : 'text-slate-600 hover:text-navy hover:bg-slate-50'
+                  }`}
+                >
+                  Outras Informações
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('faq')}
                 className={`flex-1 py-3 px-5 text-sm font-bold rounded-xl transition ${
@@ -576,9 +553,16 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
                   <h2 className="font-display text-2xl font-bold text-navy">
                     Apresentação do Curso
                   </h2>
+
+                  {course.videoUrl && (
+                    <div className="aspect-video w-full overflow-hidden rounded-2xl shadow-xl ring-4 ring-slate-100 bg-black mb-6">
+                      <iframe className="h-full w-full object-cover" src={course.videoUrl.replace('watch?v=', 'embed/')} title="Apresentação do curso" allowFullScreen></iframe>
+                    </div>
+                  )}
+
                   {course.about ? (
                     <div
-                      className="prose prose-slate max-w-none text-slate-600 leading-relaxed"
+                      className="prose prose-slate max-w-none text-slate-600 leading-relaxed prose-p:mb-4 prose-ul:list-disc prose-ul:pl-6 prose-li:mb-2 prose-strong:text-navy prose-strong:font-bold"
                       dangerouslySetInnerHTML={{ __html: course.about }}
                     />
                   ) : (
@@ -640,6 +624,18 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
                 </div>
               )}
 
+              {activeTab === 'syllabus' && course.syllabus && (
+                <div className="space-y-6">
+                  <h2 className="font-display text-2xl font-bold text-navy">
+                    Outras Informações
+                  </h2>
+                  <div
+                    className="prose prose-slate max-w-none text-slate-600 leading-relaxed prose-p:mb-4 prose-ul:list-disc prose-ul:pl-6 prose-li:mb-2 prose-strong:text-navy prose-strong:font-bold"
+                    dangerouslySetInnerHTML={{ __html: course.syllabus }}
+                  />
+                </div>
+              )}
+
               {activeTab === 'faq' && (
                 <div className="space-y-4">
                   <h2 className="font-display text-2xl font-bold text-navy mb-4">
@@ -649,11 +645,14 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
                   {[
                     {
                       q: 'A pré-matrícula é realmente gratuita?',
-                      a: 'Sim. A pré-matrícula tem custo zero. Ela serve para reservar sua vaga na lista de interesse enquanto a turma se forma. A taxa de matrícula de R$ 50 só é disponibilizada para pagamento após a confirmação do quórum mínimo de 15 alunos.',
+                      a: 'Sim. A pré-matrícula tem custo zero. Ela serve para reservar sua vaga com condições especiais. Nossa equipe entrará em contato para confirmar sua inscrição e tirar qualquer dúvida.',
                     },
                     {
-                      q: 'Quando a turma tem início confirmado?',
-                      a: 'As aulas são confirmadas assim que o número mínimo de 15 alunos inscritos for atingido. Nossa equipe mantém você informado(a) diretamente pelo WhatsApp sobre cada etapa.',
+                      q: 'Como funciona a certificação do curso?',
+                      a:
+                        course.certificationText
+                          ? course.certificationText
+                          : 'Os cursos de pós-graduação e especialização do Instituto Sentidos são ofertados em consonância com as normas da legislação educacional vigente (Resoluções CNE/CES), com emissão de certificado oficial com validade acadêmica e profissional.',
                     },
                     {
                       q: 'Como são realizadas as aulas?',
@@ -664,7 +663,7 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
                     },
                     {
                       q: 'Quais documentos são necessários após a confirmação?',
-                      a: 'Para a efetivação formal da matrícula após a confirmação da turma, será solicitado cópia do RG, CPF, comprovante de residência e diploma/declaração de conclusão de curso superior.',
+                      a: 'Para a efetivação formal da matrícula, será solicitado cópia do RG, CPF, comprovante de residência e diploma/declaração de conclusão de curso superior.',
                     },
                   ].map((faq, idx) => {
                     const isOpen = openFaqIdx === idx;
@@ -728,12 +727,18 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
                   <span className="text-[10px] uppercase font-bold text-orange-600 block">
                     Investimento Programado
                   </span>
+                  {course.enrollmentFee && course.enrollmentFee > 0 && (
+                    <div className="text-xs text-slate-600 font-semibold flex justify-between">
+                      <span>Taxa de Matrícula:</span>
+                      <span className="text-orange-primary font-bold">R$ {Number(course.enrollmentFee).toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="text-2xl font-display font-extrabold text-navy">
-                    {course.maxInstallments || 1}x de R$ {Number(course.installmentValue).toFixed(2)}
+                    {course.maxInstallments || 1}x <span className="text-sm font-normal text-slate-500">de</span> R$ {Number(course.installmentValue).toFixed(2)}
                   </div>
-                  <p className="text-[11px] text-slate-500">
-                    Taxa de matrícula de R$ 50 liberada apenas após quórum mínimo confirmado.
-                  </p>
+                  <div className="text-[11px] text-slate-500 font-medium pt-1 border-t border-orange-200/50">
+                    Total do curso: R$ {Number((course.installmentValue * (course.maxInstallments || 1)) + (course.enrollmentFee || 0)).toFixed(2)}
+                  </div>
                 </div>
               ) : (
                 <div className="p-4 rounded-xl bg-slate-50 text-sm font-semibold text-navy">
@@ -775,6 +780,29 @@ export function PilotCourseLanding({ course, whatsappNumber }: PilotCourseLandin
           </aside>
         </div>
       </main>
+
+      {/* ── Seção de Benefícios (se houver) ── */}
+      {benefits.length > 0 && (
+        <section className="bg-gradient-to-b from-slate-100 to-white py-14 border-t border-slate-200">
+          <div className="mx-auto max-w-6xl px-4">
+            <div className="text-center mb-10">
+              <h2 className="font-display text-3xl font-bold text-navy">Por que escolher este curso?</h2>
+              <div className="h-1 w-16 bg-orange-primary mx-auto mt-4 rounded-full"></div>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {benefits.map((b: any, i: number) => (
+                <div key={i} className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm hover:shadow-md transition text-center items-center">
+                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-primary">
+                    <CheckCircle2 className="h-6 w-6" />
+                  </div>
+                  <h3 className="mb-2 font-bold text-navy text-base leading-tight">{b.title}</h3>
+                  <p className="text-slate-600 text-xs leading-relaxed">{b.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Fixed Mobile Bottom Bar (Sticky CTA) ── */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 sm:hidden shadow-2xl flex items-center gap-2">

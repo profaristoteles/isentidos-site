@@ -8542,22 +8542,13 @@ function CourseDetailsPage({ courseSlug }: { courseSlug: string }) {
     </div>
   );
 
-  // Piloto: Rotear cursos aprovados para a nova Landing Page Piloto
-  const isPilotCourse =
-    course.slug === 'pos-graduacao-em-educacao-infantil-e-anos-iniciais-do-ensino-fundamental' ||
-    course.slug === 'pos-graduacao-em-atendimento-educacional-especializado-aee-2' ||
-    course.courseCode === 'POS-EI-PRES' ||
-    course.courseCode === 'POS-AEE-LIVE';
-
-  if (isPilotCourse) {
-    return (
-      <div className="min-h-screen flex flex-col justify-between">
-        <SiteHeader />
-        <PilotCourseLanding course={course} whatsappNumber={whatsapp} />
-        <SiteFooter />
-      </div>
-    );
-  }
+  return (
+    <div className="min-h-screen flex flex-col justify-between">
+      <SiteHeader />
+      <PilotCourseLanding course={course} whatsappNumber={whatsapp} />
+      <SiteFooter />
+    </div>
+  );
 
   const parseOrEmpty = (str: string | undefined) => {
     try { return str ? JSON.parse(str) : []; } catch { return []; }

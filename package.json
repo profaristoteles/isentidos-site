@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "dev:api": "tsx server/index.ts",
-    "build": "npx prisma generate && vite build && tsc -p tsconfig.server.json",
-    "build:client": "vite build",
+    "build": "npx prisma generate && node --max-old-space-size=4096 ./node_modules/vite/bin/vite.js build && tsc -p tsconfig.server.json",
+    "build:client": "node --max-old-space-size=4096 ./node_modules/vite/bin/vite.js build",
     "build:server": "tsc -p tsconfig.server.json",
     "build:all": "npm run build",
     "preview": "vite preview",
